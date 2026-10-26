@@ -8,6 +8,7 @@ dist-ssr
 .vscode/*
 !.vscode/extensions.json
 .idea
+.workbuddy-ai/
 .DS_Store
 *.suo
 *.ntvs*
