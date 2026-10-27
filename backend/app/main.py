@@ -16,7 +16,6 @@ from app.routers import (
     exceptions,
     guidelines,
     rules,
-    sentinel,
     simulations,
     submissions,
     team,
@@ -54,6 +53,5 @@ for _router in (
     simulations.router,
     audit.router,
     assets.router,
-    sentinel.router,
 ):
     app.include_router(_router)

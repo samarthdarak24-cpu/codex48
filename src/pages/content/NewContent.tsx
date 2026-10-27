@@ -1,4 +1,3 @@
-import { Badge } from '@/components/ui/Badge'
 import { useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -20,9 +19,6 @@ import {
 import { useData } from '@/context/DataContext'
 import { PageHeader } from '@/components/layout/Shell'
 import { BrandAssetsPicker } from '@/components/content/BrandAssetsPicker'
-import { evaluateRule, remediateContentClient } from '@/lib/ruleEngine'
-import { api } from '@/services/api'
-import { Wand2, Globe2, ShieldCheck, CheckCircle2 as CheckIcon } from 'lucide-react'
 import { Card, CardHeader } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Field, Input, Select, Textarea } from '@/components/ui/Field'
@@ -65,49 +61,9 @@ export default function NewContent() {
   })
   const [dragOver, setDragOver] = useState(false)
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null)
-  const [jurisdiction, setJurisdiction] = useState<'Global' | 'US' | 'EU' | 'UK'>('Global')
   const fileInput = useRef<HTMLInputElement>(null)
 
-  const activeRules = useMemo(() => {
-    return rules.filter((r) => {
-      if (r.status !== 'active') return false
-      if (jurisdiction === 'Global') return true
-      const sc = (r.scope || '').toUpperCase()
-      return sc.includes('ALL') || sc.includes(jurisdiction)
-    })
-  }, [rules, jurisdiction])
-
-  const liveFindings = useMemo(() => {
-    if (!text || text.trim().length < 8) return []
-    const out: any[] = []
-    for (const r of activeRules) {
-      const f = evaluateRule(r, { text, channel, type })
-      if (f) out.push({ ...f, title: r.title })
-    }
-    return out
-  }, [text, channel, type, activeRules])
-
-  const handleRemediateAll = async () => {
-    try {
-      const res = await api.remediate(text, channel)
-      setText(res.remediatedText)
-      toast.success(
-        '1-Click Brand Remediator Applied!',
-        `Transformed copy into tone-matched compliant wording (${res.totalChanges} change(s) applied).`
-      )
-    } catch {
-      const clientRes = remediateContentClient(text, channel)
-      setText(clientRes.remediatedText)
-      toast.success('Brand Compliance Applied!', `Applied ${clientRes.totalChanges} tone-matched fix(es).`)
-    }
-  }
-
-  const handleApplyFindingFix = (f: any) => {
-    if (f.suggestedFix?.original && f.suggestedFix?.proposed) {
-      setText((prev) => prev.replace(f.suggestedFix.original, f.suggestedFix.proposed))
-      toast.success('Fix applied', `Replaced with "${f.suggestedFix.proposed}"`)
-    }
-  }
+  const activeRules = useMemo(() => rules.filter((r) => r.status === 'active'), [rules])
   const guidance = activeRules.slice(0, 3)
 
   function validate() {
@@ -262,20 +218,11 @@ export default function NewContent() {
                 </Field>
               </div>
 
-              <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="mt-3">
                 <Field label="Brand" htmlFor="brand">
                   <Select id="brand" value={brand} onChange={(e) => setBrand(e.target.value as Brand)}>
                     <option value="PureGlow">PureGlow</option>
                     <option value="WellnessLife">WellnessLife</option>
-                  </Select>
-                </Field>
-
-                <Field label="Target Market / Jurisdiction" htmlFor="jurisdiction">
-                  <Select id="jurisdiction" value={jurisdiction} onChange={(e) => setJurisdiction(e.target.value as any)}>
-                    <option value="Global">Global 🌐 (Baseline Brand Standards)</option>
-                    <option value="US">United States 🇺🇸 (FTC 16 CFR §255)</option>
-                    <option value="EU">European Union 🇪🇺 (Green Claims Directive)</option>
-                    <option value="UK">United Kingdom 🇬🇧 (ASA CAP Code)</option>
                   </Select>
                 </Field>
               </div>
@@ -391,74 +338,12 @@ export default function NewContent() {
             <div className="space-y-4">
               <Card className="overflow-hidden">
                 <CardHeader title="Content Preview" dense />
-                <div className="p-3 space-y-3">
+                <div className="p-3">
                   <PreviewCard title={title} text={text} brand={brand} channel={channel} />
-
-                  {/* Real-Time Rule Engine Evaluation & 1-Click Remediator */}
-                  <div className="rounded-lg border border-line bg-canvas p-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1.5">
-                        <Sparkles className="h-3.5 w-3.5 text-brand-600" />
-                        <span className="text-xs font-bold text-ink">
-                          Live Compliance Check
-                        </span>
-                      </div>
-                      <Badge tone={liveFindings.length === 0 ? 'neutral' : 'danger'}>
-                        {liveFindings.length === 0 ? 'All Rules Passing' : `${liveFindings.length} issue(s)`}
-                      </Badge>
-                    </div>
-
-                    {liveFindings.length > 0 ? (
-                      <div className="mt-2 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <p className="text-[11px] text-muted">Violations detected before submission:</p>
-                          <Button size="xs" variant="primary" icon={<Wand2 className="h-3 w-3" />} onClick={handleRemediateAll}>
-                            ✨ Fix All (1-Click)
-                          </Button>
-                        </div>
-
-                        <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
-                          {liveFindings.map((f: any, idx: number) => (
-                            <div key={idx} className="rounded border border-danger-200 bg-white p-2 text-2xs shadow-2xs">
-                              <div className="flex items-center justify-between">
-                                <span className="font-bold text-danger-700">{f.ruleCode} · {f.title}</span>
-                                <Badge tone="danger">{f.severity}</Badge>
-                              </div>
-                              <p className="mt-0.5 text-ink-600">{f.explanation}</p>
-                              {f.suggestedFix && (
-                                <div className="mt-1 flex items-center justify-between border-t border-line/60 pt-1">
-                                  <span className="truncate text-success-700 font-medium">
-                                    💡 {f.suggestedFix.proposed}
-                                  </span>
-                                  <Button size="xs" variant="subtle" onClick={() => handleApplyFindingFix(f)}>
-                                    Apply Fix
-                                  </Button>
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="mt-2 flex items-center gap-1.5 text-[11px] text-success-700 font-medium">
-                        <CheckIcon className="h-3.5 w-3.5" />
-                        Copy adheres to {jurisdiction} guidelines and active brand rules.
-                      </div>
-                    )}
-
-                    {/* Substantiation Vault Match */}
-                    {text.toLowerCase().match(/(dermatolog|sensitive|vegan|paraben|tested|clinically|%|reduction|barrier)/) && (
-                      <div className="mt-2.5 rounded border border-emerald-200 bg-emerald-50/70 p-2 text-[11px] text-emerald-900">
-                        <div className="flex items-center gap-1 font-bold">
-                          <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
-                          Substantiation Vault Matched
-                        </div>
-                        <p className="mt-0.5 text-[10px] text-emerald-800">
-                          Clinical Trial #CT-2024-GLOW (p. 14) will be linked automatically to substantiate this claim.
-                        </p>
-                      </div>
-                    )}
-                  </div>
+                  <p className="mt-2 flex items-center gap-1 text-2xs text-muted-light">
+                    <Info className="h-3 w-3" />
+                    Live preview of the copy you entered.
+                  </p>
                 </div>
               </Card>
             </div>

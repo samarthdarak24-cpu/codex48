@@ -23,10 +23,6 @@ import type {
   Simulation,
   Submission,
   User,
-  RemediationResult,
-  SentinelSummary,
-  SentinelAlert,
-  SentinelAuditResult,
 } from '@/lib/types'
 
 export const API_BASE: string = import.meta.env.VITE_API_BASE || 'http://127.0.0.1:8000'
@@ -390,42 +386,6 @@ export const api = {
       return null
     }
   },
-
-  /* ---------------------------------------------------------------- */
-  /* 1-Click AI Brand Remediator                                      */
-  /* ---------------------------------------------------------------- */
-
-  remediate: (text: string, channel: string = '', ruleCodes?: string[], style: string = 'balanced') =>
-    request<RemediationResult>('/submissions/remediate', {
-      method: 'POST',
-      body: JSON.stringify({ text, channel, ruleCodes, style }),
-    }),
-
-  applyRemediation: (subId: string, ruleCode?: string, fullRemediatedText?: string, note?: string) =>
-    request<Submission>(`/submissions/${subId}/remediate-apply`, {
-      method: 'POST',
-      body: JSON.stringify({ ruleCode, fullRemediatedText, note }),
-    }),
-
-  /* ---------------------------------------------------------------- */
-  /* Post-Publishing Sentinel & Exception Drift Watchdog               */
-  /* ---------------------------------------------------------------- */
-
-  sentinelSummary: () => request<SentinelSummary>('/sentinel/summary'),
-
-  sentinelAlerts: () => request<SentinelAlert[]>('/sentinel/alerts'),
-
-  auditLiveCampaign: (liveUrl: string, liveContent: string, submissionId?: string) =>
-    request<SentinelAuditResult>('/sentinel/audit-live', {
-      method: 'POST',
-      body: JSON.stringify({ liveUrl, liveContent, submissionId }),
-    }),
-
-  resolveSentinelAlert: (alertId: string, resolution: string) =>
-    request<{ alertId: string; message: string }>('/sentinel/resolve-alert', {
-      method: 'POST',
-      body: JSON.stringify({ alertId, resolution }),
-    }),
 }
 
 export type Api = typeof api

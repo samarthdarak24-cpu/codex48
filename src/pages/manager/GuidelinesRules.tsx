@@ -59,7 +59,6 @@ export default function GuidelinesRules() {
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState('All Categories')
   const [version, setVersion] = useState('All Versions')
-  const [jurisdictionFilter, setJurisdictionFilter] = useState('All Jurisdictions')
   const [page, setPage] = useState(1)
   const [uploadOpen, setUploadOpen] = useState(false)
   const [ruleOpen, setRuleOpen] = useState(false)
@@ -111,15 +110,8 @@ export default function GuidelinesRules() {
 
   const filteredRules = useMemo(() => {
     const q = query.trim().toLowerCase()
-    return rules.filter((r) => {
-      const matchesQ = !q || r.title.toLowerCase().includes(q) || r.code.toLowerCase().includes(q) || r.subject.toLowerCase().includes(q)
-      if (!matchesQ) return false
-      if (jurisdictionFilter === 'All Jurisdictions') return true
-      const key = jurisdictionFilter.split(' ')[0].toUpperCase()
-      const sc = (r.scope || '').toUpperCase()
-      return sc.includes('ALL') || sc.includes(key)
-    })
-  }, [rules, query, jurisdictionFilter])
+    return rules.filter((r) => !q || r.title.toLowerCase().includes(q) || r.code.toLowerCase().includes(q) || r.subject.toLowerCase().includes(q))
+  }, [rules, query])
 
   const filteredClaims = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -426,13 +418,6 @@ export default function GuidelinesRules() {
                   ))}
                 </Select>
               </>
-            )}
-            {tab === 'rules' && (
-              <Select value={jurisdictionFilter} onChange={(e) => { setJurisdictionFilter(e.target.value); setPage(1) }} className="h-[34px] w-auto min-w-[140px] py-0 text-xs">
-                {['All Jurisdictions', 'Global', 'US (FTC)', 'EU (Green Claims)', 'UK (ASA)'].map((j) => (
-                  <option key={j}>{j}</option>
-                ))}
-              </Select>
             )}
             <Button
               className="ml-auto"
