@@ -29,6 +29,10 @@ def exception_to_dict(e: ExceptionRequest) -> dict:
         "status": e.status,
         "conditions": e.conditions,
         "decidedAt": e.decided_at.isoformat() if e.decided_at else None,
+        "revokedAt": e.revoked_at.isoformat() if getattr(e, "revoked_at", None) else None,
+        "revokedById": getattr(e, "revoked_by_id", None),
+        "revokeReason": getattr(e, "revoke_reason", ""),
+        "workspace": getattr(e, "workspace", "PureGlow"),
     }
 
 

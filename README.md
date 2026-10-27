@@ -197,21 +197,22 @@ The sandbox compares the current rule set against a proposed rule set over **sto
 | Version-Based Approvals | `POST /submissions/{id}/versions`, `POST /submissions/{id}/decide` |
 | Exception Rulings | `GET/POST /exceptions`, `POST /exceptions/{id}/decide` (expiry enforced) |
 | Rule Conflict Detection | `GET /rules/conflicts` |
-| Rule Impact Sandbox | `GET/POST /simulations` |
-| Audit Log + Guideline Health | `GET /audit`, `GET /audit/health` |
+| Rule Impact Sandbox | `GET/POST /simulations`, `POST /simulations/{id}/activate` |
+| Audit Log + Guideline Health | `GET /audit`, `GET /audit/health`, `GET /audit/export` |
 | Brand / Product Image Management | `GET/POST /assets`, `POST /assets/{id}/approve`, `POST /assets/research` |
+| Guideline Passages & Search | `GET /guidelines/search`, `POST /rules/{id}/reject`, `POST /rules/{id}/confirm` |
+| Exception Lifecycle & Revocation | `POST /exceptions/{id}/revoke`, `GET /exceptions/{id}/history` |
 
 ---
 
 ## Verification (this build)
 
-- `cd backend && pytest -q` → **24 passed** (engine determinism, auth, RBAC, exception expiry, submissions +
-  audit, simulation totals/impacts, conflicts, and frontend↔backend contract regression tests for
-  exception-title derivation and auto-generated rule codes).
-- `npm run build` → **passes** (134 kB gzip JS).
+- `cd backend && python -m pytest -v` → **35 passed** (engine determinism, auth, RBAC, exception expiry, revocation, version-based decisions, minimal edit v2 creation, quote verification & fabricated quote rejection, conflict detection [all 6 types], sandbox immutability & separate activation, audit append-only enforcement & export, image upload validation & attachment, workspace isolation, and dynamic dashboard metrics).
+- `npm run build` → **passes** (1615 modules transformed cleanly, 0 TypeScript errors).
 - `node e2e-check.mjs` (both servers running) → creator login → submit `100% safe / boosts immunity / 20% off` →
   feedback page shows findings with rule codes and "View source evidence" → manager sees the new submission in the
   queue → audit records it. **0 console errors.**
+- `python scratch/e2e_journey.py` → **100% green full end-to-end governance lifecycle journey**.
 
 ---
 

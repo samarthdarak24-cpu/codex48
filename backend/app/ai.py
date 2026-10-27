@@ -1,4 +1,4 @@
-"""Configurable LLM client — graceful degradation.
+"""Configurable LLM client — graceful degradation with Pydantic-validated output.
 
 If LLM_API_KEY / LLM_BASE_URL are not set, every helper returns None. The
 caller then falls back to the deterministic rule engine. This guarantees the
@@ -6,11 +6,40 @@ product never fabricates citations or claims: AI is an assistant, not a source
 of truth. The client is OpenAI-compatible (/v1/chat/completions).
 """
 import json
-from typing import Optional
+from typing import List, Optional
 
+from pydantic import BaseModel, ValidationError
 import httpx
 
 from .config import settings
+
+
+class RuleSuggestion(BaseModel):
+    code: Optional[str] = None
+    title: str
+    summary: str = ""
+    subject: str = ""
+    condition: str = ""
+    priority: str = "Medium"
+    sourcePassage: str = ""
+
+
+class SemanticFinding(BaseModel):
+    ruleCode: str
+    explanation: str
+    severity: str = "Medium"
+
+
+class MinimalEdit(BaseModel):
+    original: str
+    proposed: str
+    rationale: str
+
+
+class SemanticConflict(BaseModel):
+    ruleCodeA: str
+    ruleCodeB: str
+    explanation: str
 
 
 def ai_available() -> bool:
@@ -44,13 +73,12 @@ def llm_complete(system: str, user: str, max_tokens: int = 800, temperature: flo
         return None
 
 
-def _parse_json_list(text: Optional[str]) -> Optional[list[dict]]:
+def _parse_json_list(text: Optional[str]) -> Optional[list]:
     if not text:
         return None
     try:
         return json.loads(text)
     except Exception:
-        # Tolerate fenced ```json blocks sometimes returned by models.
         try:
             start = text.index("[")
             end = text.rindex("]") + 1
@@ -62,9 +90,7 @@ def _parse_json_list(text: Optional[str]) -> Optional[list[dict]]:
 def suggest_rules_from_text(guideline_text: str) -> Optional[list[dict]]:
     """Given extracted guideline text, suggest candidate rules with a source quote.
 
-    Returns a list of dicts or None. Each dict: {code, title, summary, subject,
-    condition, priority, sourcePassage}. Callers must still have a human confirm
-    and must keep the sourcePassage verbatim (no invention).
+    Returns a list of Pydantic-validated dicts or None.
     """
     system = (
         "You are a brand-governance analyst. Given extracted guideline text, propose "
@@ -73,15 +99,24 @@ def suggest_rules_from_text(guideline_text: str) -> Optional[list[dict]]:
         "passage that is not present. Respond ONLY with a JSON array."
     )
     user = f"Guideline text:\n\n{guideline_text[:6000]}\n\nReturn a JSON array of rules."
-    return _parse_json_list(llm_complete(system, user, max_tokens=1500))
+    raw = _parse_json_list(llm_complete(system, user, max_tokens=1500))
+    if not raw or not isinstance(raw, list):
+        return None
+
+    validated = []
+    for item in raw:
+        try:
+            r = RuleSuggestion(**item)
+            validated.append(r.model_dump())
+        except (ValidationError, TypeError):
+            continue
+    return validated or None
 
 
 def semantic_findings(text: str, rules: list[dict]) -> Optional[list[dict]]:
     """Ask the model for semantic issues mapped to EXISTING rule codes only.
 
-    Returns [{ruleCode, explanation, severity}] or None. The caller attaches the
-    matched rule's stored source passage — the model is never asked to supply a
-    quotation, so evidence cannot be fabricated.
+    Returns [{ruleCode, explanation, severity}] or None.
     """
     if not ai_available():
         return None
@@ -94,7 +129,49 @@ def semantic_findings(text: str, rules: list[dict]) -> Optional[list[dict]]:
         f"- {r.get('code')}: {r.get('title')} — {r.get('summary', '')}" for r in rules
     )
     user = f"Rules:\n{rule_list}\n\nCopy:\n{text[:4000]}\n\nReturn a JSON array."
-    return _parse_json_list(llm_complete(system, user, max_tokens=900))
+    raw = _parse_json_list(llm_complete(system, user, max_tokens=900))
+    if not raw or not isinstance(raw, list):
+        return None
+
+    allowed_codes = {r.get("code") for r in rules if r.get("code")}
+    validated = []
+    for item in raw:
+        try:
+            sf = SemanticFinding(**item)
+            if sf.ruleCode in allowed_codes:
+                validated.append(sf.model_dump())
+        except (ValidationError, TypeError):
+            continue
+    return validated or None
+
+
+def semantic_conflicts(rules: list[dict]) -> Optional[list[dict]]:
+    """Ask the model to assist identifying ambiguous semantic conflicts between rules."""
+    if not ai_available() or len(rules) < 2:
+        return None
+    system = (
+        "You identify subtle or ambiguous semantic contradictions between brand rules. "
+        "Return ONLY a JSON array of {ruleCodeA, ruleCodeB, explanation}. "
+        "Rule codes MUST be chosen from the provided rules list. Return [] if no ambiguity found."
+    )
+    rule_list = "\n".join(
+        f"- {r.get('code')}: {r.get('title')} — Condition: {r.get('condition')}" for r in rules
+    )
+    user = f"Rules:\n{rule_list}\n\nReturn JSON array."
+    raw = _parse_json_list(llm_complete(system, user, max_tokens=600))
+    if not raw or not isinstance(raw, list):
+        return None
+
+    allowed_codes = {r.get("code") for r in rules if r.get("code")}
+    validated = []
+    for item in raw:
+        try:
+            sc = SemanticConflict(**item)
+            if sc.ruleCodeA in allowed_codes and sc.ruleCodeB in allowed_codes:
+                validated.append(sc.model_dump())
+        except (ValidationError, TypeError):
+            continue
+    return validated or None
 
 
 def explain_conflict(rule_a: dict, rule_b: dict) -> Optional[str]:
@@ -122,7 +199,9 @@ def minimal_edit_suggestion(rule_title: str, explanation: str, current_text: str
     if not raw:
         return None
     try:
-        return json.loads(raw)
+        data = json.loads(raw)
+        edit = MinimalEdit(**data)
+        return edit.model_dump()
     except Exception:
         return None
 

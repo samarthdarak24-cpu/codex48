@@ -72,11 +72,19 @@ def _active_exception(db: Session, rule_code: str, brand: str, content_id: str) 
         .all()
     )
     for e in rows:
+        if e.status != "Approved":
+            continue
         if e.expires_at is not None:
             exp = e.expires_at
             if exp.tzinfo is None:
                 exp = exp.replace(tzinfo=timezone.utc)
             if exp < now:
+                continue
+        if e.effective_from is not None:
+            eff = e.effective_from
+            if eff.tzinfo is None:
+                eff = eff.replace(tzinfo=timezone.utc)
+            if eff > now:
                 continue
         scope = (e.scope or "").strip().lower()
         in_scope = (
@@ -172,6 +180,9 @@ def submission_to_dict(s: models.Submission) -> dict:
         "issueCount": s.issue_count,
         "priority": s.priority,
         "thumb": _thumb_dict(s),
+        "assetId": s.asset_id,
+        "assetName": s.asset_name,
+        "assetUrl": s.asset_url,
         "asset": _build_asset_out(s),
         "assetRef": (
             {
@@ -191,16 +202,48 @@ def submission_to_dict(s: models.Submission) -> dict:
     }
 
 
+def _verify_evidence(db: Session, rule_code: str, source_passage: str, source_doc_id: Optional[str]) -> bool:
+    """Verify that a cited quote/source passage exists in the stored database records for this rule/guideline."""
+    if not source_passage or not source_passage.strip():
+        return False
+    norm_cite = " ".join(source_passage.strip().lower().split())
+
+    # 1. Check passages in GuidelinePassage
+    if source_doc_id:
+        passages = db.query(models.GuidelinePassage).filter(models.GuidelinePassage.doc_id == source_doc_id).all()
+        for p in passages:
+            norm_p = " ".join(p.passage_text.lower().split())
+            if norm_cite in norm_p or norm_p in norm_cite:
+                return True
+            sentences = [s.strip() for s in norm_cite.split(".") if len(s.strip()) > 20]
+            if sentences and any(s in norm_p for s in sentences):
+                return True
+
+    # 2. Check canonical rule.source_passage
+    rule = db.query(models.Rule).filter(models.Rule.code == rule_code).first()
+    if rule and rule.source_passage:
+        norm_rp = " ".join(rule.source_passage.lower().split())
+        if norm_cite in norm_rp or norm_rp in norm_cite:
+            return True
+        sentences = [s.strip() for s in norm_cite.split(".") if len(s.strip()) > 20]
+        if sentences and any(s in norm_rp for s in sentences):
+            return True
+
+    return False
+
+
 def _apply_findings(db: Session, sub_id: str, findings: list, brand: str) -> list:
     """Persist engine findings for a submission.
 
     A finding covered by an approved, unexpired, in-scope exception is stored
     as `accepted_exception` (traceable) and excluded from the open-issue count.
+    Every finding's evidence is verified against stored passage data.
     Returns the list of open findings.
     """
     open_findings: list = []
     for f in findings:
         accepted = _active_exception(db, f.rule_code, brand, sub_id)
+        verified = _verify_evidence(db, f.rule_code, f.source_passage, f.source_doc_id)
         db.add(
             models.Finding(
                 id=new_id("f"),
@@ -215,7 +258,7 @@ def _apply_findings(db: Session, sub_id: str, findings: list, brand: str) -> lis
                 source_version=f.source_version,
                 source_page=f.source_page,
                 source_passage=f.source_passage,
-                evidence_verified=f.evidence_verified,
+                evidence_verified=bool(verified),
                 suggested_fix=f.suggested_fix,
                 status="accepted_exception" if accepted else "open",
             )
@@ -303,6 +346,7 @@ def create_submission(
     thumb: Optional[dict],
     creator_id: str,
     asset_id: Optional[str] = None,
+    workspace: Optional[str] = "PureGlow",
 ) -> models.Submission:
     thumb = thumb or {"kind": "art", "palette": "lime", "glyph": "leaf"}
     asset_obj = _asset_from_dict(asset)
@@ -322,6 +366,7 @@ def create_submission(
 
     sub = models.Submission(
         id=sub_id,
+        workspace=workspace or "PureGlow",
         code=code,
         title=title,
         excerpt=excerpt,
@@ -379,6 +424,7 @@ def create_submission(
         entity_id=sub_id,
         version=1,
         thumb=thumb,
+        workspace=workspace or "PureGlow",
     )
 
     db.commit()
@@ -416,8 +462,8 @@ def add_version(
     db.flush()
     open_findings = _apply_findings(db, sub_id, findings, sub.brand)
     sub.issue_count = len(open_findings)
-    sub.priority = _derive_priority(open_findings)
     sub.version = next_version
+    sub.status = "Pending"  # Approval does not carry to a new version
     sub.updated_at = datetime.now(timezone.utc)
 
     record(
@@ -432,6 +478,7 @@ def add_version(
         entity_id=sub_id,
         version=next_version,
         thumb=_thumb_dict(sub),
+        workspace=sub.workspace or "PureGlow",
     )
 
     db.commit()
@@ -468,12 +515,25 @@ def add_comment(
         entity_id=sub_id,
         version=sub.version,
         thumb=_thumb_dict(sub),
+        workspace=sub.workspace or "PureGlow",
     )
 
     db.commit()
     db.refresh(sub)
     return sub
 
+
+_ACTION_MAP = {
+    "approve": "Approved",
+    "approved": "Approved",
+    "decline": "Declined",
+    "declined": "Declined",
+    "reject": "Declined",
+    "rejected": "Declined",
+    "request_changes": "Changes Requested",
+    "changes requested": "Changes Requested",
+    "changes_requested": "Changes Requested",
+}
 
 _ACTION_STATUS = {
     "Approved": ("Approved", "Approved"),
@@ -489,14 +549,15 @@ def decide(
     if not sub:
         return None
 
-    audit_action, audit_status = _ACTION_STATUS.get(action, ("Revised", "Revised"))
-    sub_status = action  # Approved | Changes Requested | Declined
+    norm_action = _ACTION_MAP.get((action or "").lower().strip(), action)
+    audit_action, audit_status = _ACTION_STATUS.get(norm_action, ("Revised", "Revised"))
+    sub_status = norm_action  # Approved | Changes Requested | Declined
 
     db.add(
         models.ReviewDecision(
             id=new_id("rd"),
             submission_id=sub_id,
-            action=action,
+            action=norm_action,
             version=sub.version,
             reviewer_id=reviewer_id,
             note=note or "",
@@ -518,6 +579,7 @@ def decide(
         entity_id=sub_id,
         version=sub.version,
         thumb=_thumb_dict(sub),
+        workspace=sub.workspace or "PureGlow",
     )
 
     db.commit()

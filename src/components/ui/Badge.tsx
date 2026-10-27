@@ -84,6 +84,7 @@ const ruleTone: Record<RuleStatus, { tone: Tone; label: string }> = {
   draft: { tone: 'neutral', label: 'Draft' },
   needs_confirmation: { tone: 'grape', label: 'Needs confirmation' },
   archived: { tone: 'neutral', label: 'Archived' },
+  rejected: { tone: 'danger', label: 'Rejected' },
 }
 
 export function RuleBadge({ status }: { status: RuleStatus }) {

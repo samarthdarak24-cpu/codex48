@@ -51,6 +51,11 @@ def list_submissions(
     current_user=Depends(get_current_user),
 ):
     query = db.query(models.Submission)
+    if current_user.workspace:
+        query = query.filter(
+            (models.Submission.workspace == current_user.workspace)
+            | (models.Submission.workspace.is_(None) if current_user.workspace == "PureGlow" else False)
+        )
     if current_user.role == "creator":
         query = query.filter(models.Submission.creator_id == current_user.id)
     subs = query.order_by(models.Submission.updated_at.desc()).all()
@@ -65,6 +70,8 @@ def get_submission(
 ):
     sub = db.get(models.Submission, sub_id)
     if not sub:
+        raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail="Submission not found")
+    if sub.workspace and current_user.workspace and sub.workspace != current_user.workspace:
         raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail="Submission not found")
     if current_user.role == "creator" and sub.creator_id != current_user.id:
         raise HTTPException(status_code=http_status.HTTP_403_FORBIDDEN, detail="Not allowed")
@@ -90,6 +97,7 @@ def create_submission(
         thumb=thumb,
         creator_id=current_user.id,
         asset_id=body.assetId,
+        workspace=current_user.workspace,
     )
     return svc.submission_to_dict(sub)
 

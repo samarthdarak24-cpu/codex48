@@ -25,7 +25,24 @@ def get_current_user(
     return user
 
 
-def require_manager(user: User = Depends(get_current_user)) -> User:
+def require_manager(user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> User:
     if user.role != "manager":
+        from .services.audit import record
+        try:
+            record(
+                db,
+                action="Security Event",
+                entity_title="Unauthorized manager access attempt",
+                entity_meta=user.role,
+                brand=user.workspace,
+                user_id=user.id,
+                details=f"User {user.email} with role '{user.role}' attempted manager-restricted action",
+                status="Blocked",
+                entity_kind="security",
+                entity_id=user.id,
+            )
+            db.commit()
+        except Exception:
+            pass
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Manager role required")
     return user

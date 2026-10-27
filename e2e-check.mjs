@@ -1,8 +1,16 @@
 import { chromium } from 'playwright-core'
+import fs from 'fs'
+import path from 'path'
 
-const EXE = 'C:/Users/darak/AppData/Local/ms-playwright/chromium-1134/chrome-win/chrome.exe'
+const candidateExes = [
+  'C:/Program Files/Google/Chrome/Application/chrome.exe',
+  'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
+  'C:/Users/darak/AppData/Local/ms-playwright/chromium-1134/chrome-win/chrome.exe'
+]
+const EXE = candidateExes.find(p => fs.existsSync(p)) || candidateExes[0]
 const BASE = 'http://127.0.0.1:5173'
 const TITLE = 'E2E Test Campaign'
+const TEST_IMG = path.resolve('scratch/HeroBottle.png')
 
 async function login(page, email, password) {
   await page.goto(BASE + '/login', { waitUntil: 'networkidle' })
@@ -37,7 +45,7 @@ if (rgb.length >= 3) results.themeIsGreen = rgb[1] >= rgb[2]
 
 // Brand & Product Assets: upload a real image (auto-selects on upload).
 const assetInput = page.locator('input[accept="image/*"]')
-await assetInput.setInputFiles('/tmp/HeroBottle.png')
+await assetInput.setInputFiles(TEST_IMG)
 await page.waitForTimeout(1800)
 const afterUpload = (await page.textContent('body')) || ''
 results.assetUploaded = afterUpload.includes('HeroBottle')

@@ -44,6 +44,7 @@ class GuidelineDoc(Base):
     __tablename__ = "guideline_docs"
 
     id: Mapped[str] = mapped_column(String, primary_key=True)
+    workspace: Mapped[str] = mapped_column(String, default="PureGlow", server_default="PureGlow", nullable=True, index=True)
     name: Mapped[str] = mapped_column(String, nullable=False)
     description: Mapped[str] = mapped_column(Text, default="")
     category: Mapped[str] = mapped_column(String, default="Visual Identity")
@@ -58,11 +59,29 @@ class GuidelineDoc(Base):
     visible_to_creators: Mapped[bool] = mapped_column(Boolean, default=True)
     file_path: Mapped[str | None] = mapped_column(String, nullable=True)
 
+    passages: Mapped[list["GuidelinePassage"]] = relationship(
+        "GuidelinePassage", backref="doc", cascade="all, delete-orphan"
+    )
+
+
+class GuidelinePassage(Base):
+    __tablename__ = "guideline_passages"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    doc_id: Mapped[str] = mapped_column(ForeignKey("guideline_docs.id", ondelete="CASCADE"), nullable=False, index=True)
+    workspace: Mapped[str] = mapped_column(String, default="PureGlow", server_default="PureGlow", nullable=True, index=True)
+    page_number: Mapped[int] = mapped_column(Integer, default=1)
+    paragraph_number: Mapped[int] = mapped_column(Integer, default=1)
+    heading: Mapped[str] = mapped_column(String, default="")
+    passage_text: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
 
 class Rule(Base):
     __tablename__ = "rules"
 
     id: Mapped[str] = mapped_column(String, primary_key=True)
+    workspace: Mapped[str] = mapped_column(String, default="PureGlow", server_default="PureGlow", nullable=True, index=True)
     code: Mapped[str] = mapped_column(String, unique=True, nullable=False, index=True)
     title: Mapped[str] = mapped_column(String, nullable=False)
     summary: Mapped[str] = mapped_column(Text, default="")
@@ -85,6 +104,7 @@ class ApprovedClaim(Base):
     __tablename__ = "approved_claims"
 
     id: Mapped[str] = mapped_column(String, primary_key=True)
+    workspace: Mapped[str] = mapped_column(String, default="PureGlow", server_default="PureGlow", nullable=True, index=True)
     text: Mapped[str] = mapped_column(Text, nullable=False)
     product: Mapped[str] = mapped_column(String, default="")
     source: Mapped[str] = mapped_column(String, default="")
@@ -164,6 +184,7 @@ class Submission(Base):
     __tablename__ = "submissions"
 
     id: Mapped[str] = mapped_column(String, primary_key=True)
+    workspace: Mapped[str] = mapped_column(String, default="PureGlow", server_default="PureGlow", nullable=True, index=True)
     code: Mapped[str] = mapped_column(String, default="")
     title: Mapped[str] = mapped_column(String, nullable=False)
     excerpt: Mapped[str] = mapped_column(Text, default="")
@@ -208,10 +229,26 @@ class Submission(Base):
     )
 
 
+class ExceptionRulingHistory(Base):
+    __tablename__ = "exception_ruling_history"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    exception_id: Mapped[str] = mapped_column(
+        ForeignKey("exceptions.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    action: Mapped[str] = mapped_column(String, nullable=False)  # "Approved" | "Rejected" | "Revoked" | "Requested"
+    actor_id: Mapped[str] = mapped_column(String, default="")
+    actor_name: Mapped[str] = mapped_column(String, default="")
+    actor_role: Mapped[str] = mapped_column(String, default="")
+    reason_or_conditions: Mapped[str] = mapped_column(Text, default="")
+    at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
 class ExceptionRequest(Base):
     __tablename__ = "exceptions"
 
     id: Mapped[str] = mapped_column(String, primary_key=True)
+    workspace: Mapped[str] = mapped_column(String, default="PureGlow", server_default="PureGlow", nullable=True, index=True)
     code: Mapped[str] = mapped_column(String, default="")
     content_id: Mapped[str] = mapped_column(String, default="")
     content_title: Mapped[str] = mapped_column(String, default="")
@@ -225,18 +262,45 @@ class ExceptionRequest(Base):
     decided_by_id: Mapped[str | None] = mapped_column(String, nullable=True)
     effective_from: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    status: Mapped[str] = mapped_column(String, default="Pending")
+    status: Mapped[str] = mapped_column(String, default="Pending")  # Pending | Approved | Rejected | Revoked
     conditions: Mapped[str] = mapped_column(Text, default="")
     decided_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    revoked_by_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    revoke_reason: Mapped[str | None] = mapped_column(Text, default="", server_default="", nullable=True)
     thumb_kind: Mapped[str] = mapped_column(String, default="art")
     thumb_palette: Mapped[str] = mapped_column(String, default="lime")
     thumb_glyph: Mapped[str] = mapped_column(String, default="leaf")
+
+    history: Mapped[list["ExceptionRulingHistory"]] = relationship(
+        "ExceptionRulingHistory", backref="exception", cascade="all, delete-orphan",
+        order_by="ExceptionRulingHistory.at",
+    )
+
+
+class ProposedRule(Base):
+    __tablename__ = "proposed_rules"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    simulation_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    workspace: Mapped[str] = mapped_column(String, default="PureGlow", server_default="PureGlow", nullable=True, index=True)
+    target_rule_id: Mapped[str] = mapped_column(String, nullable=False)
+    target_rule_code: Mapped[str] = mapped_column(String, nullable=False)
+    change_type: Mapped[str] = mapped_column(String, nullable=False)
+    current_value: Mapped[str] = mapped_column(String, default="")
+    proposed_value: Mapped[str] = mapped_column(String, default="")
+    status: Mapped[str] = mapped_column(String, default="simulated")  # simulated | activated | discarded
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    created_by_id: Mapped[str] = mapped_column(String, default="")
+    activated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    activated_by_id: Mapped[str | None] = mapped_column(String, nullable=True)
 
 
 class Simulation(Base):
     __tablename__ = "simulations"
 
     id: Mapped[str] = mapped_column(String, primary_key=True)
+    workspace: Mapped[str] = mapped_column(String, default="PureGlow", server_default="PureGlow", nullable=True, index=True)
     name: Mapped[str] = mapped_column(String, default="")
     rule_id: Mapped[str] = mapped_column(String, default="")
     rule_code: Mapped[str] = mapped_column(String, default="")
@@ -249,12 +313,14 @@ class Simulation(Base):
     items: Mapped[list] = mapped_column(JSON, default=list)
     insight: Mapped[list] = mapped_column(JSON, default=list)
     totals: Mapped[dict] = mapped_column(JSON, default=dict)
+    breakdown: Mapped[dict | None] = mapped_column(JSON, default=dict, nullable=True)
 
 
 class AuditEvent(Base):
     __tablename__ = "audit_events"
 
     id: Mapped[str] = mapped_column(String, primary_key=True)
+    workspace: Mapped[str] = mapped_column(String, default="PureGlow", server_default="PureGlow", nullable=True, index=True)
     at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     action: Mapped[str] = mapped_column(String, default="Login")
     entity_title: Mapped[str] = mapped_column(String, default="")
@@ -275,6 +341,7 @@ class BrandAsset(Base):
     __tablename__ = "brand_assets"
 
     id: Mapped[str] = mapped_column(String, primary_key=True)
+    workspace: Mapped[str] = mapped_column(String, default="PureGlow", server_default="PureGlow", nullable=True, index=True)
     name: Mapped[str] = mapped_column(String, nullable=False)
     brand: Mapped[str] = mapped_column(String, default="PureGlow")
     category: Mapped[str] = mapped_column(String, default="Product Image")  # Brand logo | Product image | Template

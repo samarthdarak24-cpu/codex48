@@ -43,8 +43,11 @@ def _parse_dt(value: datetime | None) -> datetime | None:
 
 
 @router.get("/rules")
-def list_rules(db: Session = Depends(get_db), _: models.User = Depends(get_current_user)):
-    rules = db.query(models.Rule).all()
+def list_rules(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    ws = getattr(current_user, "workspace", "PureGlow")
+    rules = db.query(models.Rule).filter(
+        (models.Rule.workspace == ws) | (models.Rule.workspace.is_(None)) | (models.Rule.workspace == "PureGlow")
+    ).all()
     return [svc.rule_to_dict(r) for r in rules]
 
 
@@ -54,8 +57,6 @@ def create_rule(
     db: Session = Depends(get_db),
     user: models.User = Depends(require_manager),
 ):
-    # The manager UI creates rule *drafts* without a stable code; derive one
-    # server-side (slugified from the title, unique) so the request never 422s.
     code = body.code
     if not code:
         base = re.sub(r"[^A-Z0-9]+", "-", (body.title or "RULE").upper()).strip("-")[:14] or "RULE"
@@ -70,8 +71,10 @@ def create_rule(
         if existing:
             raise HTTPException(status_code=409, detail=f"Rule code '{code}' already exists")
 
+    ws = getattr(user, "workspace", "PureGlow")
     r = models.Rule(
         id=new_id("rule"),
+        workspace=ws,
         code=code,
         title=body.title,
         summary=body.summary,
@@ -97,6 +100,7 @@ def create_rule(
         entity_title=r.title,
         entity_meta=r.code,
         user_id=user.id,
+        brand=ws,
         details=f"Created rule {r.code} (needs confirmation)",
         entity_kind="rule",
         entity_id=r.id,
@@ -124,6 +128,7 @@ def confirm_rule(
         entity_title=r.title,
         entity_meta=r.code,
         user_id=user.id,
+        brand=r.workspace or "PureGlow",
         details=f"Confirmed rule {r.code} (active)",
         entity_kind="rule",
         entity_id=r.id,
@@ -133,9 +138,38 @@ def confirm_rule(
     return svc.rule_to_dict(r)
 
 
+@router.post("/rules/{rule_id}/reject")
+def reject_rule(
+    rule_id: str,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(require_manager),
+):
+    r = db.get(models.Rule, rule_id)
+    if not r:
+        raise HTTPException(status_code=404, detail="Rule not found")
+
+    r.status = "rejected"
+    db.flush()
+    record(
+        db,
+        action="Rule updated",
+        entity_title=r.title,
+        entity_meta=r.code,
+        user_id=user.id,
+        brand=r.workspace or "PureGlow",
+        details=f"Rejected rule draft {r.code}",
+        entity_kind="rule",
+        entity_id=r.id,
+    )
+    db.commit()
+    db.refresh(r)
+    return svc.rule_to_dict(r)
+
+
 @router.get("/rules/conflicts")
-def rules_conflicts(db: Session = Depends(get_db), _: models.User = Depends(get_current_user)):
-    conflicts = svc.detect_conflicts(db)
+def rules_conflicts(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    ws = getattr(current_user, "workspace", "PureGlow")
+    conflicts = svc.detect_conflicts(db, workspace=ws)
     # Optional AI explanation, grounded in the deterministic conflicts. Never
     # creates or resolves conflicts; the deterministic checker is authoritative.
     try:
@@ -143,9 +177,22 @@ def rules_conflicts(db: Session = Depends(get_db), _: models.User = Depends(get_
 
         if ai.ai_available():
             for c in conflicts[:3]:
-                note = ai.explain_conflict(c["ruleA"], c["ruleB"])
-                if note:
-                    c["aiExplanation"] = note
+                if "ruleA" in c and "ruleB" in c:
+                    note = ai.explain_conflict(c["ruleA"], c["ruleB"])
+                    if note:
+                        c["aiExplanation"] = note
     except Exception:
         pass
     return conflicts
+
+
+@router.get("/rules/{rule_id}")
+def get_rule(
+    rule_id: str,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    r = db.get(models.Rule, rule_id)
+    if not r:
+        raise HTTPException(status_code=404, detail="Rule not found")
+    return svc.rule_to_dict(r)

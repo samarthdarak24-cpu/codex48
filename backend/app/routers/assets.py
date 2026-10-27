@@ -30,6 +30,11 @@ def list_assets(
     current_user=Depends(get_current_user),
 ):
     query = db.query(models.BrandAsset)
+    if current_user.workspace:
+        query = query.filter(
+            (models.BrandAsset.workspace == current_user.workspace)
+            | (models.BrandAsset.workspace.is_(None) if current_user.workspace == "PureGlow" else False)
+        )
     if brand:
         query = query.filter(models.BrandAsset.brand == brand)
     if status:
@@ -49,10 +54,12 @@ def create_asset(
     current_user=Depends(get_current_user),
 ):
     uploads_dir = settings.uploads_dir
-    saved_path, _ext = svc.save_upload(file, uploads_dir)
+    saved_path, _ext = svc.validate_and_save_upload(file, uploads_dir)
 
+    ws = getattr(current_user, "workspace", "PureGlow")
     asset = models.BrandAsset(
         id=new_id("asset"),
+        workspace=ws,
         name=name,
         brand=brand,
         category=category,
@@ -75,6 +82,7 @@ def create_asset(
         details="Uploaded brand asset (pending review).",
         entity_kind="asset",
         entity_id=asset.id,
+        workspace=ws,
     )
 
     db.commit()
@@ -102,6 +110,7 @@ def approve_asset(
         details="Approved brand asset.",
         entity_kind="asset",
         entity_id=asset.id,
+        workspace=asset.workspace or "PureGlow",
     )
     db.commit()
     db.refresh(asset)

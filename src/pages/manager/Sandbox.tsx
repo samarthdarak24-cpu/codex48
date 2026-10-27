@@ -58,7 +58,7 @@ const SUGGESTIONS: Record<string, string> = {
 }
 
 export default function Sandbox() {
-  const { rules, simulations, loading, runSimulation } = useData()
+  const { rules, simulations, loading, runSimulation, activateSimulation } = useData()
   const navigate = useNavigate()
   const toast = useToast()
 
@@ -67,7 +67,8 @@ export default function Sandbox() {
   const [changeType, setChangeType] = useState(CHANGE_TYPES[0])
   const [newValue, setNewValue] = useState('')
   const [busy, setBusy] = useState(false)
-  const [tab, setTab] = useState<'content' | 'compliance' | 'consistency'>('content')
+  const [activating, setActivating] = useState(false)
+  const [tab, setTab] = useState<'content' | 'compliance' | 'breakdown' | 'consistency'>('content')
   const [activeSimId, setActiveSimId] = useState<string | null>(null)
 
   // Rules arrive asynchronously — pick the first active rule once they land.
@@ -79,6 +80,22 @@ export default function Sandbox() {
   useEffect(() => {
     if (ruleId && SUGGESTIONS[ruleId]) setNewValue(SUGGESTIONS[ruleId])
   }, [ruleId])
+
+  async function handleActivate() {
+    if (!activeSim) return
+    setActivating(true)
+    try {
+      await activateSimulation(activeSim.id)
+      toast.success(
+        'Rule activated',
+        `The proposed change for ${activeSim.ruleCode} has been applied to the live rules.`
+      )
+    } catch (err) {
+      toast.error('Activation failed', err instanceof Error ? err.message : 'Please try again.')
+    } finally {
+      setActivating(false)
+    }
+  }
 
   const stats = simulationStats(simulations)
   const activeSim: Simulation | undefined = useMemo(
@@ -180,10 +197,10 @@ export default function Sandbox() {
       />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <MetricCard label="Total Simulations" value={String(stats.total).padStart(2, '0')} sub={`${stats.checked} assets evaluated`} icon={<FlaskConical className="h-4 w-4" />} tone="blue" />
+        <MetricCard label="Total Simulations" value={String(stats.total).padStart(2, '0')} sub={`${stats.checked} assets evaluated`} icon={<FlaskConical className="h-4 w-4" />} tone="green" />
         <MetricCard label="Compliant" value={String(stats.compliant).padStart(2, '0')} sub={`${stats.successRate}% of checked assets`} icon={<CheckCircle2 className="h-4 w-4" />} tone="green" />
         <MetricCard label="Needs Attention" value={String(stats.needsReview).padStart(2, '0')} sub="Requires a human check" icon={<AlertTriangle className="h-4 w-4" />} tone="amber" />
-        <MetricCard label="Non-Compliant" value={String(stats.nonCompliant).padStart(2, '0')} sub="Would newly fail" icon={<XCircle className="h-4 w-4" />} tone="purple" />
+        <MetricCard label="Non-Compliant" value={String(stats.nonCompliant).padStart(2, '0')} sub="Would newly fail" icon={<XCircle className="h-4 w-4" />} tone="rose" />
       </div>
 
       <div className="mt-4 grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_290px]">
@@ -258,6 +275,7 @@ export default function Sandbox() {
                 items={[
                   { key: 'content', label: 'Content Impact' },
                   { key: 'compliance', label: 'Compliance Impact' },
+                  { key: 'breakdown', label: 'Detailed Breakdown' },
                   { key: 'consistency', label: 'Brand Consistency' },
                 ]}
                 active={tab}
@@ -305,7 +323,7 @@ export default function Sandbox() {
                         <DonutLegend segments={segments} total={totals.checked} />
                       </div>
                     </div>
-                    <div className="mt-3 rounded-lg border border-line bg-[#FBFDFF] p-3">
+                    <div className="mt-3 rounded-lg border border-line bg-[#FAF7EF] p-3">
                       <p className="mb-1.5 text-2xs font-semibold uppercase tracking-[0.06em] text-muted">Comparison</p>
                       <dl className="space-y-1.5 text-xs">
                         <div className="flex items-start justify-between gap-3">
@@ -317,6 +335,74 @@ export default function Sandbox() {
                           <dd className="max-w-[70%] text-right font-medium text-brand-700">{activeSim.newValue}</dd>
                         </div>
                       </dl>
+                    </div>
+                  </div>
+                )}
+
+                {tab === 'breakdown' && (
+                  <div className="space-y-4 p-4 text-xs">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div className="rounded-lg border border-line bg-[#FAF7EF] p-3">
+                        <p className="font-semibold text-ink">Newly Flagged ({activeSim.breakdown?.newlyFlagged?.count ?? 0})</p>
+                        <p className="mt-0.5 text-2xs text-muted">Compliant previously, but flagged under proposed rule.</p>
+                        <ul className="mt-2 space-y-1">
+                          {(activeSim.breakdown?.newlyFlagged?.items || []).length === 0 ? (
+                            <li className="text-2xs text-muted italic">None flagged</li>
+                          ) : (
+                            activeSim.breakdown?.newlyFlagged.items.map((it) => (
+                              <li key={it.id} className="truncate font-medium text-ink-700">· {it.title}</li>
+                            ))
+                          )}
+                        </ul>
+                      </div>
+
+                      <div className="rounded-lg border border-line bg-[#FAF7EF] p-3">
+                        <p className="font-semibold text-success-800">Resolved ({activeSim.breakdown?.resolved?.count ?? 0})</p>
+                        <p className="mt-0.5 text-2xs text-muted">Flagged previously, but passes under proposed rule.</p>
+                        <ul className="mt-2 space-y-1">
+                          {(activeSim.breakdown?.resolved?.items || []).length === 0 ? (
+                            <li className="text-2xs text-muted italic">None resolved</li>
+                          ) : (
+                            activeSim.breakdown?.resolved.items.map((it) => (
+                              <li key={it.id} className="truncate font-medium text-success-700">✓ {it.title}</li>
+                            ))
+                          )}
+                        </ul>
+                      </div>
+
+                      <div className="rounded-lg border border-line bg-white p-3">
+                        <p className="font-semibold text-ink">Unchanged ({activeSim.breakdown?.unchanged?.count ?? 0})</p>
+                        <p className="mt-0.5 text-2xs text-muted">Compliance status not impacted by this rule.</p>
+                      </div>
+
+                      <div className="rounded-lg border border-line bg-white p-3">
+                        <p className="font-semibold text-warn-800">
+                          Potential Conflicts ({activeSim.breakdown?.potentialConflicts ?? 0})
+                        </p>
+                        <p className="mt-0.5 text-2xs text-muted">
+                          Existing rules on same subject with opposing directives.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="rounded-lg border border-line bg-white p-3">
+                      <p className="font-semibold text-ink">
+                        Exceptions Needing Attention ({activeSim.breakdown?.exceptionsNeedingAttention?.count ?? 0})
+                      </p>
+                      <p className="mt-0.5 text-2xs text-muted">
+                        Active approved exceptions covering {activeSim.ruleCode} that may be rendered obsolete by this relaxation.
+                      </p>
+                      <ul className="mt-2 space-y-1">
+                        {(activeSim.breakdown?.exceptionsNeedingAttention?.items || []).length === 0 ? (
+                          <li className="text-2xs text-muted italic">No active exceptions for this rule</li>
+                        ) : (
+                          activeSim.breakdown?.exceptionsNeedingAttention.items.map((ex) => (
+                            <li key={ex.id} className="text-2xs text-ink-700">
+                              <span className="font-medium text-brand-700">{ex.code}</span>: {ex.reason}
+                            </li>
+                          ))
+                        )}
+                      </ul>
                     </div>
                   </div>
                 )}
@@ -347,14 +433,32 @@ export default function Sandbox() {
                   </div>
                 )}
 
-                <div className="flex items-center justify-between border-t border-line px-4 py-2.5">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line px-4 py-2.5">
                   <p className="text-2xs text-muted">
                     {totals.checked} asset{totals.checked === 1 ? '' : 's'} evaluated · results are reproducible for the
                     stored rule set
                   </p>
-                  <Button size="sm" variant="ghost" icon={<GitCompare className="h-3 w-3" />} onClick={() => setTab('compliance')}>
-                    Compare rules
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    {activeSim.status === 'Activated' ? (
+                      <span className="inline-flex items-center gap-1 rounded bg-success-50 px-2.5 py-1 text-2xs font-medium text-success-700">
+                        <CheckCircle2 className="h-3 w-3" />
+                        Rule Activated
+                      </span>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        loading={activating}
+                        className="border-brand-500 text-brand-700 hover:bg-brand-50"
+                        onClick={handleActivate}
+                      >
+                        Activate Proposed Rule
+                      </Button>
+                    )}
+                    <Button size="sm" variant="ghost" icon={<GitCompare className="h-3 w-3" />} onClick={() => setTab('compliance')}>
+                      Compare rules
+                    </Button>
+                  </div>
                 </div>
               </>
             )}

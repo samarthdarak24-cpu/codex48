@@ -59,7 +59,7 @@ export interface GuidelineDoc {
 /* Rules                                                               */
 /* ------------------------------------------------------------------ */
 
-export type RuleStatus = 'active' | 'draft' | 'needs_confirmation' | 'archived'
+export type RuleStatus = 'active' | 'draft' | 'needs_confirmation' | 'archived' | 'rejected'
 export type Priority = 'High' | 'Medium' | 'Low'
 
 export interface Rule {
@@ -251,13 +251,36 @@ export interface ExceptionRequest {
   status: ExceptionStatus
   conditions: string
   decidedAt: string | null
+  revokedAt?: string | null
+  revokedById?: string | null
+  revokeReason?: string
+}
+
+export interface ExceptionRulingHistory {
+  id: string
+  exceptionId: string
+  action: string
+  actorId: string
+  actorName: string
+  actorRole: string
+  reasonOrConditions: string
+  at: string | null
+}
+
+export interface GuidelinePassage {
+  id: string
+  docId: string
+  pageNumber: number
+  paragraphNumber: number
+  passageText: string
+  snippet?: string
 }
 
 /* ------------------------------------------------------------------ */
 /* Simulations                                                         */
 /* ------------------------------------------------------------------ */
 
-export type SimulationStatus = 'Completed' | 'Running' | 'Failed'
+export type SimulationStatus = 'Completed' | 'Running' | 'Failed' | 'Activated'
 export type ImpactResult = 'Compliant' | 'Needs Review' | 'Non-Compliant'
 
 export interface SimulationItem {
@@ -269,6 +292,22 @@ export interface SimulationItem {
   currentStatus: SubmissionStatus
   impact: ImpactResult
   note: string
+}
+
+export interface SimulationBreakdownCategory {
+  count: number
+  items: Array<{ id: string; title: string; brand?: string }>
+}
+
+export interface SimulationBreakdown {
+  newlyFlagged: SimulationBreakdownCategory
+  resolved: SimulationBreakdownCategory
+  unchanged: SimulationBreakdownCategory
+  potentialConflicts: number
+  exceptionsNeedingAttention: {
+    count: number
+    items: Array<{ id: string; code: string; reason: string; scope: string }>
+  }
 }
 
 export interface Simulation {
@@ -290,6 +329,7 @@ export interface Simulation {
     needsReview: number
     nonCompliant: number
   }
+  breakdown?: SimulationBreakdown
 }
 
 /* ------------------------------------------------------------------ */

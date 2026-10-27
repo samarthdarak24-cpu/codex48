@@ -1,7 +1,7 @@
-"""Guidelines + Documents router."""
+"""Guidelines + Documents router with passage indexing, validation, and full-text search."""
 import os
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status as http_status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status as http_status
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
@@ -19,13 +19,44 @@ router = APIRouter(prefix="/guidelines", tags=["guidelines"])
 @router.get("", dependencies=[Depends(get_current_user)])
 def list_guidelines(
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user: models.User = Depends(get_current_user),
 ):
-    query = db.query(models.GuidelineDoc)
+    ws = getattr(current_user, "workspace", "PureGlow")
+    query = db.query(models.GuidelineDoc).filter(
+        (models.GuidelineDoc.workspace == ws) | (models.GuidelineDoc.workspace.is_(None)) | (models.GuidelineDoc.workspace == "PureGlow")
+    )
     if current_user.role == "creator":
         query = query.filter(models.GuidelineDoc.visible_to_creators == True)  # noqa: E712
     docs = query.order_by(models.GuidelineDoc.updated_at.desc()).all()
     return [documents.guideline_to_dict(d) for d in docs]
+
+
+@router.get("/search")
+def search_guidelines(
+    q: str = Query(..., min_length=1),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Full-text / keyword search across stored guideline passages."""
+    ws = getattr(current_user, "workspace", "PureGlow")
+    passages = (
+        db.query(models.GuidelinePassage, models.GuidelineDoc.name)
+        .join(models.GuidelineDoc, models.GuidelinePassage.doc_id == models.GuidelineDoc.id)
+        .filter(
+            (models.GuidelinePassage.workspace == ws) | (models.GuidelinePassage.workspace.is_(None)) | (models.GuidelinePassage.workspace == "PureGlow"),
+            (models.GuidelinePassage.passage_text.ilike(f"%{q}%"))
+            | (models.GuidelinePassage.heading.ilike(f"%{q}%"))
+            | (models.GuidelineDoc.name.ilike(f"%{q}%")),
+        )
+        .limit(30)
+        .all()
+    )
+    results = []
+    for p, doc_name in passages:
+        res = documents.passage_to_dict(p)
+        res["docName"] = doc_name
+        results.append(res)
+    return results
 
 
 @router.post("")
@@ -37,19 +68,21 @@ def create_guideline(
     brand: str = Form("All brands"),
     visible_to_creators: bool = Form(True),
     db: Session = Depends(get_db),
-    current_user=Depends(require_manager),
+    current_user: models.User = Depends(require_manager),
 ):
     uploads_dir = settings.uploads_dir
-    saved_path, size_str = documents.save_upload(file, uploads_dir)
+    # Validates file extension, magic bytes, and size <= 15MB
+    saved_path, size_str, file_type = documents.validate_and_save_upload(file, uploads_dir)
 
-    ext = os.path.splitext(file.filename or "")[1].lstrip(".").upper() or "PDF"
-    file_type = ext if ext in ("PDF", "DOCX") else "PDF"
+    # Extract text, page count, and individual passages
+    text, pages, passages_data = documents.extract_text_and_passages(saved_path, file_type)
+    extracted_passages = len(passages_data) if passages_data else max(1, len(text) // 1200)
 
-    text, pages = documents.extract_text_and_pages(saved_path, file_type)
-    extracted_passages = max(1, len(text) // 1200)
-
+    doc_id = new_id("gdoc")
+    ws = getattr(current_user, "workspace", "PureGlow")
     doc = models.GuidelineDoc(
-        id=new_id("gdoc"),
+        id=doc_id,
+        workspace=ws,
         name=name,
         description=description,
         category=category,
@@ -66,15 +99,29 @@ def create_guideline(
     db.add(doc)
     db.flush()
 
+    # Save individual passages for evidence linking and search
+    for p in passages_data:
+        db.add(
+            models.GuidelinePassage(
+                id=new_id("gp"),
+                doc_id=doc_id,
+                workspace=ws,
+                page_number=p["page_number"],
+                paragraph_number=p["paragraph_number"],
+                heading=p.get("heading", ""),
+                passage_text=p["passage_text"],
+            )
+        )
+
     suggested = ai.suggest_rules_from_text(text) or []
     record(
         db,
         action="Guideline updated",
         entity_title=name,
         entity_meta=category,
-        brand=brand,
+        brand=brand if brand != "All brands" else ws,
         user_id=current_user.id,
-        details=f"Uploaded guideline document ({file_type}, {pages} pages).",
+        details=f"Uploaded guideline document ({file_type}, {pages} pages, {extracted_passages} passages indexed).",
         entity_kind="guideline",
         entity_id=doc.id,
     )
@@ -92,7 +139,7 @@ def update_guideline_status(
     guideline_id: str,
     body: dict,
     db: Session = Depends(get_db),
-    current_user=Depends(require_manager),
+    current_user: models.User = Depends(require_manager),
 ):
     new_status = body.get("status")
     if not new_status:
@@ -120,7 +167,7 @@ def update_guideline_status(
 def get_guideline_file(
     guideline_id: str,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user: models.User = Depends(get_current_user),
 ):
     doc = db.get(models.GuidelineDoc, guideline_id)
     if not doc or not doc.file_path:
@@ -128,3 +175,18 @@ def get_guideline_file(
     if not os.path.exists(doc.file_path):
         raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail="File not found")
     return FileResponse(doc.file_path)
+
+
+@router.get("/{guideline_id}/passages")
+def get_guideline_passages(
+    guideline_id: str,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    passages = (
+        db.query(models.GuidelinePassage)
+        .filter(models.GuidelinePassage.doc_id == guideline_id)
+        .order_by(models.GuidelinePassage.page_number, models.GuidelinePassage.paragraph_number)
+        .all()
+    )
+    return [documents.passage_to_dict(p) for p in passages]

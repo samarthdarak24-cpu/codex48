@@ -51,7 +51,7 @@ const categoryChip: Record<string, string> = {
 }
 
 export default function GuidelinesRules() {
-  const { docs, rules, claims, exceptions, audit, loading, addDocument, setDocStatus, addRule, confirmRule, addClaim } = useData()
+  const { docs, rules, claims, exceptions, audit, loading, addDocument, setDocStatus, addRule, confirmRule, rejectRule, addClaim } = useData()
   const navigate = useNavigate()
   const toast = useToast()
 
@@ -221,16 +221,29 @@ export default function GuidelinesRules() {
       cell: (row) => (
         <div className="flex items-center justify-end gap-1">
           {row.status === 'needs_confirmation' || row.status === 'draft' ? (
-            <Button
-              size="sm"
-              className="h-7 px-2 text-xs"
-              onClick={() => {
-                confirmRule(row.id)
-                toast.success('Rule activated', `${row.code} is now part of the active rule set.`)
-              }}
-            >
-              Confirm
-            </Button>
+            <>
+              <Button
+                size="sm"
+                className="h-7 px-2 text-xs"
+                onClick={() => {
+                  confirmRule(row.id)
+                  toast.success('Rule activated', `${row.code} is now part of the active rule set.`)
+                }}
+              >
+                Confirm
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 px-2 text-xs border-danger-200 text-danger-700 hover:bg-danger-50"
+                onClick={() => {
+                  rejectRule(row.id)
+                  toast.success('Rule rejected', `${row.code} has been marked rejected.`)
+                }}
+              >
+                Reject
+              </Button>
+            </>
           ) : (
             <Button size="sm" variant="outline" className="h-7 px-2.5 text-xs" onClick={() => setDetailRule(row)}>
               View
@@ -805,17 +818,30 @@ export default function GuidelinesRules() {
           detailRule ? (
             <>
               <Button variant="ghost" onClick={() => setDetailRule(null)}>Close</Button>
-              {detailRule.status !== 'active' && (
-                <Button
-                  onClick={() => {
-                    confirmRule(detailRule.id)
-                    toast.success('Rule activated', `${detailRule.code} is now active.`)
-                    setDetailRule(null)
-                  }}
-                  icon={<CheckCircle2 className="h-3.5 w-3.5" />}
-                >
-                  Confirm & activate
-                </Button>
+              {detailRule.status !== 'active' && detailRule.status !== 'rejected' && (
+                <>
+                  <Button
+                    variant="outline"
+                    className="border-danger-300 text-danger-700 hover:bg-danger-50"
+                    onClick={() => {
+                      rejectRule(detailRule.id)
+                      toast.success('Rule rejected', `${detailRule.code} has been rejected.`)
+                      setDetailRule(null)
+                    }}
+                  >
+                    Reject rule
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      confirmRule(detailRule.id)
+                      toast.success('Rule activated', `${detailRule.code} is now active.`)
+                      setDetailRule(null)
+                    }}
+                    icon={<CheckCircle2 className="h-3.5 w-3.5" />}
+                  >
+                    Confirm & activate
+                  </Button>
+                </>
               )}
             </>
           ) : null

@@ -25,9 +25,11 @@ def record(
     entity_id: str = "",
     version: int | None = None,
     thumb: dict | None = None,
+    workspace: str = "PureGlow",
 ) -> AuditEvent:
     ev = AuditEvent(
         id=new_id("audit"),
+        workspace=workspace,
         at=datetime.now(timezone.utc),
         action=action,
         entity_title=entity_title,
@@ -44,3 +46,4 @@ def record(
     db.add(ev)
     db.flush()
     return ev
+

@@ -17,6 +17,7 @@ import {
   CalendarRange,
 } from 'lucide-react'
 import { useData } from '@/context/DataContext'
+import { api } from '@/services/api'
 import { PageHeader } from '@/components/layout/Shell'
 import { Card, MetricCard } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -113,33 +114,14 @@ export default function AuditHistory() {
     setPage(1)
   }
 
-  /** Real client-side CSV export of the current, filtered audit view. */
   function exportCsv() {
-    const header = ['Timestamp', 'Action', 'Entity', 'Meta', 'Brand', 'Actor', 'Details', 'Status', 'Version']
-    const rows = filtered.map((e) => [
-      new Date(e.at).toISOString(),
-      e.action,
-      e.entityTitle,
-      e.entityMeta,
-      e.brand,
-      team.find((t) => t.id === e.userId)?.name ?? 'Unknown',
-      e.details,
-      e.status,
-      e.version ? `v${e.version}` : '',
-    ])
-    const csv = [header, ...rows]
-      .map((r) => r.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
-      .join('\r\n')
-    const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `precedent-audit-${new Date().toISOString().slice(0, 10)}.csv`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
+    window.open(api.exportAuditUrl('csv'), '_blank')
     toast.success('Report exported', `${filtered.length} audit events written to CSV.`)
+  }
+
+  function exportJson() {
+    window.open(api.exportAuditUrl('json'), '_blank')
+    toast.success('Report exported', `${filtered.length} audit events written to JSON.`)
   }
 
   const columns: Column<AuditEvent>[] = [
@@ -266,17 +248,17 @@ export default function AuditHistory() {
       />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <MetricCard label="Total Actions" value={String(stats.total)} sub="All audit events" icon={<ListChecks className="h-4 w-4" />} tone="blue" />
+        <MetricCard label="Total Actions" value={String(stats.total)} sub="All audit events" icon={<ListChecks className="h-4 w-4" />} tone="green" />
         <MetricCard label="Approvals" value={String(stats.approvals)} sub={`${stats.total ? Math.round((stats.approvals / stats.total) * 100) : 0}% of total`} icon={<CheckCircle2 className="h-4 w-4" />} tone="green" />
         <MetricCard label="Rejections" value={String(stats.rejections)} sub={`${stats.total ? Math.round((stats.rejections / stats.total) * 100) : 0}% of total`} icon={<XCircle className="h-4 w-4" />} tone="amber" />
-        <MetricCard label="Exceptions" value={String(stats.exceptions)} sub={`${stats.total ? Math.round((stats.exceptions / stats.total) * 100) : 0}% of total`} icon={<ShieldCheck className="h-4 w-4" />} tone="purple" />
+        <MetricCard label="Exceptions" value={String(stats.exceptions)} sub={`${stats.total ? Math.round((stats.exceptions / stats.total) * 100) : 0}% of total`} icon={<ShieldCheck className="h-4 w-4" />} tone="amber" />
         <MetricCard
           label="Avg. Review Time"
           value={avgReviewHours === null ? '—' : avgReviewHours.toFixed(1)}
           suffix="hrs"
           sub="From submission to decision"
           icon={<Clock3 className="h-4 w-4" />}
-          tone="blue"
+          tone="green"
         />
       </div>
 

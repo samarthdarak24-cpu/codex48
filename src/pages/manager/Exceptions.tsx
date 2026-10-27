@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ArrowRight,
@@ -26,12 +26,13 @@ import { Avatar, Donut, DonutLegend, Modal, Thumb } from '@/components/ui/Misc'
 import { useToast } from '@/components/ui/Toast'
 import { exceptionStats, expiringSoon } from '@/lib/selectors'
 import { cn, daysUntil, fmtDate, fmtDateTime, relative } from '@/lib/utils'
-import type { ExceptionRequest } from '@/lib/types'
+import { api } from '@/services/api'
+import type { ExceptionRequest, ExceptionRulingHistory } from '@/lib/types'
 
 const PAGE_SIZE = 8
 
 export default function ExceptionsPage() {
-  const { exceptions, submissions, rules, team, loading, decideException, requestException } = useData()
+  const { exceptions, submissions, rules, team, loading, decideException, requestException, revokeException } = useData()
   const navigate = useNavigate()
   const toast = useToast()
 
@@ -43,6 +44,8 @@ export default function ExceptionsPage() {
   const [detail, setDetail] = useState<ExceptionRequest | null>(null)
   const [conditions, setConditions] = useState('')
   const [busy, setBusy] = useState(false)
+  const [history, setHistory] = useState<ExceptionRulingHistory[]>([])
+  const [historyLoading, setHistoryLoading] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
   const [newContent, setNewContent] = useState('')
   const [newRule, setNewRule] = useState('BR-01')
@@ -53,6 +56,19 @@ export default function ExceptionsPage() {
     d.setDate(d.getDate() + 30)
     return d.toISOString().slice(0, 10)
   })
+
+  // Load decision history when detail modal opens
+  useEffect(() => {
+    if (detail) {
+      setHistoryLoading(true)
+      api.getExceptionHistory(detail.id)
+        .then(setHistory)
+        .catch(() => setHistory([]))
+        .finally(() => setHistoryLoading(false))
+    } else {
+      setHistory([])
+    }
+  }, [detail])
 
   const stats = exceptionStats(exceptions)
   const expiring = expiringSoon(exceptions)
@@ -196,6 +212,21 @@ export default function ExceptionsPage() {
     toast.success(`Exception ${decision.toLowerCase()}`, 'The decision, scope and expiry are recorded in the audit trail.')
     setBusy(false)
     setDetail(null)
+  }
+
+  function handleRevoke(id: string) {
+    const reason = window.prompt('Please enter reason for revocation:')
+    if (reason === null) return
+    setBusy(true)
+    try {
+      revokeException(id, reason.trim() || 'Revoked by Brand Manager')
+      toast.success('Exception revoked', 'The exception status has been set to Revoked.')
+      setDetail(null)
+    } catch (err) {
+      toast.error('Revocation failed', err instanceof Error ? err.message : 'Please try again.')
+    } finally {
+      setBusy(false)
+    }
   }
 
   async function createException() {
@@ -406,17 +437,33 @@ export default function ExceptionsPage() {
                 Expires {fmtDate(detail.expiresAt)} · {daysUntil(detail.expiresAt) < 0 ? 'passed' : `${daysUntil(detail.expiresAt)} days left`}
               </span>
               <div className="flex gap-2">
-                <Button size="sm" variant="outline" onClick={() => decide('Rejected')} disabled={busy} icon={<XCircle className="h-3 w-3" />}>
-                  Reject
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={() => decide('Approved')}
-                  disabled={busy || detail.status === 'Approved' || detail.status === 'Expired' || detail.status === 'Revoked'}
-                  icon={<CheckCircle2 className="h-3 w-3" />}
-                >
-                  Approve exception
-                </Button>
+                {detail.status === 'Approved' && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-danger-300 text-danger-700 hover:bg-danger-50"
+                    onClick={() => handleRevoke(detail.id)}
+                    disabled={busy}
+                    icon={<XCircle className="h-3 w-3" />}
+                  >
+                    Revoke exception
+                  </Button>
+                )}
+                {detail.status !== 'Approved' && detail.status !== 'Revoked' && (
+                  <>
+                    <Button size="sm" variant="outline" onClick={() => decide('Rejected')} disabled={busy} icon={<XCircle className="h-3 w-3" />}>
+                      Reject
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() => decide('Approved')}
+                      disabled={busy || detail.status === 'Expired'}
+                      icon={<CheckCircle2 className="h-3 w-3" />}
+                    >
+                      Approve exception
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
           ) : null
@@ -522,6 +569,27 @@ export default function ExceptionsPage() {
                 The backend validates scope and expiry on every review. An expired or out-of-scope exception is never
                 accepted as a valid override — even if the interface is manipulated.
               </p>
+            </div>
+
+            <div className="rounded-lg border border-line bg-[#FAF7EF] p-2.5">
+              <p className="text-2xs font-semibold uppercase tracking-[0.06em] text-muted">Ruling Decision History</p>
+              {historyLoading ? (
+                <p className="mt-1 text-2xs text-muted">Loading history...</p>
+              ) : history.length === 0 ? (
+                <p className="mt-1 text-2xs text-muted">No historical rulings recorded.</p>
+              ) : (
+                <ul className="mt-2 space-y-1.5">
+                  {history.map((h) => (
+                    <li key={h.id} className="flex items-start justify-between border-b border-line pb-1 text-2xs text-ink-600 last:border-none">
+                      <div>
+                        <span className="font-semibold text-ink">{h.action}</span> by {h.actorName || 'User'} ({h.actorRole || 'manager'})
+                        {h.reasonOrConditions && <p className="italic text-muted">{h.reasonOrConditions}</p>}
+                      </div>
+                      <span className="ml-2 shrink-0 text-muted-light">{h.at ? fmtDateTime(h.at) : ''}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
 
             {detail.status === 'Approved' && detail.conditions && (
