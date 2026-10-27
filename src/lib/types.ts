@@ -134,7 +134,15 @@ export interface Finding {
     original: string
     proposed: string
     rationale: string
+    alternatives?: string[]
   } | null
+  jurisdiction?: 'Global' | 'US' | 'EU' | 'UK'
+  substantiation?: {
+    trialCode: string
+    studyTitle: string
+    confidenceScore: number
+    status: string
+  }
   status: 'open' | 'resolved' | 'accepted_exception'
 }
 
@@ -176,6 +184,18 @@ export interface Submission {
   findings: Finding[]
   comments: Comment[]
   decisions: ReviewDecision[]
+  jurisdiction?: string
+  substantiations?: Array<{
+    id: string
+    claim: string
+    trialCode: string
+    studyTitle: string
+    pageNumber: number
+    status: string
+    confidenceScore: number
+    certifiedDate: string
+    sourceDocName: string
+  }>
 }
 
 /** Deterministic, dependency-free thumbnail descriptor (no external images). */
@@ -386,4 +406,68 @@ export interface UpcomingTask {
   title: string
   when: string
   tone: 'blue' | 'grape' | 'green'
+}
+
+
+/* ------------------------------------------------------------------ */
+/* Sentinel & Remediation Types                                       */
+/* ------------------------------------------------------------------ */
+
+export interface RemediationResult {
+  remediatedText: string
+  originalText: string
+  changesApplied: Array<{
+    ruleCode: string
+    original: string
+    replacement: string
+    rationale: string
+  }>
+  totalChanges: number
+  alternatives: string[]
+}
+
+export interface SentinelSummary {
+  totalLiveMonitored: number
+  activeDrifts: number
+  expiredExceptionsInProd: number
+  cleanLiveCampaigns: number
+  complianceRate: number
+  lastScanAt: string
+  sentinelStatus: string
+}
+
+export interface SentinelAlert {
+  id: string
+  kind: string
+  severity: 'Critical' | 'High' | 'Medium' | 'Low'
+  title: string
+  contentTitle?: string
+  ruleCode?: string
+  ruleTitle?: string
+  channel?: string
+  liveUrl?: string
+  driftDetails?: string
+  expiredAt?: string
+  recommendedAction: string
+  status: string
+}
+
+export interface SentinelAuditResult {
+  status: 'Compliant' | 'Drift Detected' | 'Critical Violation'
+  driftDetected: boolean
+  similarityScore: number
+  liveUrl: string
+  contentTitle: string
+  approvedBaseline: string
+  liveContent: string
+  driftSummary: string
+  violations: Array<{
+    ruleCode: string
+    ruleTitle: string
+    severity: string
+    explanation: string
+    suggestedFix?: any
+  }>
+  auditedAt: string
+  actionRequired: string
 }

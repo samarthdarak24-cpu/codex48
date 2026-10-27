@@ -15,6 +15,7 @@ import GuidelinesRules from '@/pages/manager/GuidelinesRules'
 import ExceptionsPage from '@/pages/manager/Exceptions'
 import Sandbox from '@/pages/manager/Sandbox'
 import AuditHistory from '@/pages/manager/Audit'
+import SentinelPage from '@/pages/manager/Sentinel'
 
 function Splash() {
   return (
@@ -77,6 +78,7 @@ export default function App() {
         <Route path="overview" element={<ManagerOverview />} />
         <Route path="queue" element={<ReviewQueue />} />
         <Route path="queue/:id" element={<ReviewQueue />} />
+        <Route path="sentinel" element={<SentinelPage />} />
         <Route path="guidelines" element={<GuidelinesRules />} />
         <Route path="exceptions" element={<ExceptionsPage />} />
         <Route path="sandbox" element={<Sandbox />} />

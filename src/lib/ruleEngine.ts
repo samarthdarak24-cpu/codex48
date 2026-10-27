@@ -39,6 +39,11 @@ const UNAPPROVED_CLAIMS = [
   { pattern: /clinically proven/i, approved: 'dermatologically tested' },
 ]
 
+export const EU_GREEN_CLAIMS = /(100%\s*eco[- ]friendly|carbon neutral|zero impact|100%\s*green|planet positive|completely green|environmentally safe)/gi
+export const UK_PRICE_CLAIMS = /(from\s*(?:£|€|\$)?0|guaranteed lowest price|cheapest in the (?:uk|country|market))/gi
+export const US_DISCLOSURE = /(#ad|#sponsored|paid partnership)/i
+export const QUANTITATIVE_CLAIM = /(\d{1,2}%\s*(?:reduction|improvement|satisfaction|fewer wrinkles|less redness|smoother)|(?:in|within)\s*\d+\s*(?:days|weeks|hours))/gi
+
 /** Rules whose condition needs asset-level data the text engine cannot read. */
 export const VISUAL_ONLY_RULES = ['BR-01', 'LO-02', 'IM-03', 'SM-01']
 
@@ -205,6 +210,87 @@ export function evaluateRule(rule: Rule, input: EngineInput): EngineFinding | nu
       }
     }
 
+    case 'EU-01': {
+      const hits = matches(text, EU_GREEN_CLAIMS)
+      if (!hits.length) return null
+      return {
+        ruleCode: rule.code,
+        severity: 'High',
+        explanation: `Uncertified environmental claim detected: “${hits[0]}”. EU Green Claims Directive (2024/825) prohibits generic green claims without verified Life Cycle Assessment (LCA) backing.`,
+        suggestedFix: {
+          original: hits[0],
+          proposed: 'sustainably formulated with certified botanical extracts',
+          rationale: 'Replaces generic eco claims with verified ingredient sourcing language.',
+          alternatives: [
+            'sustainably formulated with certified botanical extracts',
+            'responsibly crafted with 95% naturally derived ingredients',
+            'packaged in 100% post-consumer recycled materials',
+          ],
+        },
+      }
+    }
+
+    case 'UK-02': {
+      const hits = matches(text, UK_PRICE_CLAIMS)
+      if (!hits.length) return null
+      return {
+        ruleCode: rule.code,
+        severity: 'Medium',
+        explanation: `Unqualified comparative price claim detected: “${hits[0]}”. UK Advertising Standards Authority (ASA Rule 3.17) requires verifiable reference pricing.`,
+        suggestedFix: {
+          original: hits[0],
+          proposed: 'transparent pricing with verified seasonal price matching',
+          rationale: 'Replaces unsubstantiated comparative pricing with an approved fair-pricing statement.',
+          alternatives: [
+            'transparent pricing with verified seasonal price matching',
+            'our best direct-to-consumer value guarantee',
+            'seasonal promotional pricing across our core collection',
+          ],
+        },
+      }
+    }
+
+    case 'US-01': {
+      if (!/influencer|paid|social/i.test(channel) && !/partner|collab|sponsored/i.test(text)) return null
+      if (US_DISCLOSURE.test(text)) return null
+      return {
+        ruleCode: rule.code,
+        severity: 'High',
+        explanation: 'US FTC Endorsement Guide (§255.5): Commercial posts must include an unambiguous disclosure (#ad or Paid Partnership) in the first 3 lines.',
+        suggestedFix: {
+          original: '(missing FTC disclosure)',
+          proposed: '#ad · Paid partnership with @PureGlow — [caption]',
+          rationale: 'Prepends FTC-compliant prominent disclosure identifier.',
+          alternatives: [
+            '#ad · Paid partnership with @PureGlow',
+            '#sponsored by @PureGlow',
+            'Ad | Proud partner of @PureGlow',
+          ],
+        },
+      }
+    }
+
+    case 'CL-07': {
+      const hits = matches(text, QUANTITATIVE_CLAIM)
+      if (!hits.length) return null
+      return {
+        ruleCode: rule.code,
+        severity: 'High',
+        explanation: `Quantitative efficacy claim detected: “${hits[0]}”. Requires audited clinical trial dossier reference in the Substantiation Vault.`,
+        suggestedFix: {
+          original: hits[0],
+          proposed: `${hits[0]} (based on an independent 4-week clinical study of 42 participants, Trial #PG-2024-C3)`,
+          rationale: 'Links the quantitative claim directly to the certified clinical trial dossier.',
+          alternatives: [
+            `${hits[0]} (based on independent 4-week clinical evaluation of 42 participants)`,
+            'visibly improves skin texture with continuous daily use',
+            'dermatologist-tested formulation for everyday skin barrier support',
+          ],
+        },
+      }
+    }
+
+
     default:
       return null
   }
@@ -242,4 +328,50 @@ export function buildFindings(engineFindings: EngineFinding[], rules: Rule[], ve
       status: 'open',
     }
   })
+}
+
+/** 1-Click Client-side Brand Remediator. */
+export function remediateContentClient(text: string, channel: string = ''): { remediatedText: string; totalChanges: number } {
+  let res = text
+  let changes = 0
+
+  // Superlatives
+  if (SUPERLATIVE.test(res)) {
+    res = res.replace(SUPERLATIVE, 'gentle and proven for daily care')
+    changes++
+  }
+  // Health
+  if (HEALTH.test(res)) {
+    res = res.replace(HEALTH, 'supports everyday skin vitality')
+    changes++
+  }
+  // Claims
+  for (const c of UNAPPROVED_CLAIMS) {
+    if (c.pattern.test(res)) {
+      res = res.replace(c.pattern, c.approved)
+      changes++
+    }
+  }
+  // EU Eco
+  if (EU_GREEN_CLAIMS.test(res)) {
+    res = res.replace(EU_GREEN_CLAIMS, 'sustainably formulated with certified botanical extracts')
+    changes++
+  }
+  // UK Price
+  if (UK_PRICE_CLAIMS.test(res)) {
+    res = res.replace(UK_PRICE_CLAIMS, 'our best direct-to-consumer value guarantee')
+    changes++
+  }
+  // US Disclosure
+  if ((/influencer|partner|paid/i.test(channel) || /influencer|partner/i.test(res)) && !DISCLOSURE.test(res) && !US_DISCLOSURE.test(res)) {
+    res = '#ad · Paid partnership with @PureGlow\n' + res
+    changes++
+  }
+  // Urgency
+  if (URGENCY.test(res)) {
+    res = res.replace(URGENCY, 'explore today')
+    changes++
+  }
+
+  return { remediatedText: res, totalChanges: changes }
 }

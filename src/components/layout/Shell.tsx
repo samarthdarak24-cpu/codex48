@@ -11,6 +11,7 @@ import {
   FilePlus2,
   FlaskConical,
   LayoutDashboard,
+  Radar,
   ListChecks,
   LogOut,
   Menu,
@@ -98,6 +99,7 @@ function useNavItems(): { items: NavItem[]; footer: string } {
       items: [
         { to: '/manager/overview', label: 'Overview', icon: LayoutDashboard },
         { to: '/manager/queue', label: 'Review Queue', icon: ListChecks, badge: pending, badgeTone: 'danger' },
+        { to: '/manager/sentinel', label: 'Sentinel Watchdog', icon: Radar, badge: 2, badgeTone: 'danger' },
         { to: '/manager/guidelines', label: 'Guidelines & Rules', icon: BookOpen },
         { to: '/manager/exceptions', label: 'Exceptions', icon: Clock, badge: openExceptions, badgeTone: 'warn' },
         { to: '/manager/sandbox', label: 'Rule Impact Sandbox', icon: FlaskConical },
