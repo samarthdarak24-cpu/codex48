@@ -25,6 +25,7 @@ import { SearchInput, Select } from '@/components/ui/Field'
 import { DataTable, EmptyState, Pagination, type Column } from '@/components/ui/Table'
 import { Badge, type Tone } from '@/components/ui/Badge'
 import { Avatar, Donut, DonutLegend, Thumb } from '@/components/ui/Misc'
+import { ContentThumb } from '@/components/content/ContentThumb'
 import { useToast } from '@/components/ui/Toast'
 import { auditBreakdown, auditStats } from '@/lib/selectors'
 import { cn, fmtDate, fmtDateTime, fmtTime, relative } from '@/lib/utils'
@@ -68,6 +69,7 @@ export default function AuditHistory() {
 
   const stats = auditStats(audit)
   const breakdown = auditBreakdown(audit)
+  const submissionById = useMemo(() => new Map(submissions.map((s) => [s.id, s])), [submissions])
 
   /** Average hours between submission and its first recorded decision. */
   const avgReviewHours = useMemo(() => {
@@ -150,21 +152,26 @@ export default function AuditHistory() {
       key: 'content',
       header: 'Content',
       width: '190px',
-      cell: (row) => (
-        <div className="flex items-center gap-2">
-          {row.thumb ? <Thumb spec={row.thumb} size={26} /> : (
-            <span className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-md bg-[#F2F7FD] text-brand-500">
-              <FileText className="h-3 w-3" />
-            </span>
-          )}
-          <div className="min-w-0">
-            <p className="truncate text-xs font-medium leading-[16px] text-ink">{row.entityTitle}</p>
-            <p className="truncate text-2xs leading-[13px] text-muted">
-              {row.brand} · {row.entityMeta}
-            </p>
+      cell: (row) => {
+        const sub = row.entityKind === 'submission' ? submissionById.get(row.entityId) : undefined
+        return (
+          <div className="flex items-center gap-2">
+            {row.thumb ? (
+              <ContentThumb thumb={row.thumb} assetRef={sub?.assetRef} size={26} />
+            ) : (
+              <span className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-md bg-[#F2F7FD] text-brand-500">
+                <FileText className="h-3 w-3" />
+              </span>
+            )}
+            <div className="min-w-0">
+              <p className="truncate text-xs font-medium leading-[16px] text-ink">{row.entityTitle}</p>
+              <p className="truncate text-2xs leading-[13px] text-muted">
+                {row.brand} · {row.entityMeta}
+              </p>
+            </div>
           </div>
-        </div>
-      ),
+        )
+      },
     },
     {
       key: 'user',

@@ -25,6 +25,7 @@ import { Field, SearchInput, Select, Textarea } from '@/components/ui/Field'
 import { DataTable, EmptyState, Pagination, type Column } from '@/components/ui/Table'
 import { PriorityBadge, StatusBadge, Badge } from '@/components/ui/Badge'
 import { Avatar, Modal, Skeleton, Thumb } from '@/components/ui/Misc'
+import { ContentThumb } from '@/components/content/ContentThumb'
 import { useToast } from '@/components/ui/Toast'
 import { FileIcon } from '@/pages/content/Overview'
 import { awaitingDecision, priorityOf, submissionsWithExceptions } from '@/lib/selectors'
@@ -144,7 +145,7 @@ export default function ReviewQueue() {
       header: 'Content',
       cell: (row) => (
         <div className="flex items-center gap-2.5">
-          <Thumb spec={row.thumb} size={32} />
+          <ContentThumb thumb={row.thumb} assetRef={row.assetRef} size={32} />
           <div className="min-w-0">
             <p className="truncate text-base font-medium leading-[17px] text-ink">{row.title}</p>
             <p className="truncate text-2xs leading-[14px] text-muted">{row.excerpt}</p>

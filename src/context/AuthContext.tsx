@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
-import { authApi, setSession, type Session } from '@/services/api'
+import { authApi, setSession, SESSION_EXPIRED_EVENT, type Session } from '@/services/api'
 import type { Role, User } from '@/lib/types'
 
 const STORAGE_KEY = 'precedent.session'
@@ -18,8 +18,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [status, setStatus] = useState<AuthState['status']>('loading')
 
-  // Restore a session on boot. The token is validated server-side in production;
-  // here the stored account is re-resolved from the trusted roster.
+  // Restore a session on boot, but validate the stored token against the
+  // server first. If the account no longer exists (e.g. the database was
+  // reseeded) /auth/me returns 401 and we drop the session instead of showing
+  // a stale dashboard whose actions all fail with "User not found".
   useEffect(() => {
     let cancelled = false
     const raw = sessionStorage.getItem(STORAGE_KEY)
@@ -27,24 +29,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setStatus('anonymous')
       return
     }
+    let parsed: Session | null = null
     try {
-      const parsed = JSON.parse(raw) as Session
-      // Role comes from the backend-provided user object, never the payload.
-      if (parsed?.user?.id) {
-        setSession(parsed)
-        setUser(parsed.user)
-        setStatus('authenticated')
-      } else {
-        sessionStorage.removeItem(STORAGE_KEY)
-        setStatus('anonymous')
-      }
+      parsed = JSON.parse(raw) as Session
     } catch {
+      parsed = null
+    }
+    if (!parsed?.token || !parsed?.user?.id) {
       sessionStorage.removeItem(STORAGE_KEY)
       setStatus('anonymous')
+      return
     }
+    setSession(parsed)
+    authApi
+      .me()
+      .then((fresh) => {
+        if (cancelled) return
+        setSession({ token: parsed!.token, user: fresh })
+        setUser(fresh)
+        setStatus('authenticated')
+      })
+      .catch(() => {
+        if (cancelled) return
+        setSession(null)
+        sessionStorage.removeItem(STORAGE_KEY)
+        setUser(null)
+        setStatus('anonymous')
+      })
     return () => {
       cancelled = true
     }
+  }, [])
+
+  // Any request that gets a 401 clears the session and emits this event; drop
+  // the in-memory user so the route guards redirect to /login.
+  useEffect(() => {
+    const onExpired = () => {
+      setUser(null)
+      setStatus('anonymous')
+    }
+    window.addEventListener(SESSION_EXPIRED_EVENT, onExpired)
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onExpired)
   }, [])
 
   const login = useCallback(async (email: string, password: string) => {

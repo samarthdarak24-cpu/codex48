@@ -1,0 +1,16 @@
+{
+  "exceptions": {
+    "total": 3,
+    "loaded": 3
+  },
+  "sandbox": {
+    "total": 4,
+    "loaded": 4
+  },
+  "audit": {
+    "total": 1,
+    "loaded": 1
+  },
+  "consoleErrors": [],
+  "pass": true
+}

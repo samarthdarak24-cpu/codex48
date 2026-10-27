@@ -3,9 +3,12 @@
 Mirrors the fictional dataset in src/lib/demo-data.ts with a 2-user workspace.
 Run with:  python seed.py
 """
+import os
+import shutil
 from datetime import datetime, timedelta, timezone
 
-from app.db import SessionLocal, init_db
+from app.config import settings
+from app.db import SessionLocal, init_db, engine
 from app import models
 from app.ids import new_id
 from app.security import hash_password
@@ -27,15 +30,17 @@ class Asset:
 
 
 def main() -> None:
+    # Rebuild the schema from the current models before seeding. `create_all`
+    # only creates *missing* tables — it never adds columns to an existing one —
+    # so a dev DB built by an older version would otherwise drift from the ORM
+    # (e.g. the `workspace` columns). Dropping and recreating guarantees the
+    # seeded database always matches the models.
+    models.Base.metadata.drop_all(bind=engine)
     init_db()
+    print("schema rebuilt from models")
     db = SessionLocal()
     try:
-        # Idempotent: clear and reseed for a dev environment.
-        if db.query(models.User).count() > 0:
-            print("already seeded — clearing tables for a clean reseed")
-            for table in reversed(models.Base.metadata.sorted_tables):
-                db.execute(table.delete())
-            db.commit()
+        # Tables are freshly created above, so no row-clearing is needed.
 
         # ------------------------------------------------------------------
         # Users
@@ -258,6 +263,42 @@ def main() -> None:
         db.commit()
 
         # ------------------------------------------------------------------
+        # Brand / product assets (demo images from public/images/assets)
+        # Each asset belongs to a particular brand, so the content list can
+        # show the real attached image instead of the generated glyph.
+        # ------------------------------------------------------------------
+        public_assets = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "public", "images", "assets",
+        )
+        os.makedirs(settings.uploads_dir, exist_ok=True)
+        demo_assets_spec = [
+            ("summer", "Summer Vibes", "PureGlow", "approved", "Seasonal campaign key visual."),
+            ("festival", "Festival Special", "PureGlow", "approved", "Festival campaign banner."),
+            ("ingredients", "Better Together", "PureGlow", "approved", "Ingredient story visual."),
+            ("sensitive", "Sensitive Skin", "PureGlow", "approved", "Product hero for sensitive skin."),
+            ("awareness", "Brand Awareness", "PureGlow", "approved", "Brand awareness creative."),
+            ("holiday", "Holiday Gift Set", "PureGlow", "approved", "Festive gift set visual."),
+            ("wellness", "Wellness Life", "WellnessLife", "approved", "WellnessLife lifestyle visual."),
+            ("partner", "Partner Co-brand", "WellnessLife", "pending", "Influencer co-brand visual."),
+        ]
+        demo_assets = {}
+        for key, name, abrand, astatus, anotes in demo_assets_spec:
+            src = os.path.join(public_assets, f"{key}.jpg")
+            if not os.path.exists(src):
+                continue
+            dst = os.path.join(settings.uploads_dir, f"demo_{key}.jpg")
+            shutil.copyfile(src, dst)
+            asset = models.BrandAsset(
+                id=new_id("asset"), workspace="PureGlow", name=name, brand=abrand,
+                category="Product Image", file_path=dst, source="upload",
+                status=astatus, notes=anotes, uploaded_by_id=david.id,
+            )
+            db.add(asset)
+            demo_assets[key] = asset
+        db.commit()
+
+        # ------------------------------------------------------------------
         # Submissions (~14)
         # ------------------------------------------------------------------
         # (index, title, excerpt, type, channel, brand, status, thumb, asset, v1_text, comments, decision)
@@ -353,6 +394,11 @@ def main() -> None:
         ]
 
         active_rules = db.query(models.Rule).filter_by(status="active").all()
+        # Which demo image (if any) each submission carries as its reference.
+        demo_asset_for = {
+            0: "summer", 1: "ingredients", 2: "wellness", 3: "partner",
+            4: "sensitive", 5: "awareness", 6: "festival", 11: "holiday",
+        }
         created_subs = []
         for (idx, title, excerpt, stype, channel, brand, status,
              thumb, asset_d, v1_text, comments, decision) in submissions_data:
@@ -373,6 +419,15 @@ def main() -> None:
             )
             db.add(sub)
             db.flush()
+
+            demo_key = demo_asset_for.get(idx)
+            if demo_key and demo_key in demo_assets:
+                attached = demo_assets[demo_key]
+                sub.asset_id = attached.id
+                sub.asset_name = attached.name
+                sub.asset_url = f"/assets/{attached.id}/file"
+                sub.asset_source = attached.source
+                sub.asset_attribution = attached.notes
 
             db.add(models.ContentVersion(
                 id=new_id("v"), submission_id=sub.id, version=1, text=v1_text,

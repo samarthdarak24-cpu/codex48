@@ -56,21 +56,27 @@ def _thumb_dict(s: models.Submission) -> dict:
     return {"kind": s.thumb_kind, "palette": s.thumb_palette, "glyph": s.thumb_glyph}
 
 
-def _active_exception(db: Session, rule_code: str, brand: str, content_id: str) -> bool:
+def _active_exception(
+    db: Session, rule_code: str, brand: str, content_id: str, workspace: Optional[str] = None
+) -> bool:
     """True when an approved, unexpired, in-scope exception covers this rule.
 
     The rule engine consults this on every evaluation so an exception is never
-    an unrestricted "ignore rule" toggle: scope and expiry are enforced here.
+    an unrestricted "ignore rule" toggle: workspace, scope and expiry are
+    enforced here.
     """
     now = datetime.now(timezone.utc)
-    rows = (
-        db.query(models.ExceptionRequest)
-        .filter(
-            models.ExceptionRequest.status == "Approved",
-            models.ExceptionRequest.rule_code == rule_code,
-        )
-        .all()
+    query = db.query(models.ExceptionRequest).filter(
+        models.ExceptionRequest.status == "Approved",
+        models.ExceptionRequest.rule_code == rule_code,
     )
+    # Never let another workspace's exception suppress this workspace's finding.
+    if workspace:
+        query = query.filter(
+            (models.ExceptionRequest.workspace == workspace)
+            | (models.ExceptionRequest.workspace.is_(None))
+        )
+    rows = query.all()
     for e in rows:
         if e.status != "Approved":
             continue
@@ -232,7 +238,9 @@ def _verify_evidence(db: Session, rule_code: str, source_passage: str, source_do
     return False
 
 
-def _apply_findings(db: Session, sub_id: str, findings: list, brand: str) -> list:
+def _apply_findings(
+    db: Session, sub_id: str, findings: list, brand: str, workspace: Optional[str] = None
+) -> list:
     """Persist engine findings for a submission.
 
     A finding covered by an approved, unexpired, in-scope exception is stored
@@ -242,7 +250,7 @@ def _apply_findings(db: Session, sub_id: str, findings: list, brand: str) -> lis
     """
     open_findings: list = []
     for f in findings:
-        accepted = _active_exception(db, f.rule_code, brand, sub_id)
+        accepted = _active_exception(db, f.rule_code, brand, sub_id, workspace)
         verified = _verify_evidence(db, f.rule_code, f.source_passage, f.source_doc_id)
         db.add(
             models.Finding(
@@ -404,10 +412,17 @@ def create_submission(
         )
     )
 
-    active_rules = db.query(models.Rule).filter_by(status="active").all()
+    ws = workspace or "PureGlow"
+    # Workspace isolation: evaluate against this workspace's active rules only.
+    active_rules = (
+        db.query(models.Rule)
+        .filter(models.Rule.status == "active")
+        .filter((models.Rule.workspace == ws) | (models.Rule.workspace.is_(None)))
+        .all()
+    )
     findings = run_rules(active_rules, text, channel, asset_obj)
     findings = _augment_with_ai(db, findings, text, active_rules, asset_obj)
-    open_findings = _apply_findings(db, sub_id, findings, brand)
+    open_findings = _apply_findings(db, sub_id, findings, brand, ws)
     sub.issue_count = len(open_findings)
     sub.priority = _derive_priority(open_findings)
     sub.updated_at = datetime.now(timezone.utc)
@@ -452,7 +467,13 @@ def add_version(
     )
 
     asset_obj = _asset_from_submission(sub)
-    active_rules = db.query(models.Rule).filter_by(status="active").all()
+    ws = sub.workspace or "PureGlow"
+    active_rules = (
+        db.query(models.Rule)
+        .filter(models.Rule.status == "active")
+        .filter((models.Rule.workspace == ws) | (models.Rule.workspace.is_(None)))
+        .all()
+    )
     findings = run_rules(active_rules, text, sub.channel, asset_obj)
     findings = _augment_with_ai(db, findings, text, active_rules, asset_obj)
 
@@ -460,7 +481,7 @@ def add_version(
     for old in list(sub.findings):
         db.delete(old)
     db.flush()
-    open_findings = _apply_findings(db, sub_id, findings, sub.brand)
+    open_findings = _apply_findings(db, sub_id, findings, sub.brand, ws)
     sub.issue_count = len(open_findings)
     sub.version = next_version
     sub.status = "Pending"  # Approval does not carry to a new version

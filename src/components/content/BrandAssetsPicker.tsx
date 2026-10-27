@@ -3,7 +3,7 @@ import { Check, Search, Upload, X } from 'lucide-react'
 import { api } from '@/services/api'
 import { Card, CardHeader } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Field'
+import { Input, Select } from '@/components/ui/Field'
 import { useToast } from '@/components/ui/Toast'
 import { cn } from '@/lib/utils'
 import type { BrandAsset } from '@/lib/types'
@@ -35,6 +35,7 @@ export function BrandAssetsPicker({
 }) {
   const toast = useToast()
   const [assets, setAssets] = useState<BrandAsset[]>([])
+  const [assetBrand, setAssetBrand] = useState(brand)
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState('')
   const [searching, setSearching] = useState(false)
@@ -78,6 +79,14 @@ export function BrandAssetsPicker({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assets])
 
+  // Follow the content's brand by default; the user can still pick another
+  // brand for the image they upload.
+  useEffect(() => {
+    setAssetBrand(brand)
+  }, [brand])
+
+  const visibleAssets = assets.filter((a) => a.brand === assetBrand || a.brand === 'All brands')
+
   async function onSearch() {
     if (!query.trim()) return
     setSearching(true)
@@ -98,9 +107,9 @@ export function BrandAssetsPicker({
       const created = await api.uploadAsset(
         file,
         file.name.replace(/\.[^.]+$/, ''),
-        brand,
+        assetBrand,
         'Product Image',
-        'Uploaded from New Content',
+        `Uploaded from New Content (${assetBrand})`,
       )
       setAssets((prev) => [created, ...prev])
       onSelect(created.id)
@@ -120,7 +129,7 @@ export function BrandAssetsPicker({
       <CardHeader
         title="Brand & Product Assets"
         dense
-        action={<span className="text-2xs text-muted">{assets.length} in library</span>}
+        action={<span className="text-2xs text-muted">{visibleAssets.length} in library</span>}
       />
       <div className="space-y-3 p-3">
         <div className="flex gap-2">
@@ -134,6 +143,22 @@ export function BrandAssetsPicker({
           <Button size="sm" variant="outline" loading={searching} onClick={onSearch} icon={<Search className="h-3.5 w-3.5" />}>
             Search
           </Button>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span className="text-2xs font-semibold uppercase tracking-[0.06em] text-muted">Brand</span>
+          <Select
+            value={assetBrand}
+            onChange={(e) => setAssetBrand(e.target.value)}
+            className="h-8 w-auto min-w-[128px] py-0 text-xs"
+            aria-label="Brand for the uploaded image"
+          >
+            <option value="PureGlow">PureGlow</option>
+            <option value="WellnessLife">WellnessLife</option>
+          </Select>
+          <span className="ml-auto text-right text-2xs leading-[13px] text-muted">
+            Images you upload are saved under this brand.
+          </span>
         </div>
 
         {research && !research.configured && (
@@ -164,11 +189,11 @@ export function BrandAssetsPicker({
         <div className="border-t border-line pt-3">
           <p className="mb-2 text-2xs font-semibold uppercase tracking-[0.06em] text-muted">Approved library</p>
           {loading && <p className="text-2xs text-muted">Loading…</p>}
-          {!loading && assets.length === 0 && (
-            <p className="text-2xs text-muted">No assets yet. Upload one to get started.</p>
+          {!loading && visibleAssets.length === 0 && (
+            <p className="text-2xs text-muted">No {assetBrand} assets yet. Upload one to get started.</p>
           )}
           <div className="grid grid-cols-3 gap-2">
-            {assets.map((a) => {
+            {visibleAssets.map((a) => {
               const src = preview(a)
               const active = a.id === selectedId
               return (
@@ -188,6 +213,9 @@ export function BrandAssetsPicker({
                       <div className="flex h-full items-center justify-center text-[10px] text-muted">No preview</div>
                     )}
                   </div>
+                  <span className="absolute left-1 top-1 rounded bg-white/85 px-1 text-[8px] font-medium text-ink-700">
+                    {a.brand}
+                  </span>
                   {active && (
                     <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-brand-500 text-white">
                       <Check className="h-2.5 w-2.5" />

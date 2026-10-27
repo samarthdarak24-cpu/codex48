@@ -186,26 +186,30 @@ def detect_conflicts(db: Session, workspace: str = "PureGlow") -> list[dict]:
     # Check 5: Proposed-Rule-vs-Ruling conflicts
     proposals = db.query(models.ProposedRule).filter(models.ProposedRule.status.in_(["draft", "pending"])).all()
     for prop in proposals:
+        # ProposedRule stores the change in `proposed_value` (not a `condition`
+        # column) — read defensively so a draft proposal can never 500 this route.
+        prop_text = getattr(prop, "proposed_value", "") or ""
+        prop_dir = _direction(prop_text)
         for ex in exceptions:
             if is_expired(ex):
                 continue
-            prop_dir = _direction(prop.condition or prop.action or "")
             ex_text = f"{(ex.reason or '').lower()} {(ex.conditions or '').lower()}"
-            shared_prop = [w for w in (prop.condition or "").lower().split() if len(w) >= 4 and w in ex_text and w not in _PROHIBIT_WORDS]
+            shared_prop = [w for w in prop_text.lower().split() if len(w) >= 4 and w in ex_text and w not in _PROHIBIT_WORDS]
             if shared_prop and prop_dir == "prohibit":
+                target_code = getattr(prop, "target_rule_code", "")
                 conflicts.append({
                     "type": "proposed_vs_ruling",
                     "severity": "Medium",
                     "proposedRule": {
                         "id": prop.id,
-                        "ruleCode": prop.rule_code,
-                        "title": prop.title,
-                        "condition": prop.condition,
-                        "action": prop.action,
+                        "ruleCode": target_code,
+                        "title": target_code,
+                        "condition": prop_text,
+                        "action": getattr(prop, "change_type", ""),
                     },
                     "exception": exception_to_dict(ex),
                     "reason": (
-                        f"Proposed-Rule-vs-Ruling conflict: Proposed change for {prop.rule_code} "
+                        f"Proposed-Rule-vs-Ruling conflict: Proposed change for {target_code} "
                         f"imposes restrictions overlapping with approved active exception {ex.code} ({', '.join(shared_prop[:3])})."
                     ),
                 })

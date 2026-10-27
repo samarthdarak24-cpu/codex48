@@ -22,8 +22,9 @@ def list_guidelines(
     current_user: models.User = Depends(get_current_user),
 ):
     ws = getattr(current_user, "workspace", "PureGlow")
+    # Workspace isolation: only this workspace's documents (NULL = legacy/shared).
     query = db.query(models.GuidelineDoc).filter(
-        (models.GuidelineDoc.workspace == ws) | (models.GuidelineDoc.workspace.is_(None)) | (models.GuidelineDoc.workspace == "PureGlow")
+        (models.GuidelineDoc.workspace == ws) | (models.GuidelineDoc.workspace.is_(None))
     )
     if current_user.role == "creator":
         query = query.filter(models.GuidelineDoc.visible_to_creators == True)  # noqa: E712
@@ -43,7 +44,7 @@ def search_guidelines(
         db.query(models.GuidelinePassage, models.GuidelineDoc.name)
         .join(models.GuidelineDoc, models.GuidelinePassage.doc_id == models.GuidelineDoc.id)
         .filter(
-            (models.GuidelinePassage.workspace == ws) | (models.GuidelinePassage.workspace.is_(None)) | (models.GuidelinePassage.workspace == "PureGlow"),
+            (models.GuidelinePassage.workspace == ws) | (models.GuidelinePassage.workspace.is_(None)),
             (models.GuidelinePassage.passage_text.ilike(f"%{q}%"))
             | (models.GuidelinePassage.heading.ilike(f"%{q}%"))
             | (models.GuidelineDoc.name.ilike(f"%{q}%")),

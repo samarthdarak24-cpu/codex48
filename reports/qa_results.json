@@ -1,0 +1,539 @@
+{
+  "generatedAt": "2026-10-27T15:36:51.390523+00:00",
+  "summary": {
+    "passed": 87,
+    "failed": 0,
+    "blocked": 1,
+    "total": 88
+  },
+  "results": [
+    {
+      "area": "auth",
+      "name": "valid login returns token + user",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "auth",
+      "name": "invalid password rejected (401)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "auth",
+      "name": "unauthenticated /auth/me rejected (401)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "auth",
+      "name": "/auth/me returns role",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "auth",
+      "name": "logout succeeds",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "rbac",
+      "name": "creator cannot create rule (403)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "rbac",
+      "name": "creator cannot create claim (403)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "rbac",
+      "name": "creator cannot upload guideline (403)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "rbac",
+      "name": "creator CAN upload asset (own content)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "guidelines",
+      "name": "manager uploads TXT guideline",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "guidelines",
+      "name": "extracted passages indexed",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "guidelines",
+      "name": "AI suggestions empty when unconfigured (no fabrication)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "guidelines",
+      "name": "passages retrievable with page refs",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "guidelines",
+      "name": "full-text search returns passages",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "guidelines",
+      "name": "invalid extension rejected (415)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "guidelines",
+      "name": "empty upload rejected (400)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "rules",
+      "name": "create draft without code -> 201 + auto code",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "rules",
+      "name": "new draft needs confirmation",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "rules",
+      "name": "confirm draft -> active",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "rules",
+      "name": "duplicate explicit code rejected (409)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "rules",
+      "name": "conflict report returns list",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "claims",
+      "name": "manager creates claim",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "claims",
+      "name": "claim persisted with correct workspace",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "submissions",
+      "name": "create compliant content",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "submissions",
+      "name": "compliant content has 0 open issues",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "submissions",
+      "name": "version 1 created",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "submissions",
+      "name": "violating content flagged",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "rule_engine",
+      "name": "expected finding CL-04",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "rule_engine",
+      "name": "expected finding CL-06",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "rule_engine",
+      "name": "expected finding MK-02",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "rule_engine",
+      "name": "expected finding BR-01",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "rule_engine",
+      "name": "evidence verified against stored passage",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "submissions",
+      "name": "unapproved claim -> CL-03",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "submissions",
+      "name": "unreadable asset -> needs-review findings",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "submissions",
+      "name": "add version -> version 2",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "submissions",
+      "name": "new version clears text-rule findings",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "submissions",
+      "name": "issueCount equals open findings after revision",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "submissions",
+      "name": "new version resets status to Pending",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "submissions",
+      "name": "comment persists",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "submissions",
+      "name": "stale-version decision rejected (409)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "submissions",
+      "name": "manager approves current version",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "submissions",
+      "name": "decision recorded at reviewed version",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "rbac",
+      "name": "creator cannot decide (403)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "rbac",
+      "name": "other creator cannot read submission (403)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "database",
+      "name": "submission persisted in DB",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "database",
+      "name": "finding rows match recomputed version",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "exceptions",
+      "name": "submission with CL-04 created",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "exceptions",
+      "name": "create exception (frontend contract, no titles)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "exceptions",
+      "name": "exception titles derived server-side",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "exceptions",
+      "name": "new exception is Pending",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "exceptions",
+      "name": "manager approves exception",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "exceptions",
+      "name": "approved exception -> accepted_exception (suppressed)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "exceptions",
+      "name": "suppressed finding excluded from issueCount",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "exceptions",
+      "name": "expired exception approval rejected (409)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "exceptions",
+      "name": "manager rejects exception",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "exceptions",
+      "name": "revoke approved exception",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "exceptions",
+      "name": "ruling history records Requested+Approved+Revoked",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "exceptions",
+      "name": "out-of-scope exception does NOT apply",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "simulations",
+      "name": "red-only submission flagged solely by BR-01",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "simulations",
+      "name": "run simulation",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "simulations",
+      "name": "simulation totals computed from real records",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "simulations",
+      "name": "proposed change resolves red-background content",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "simulations",
+      "name": "target rule NOT activated by simulation",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "rbac",
+      "name": "creator cannot run simulation (403)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "simulations",
+      "name": "explicit activation applies proposed change",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "assets",
+      "name": "upload valid PNG",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "assets",
+      "name": "invalid file type rejected",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "assets",
+      "name": "manager approves asset",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "assets",
+      "name": "research reports unconfigured (no fabricated results)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "assets",
+      "name": "asset attached to submission",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "assets",
+      "name": "asset relationship persists after re-read",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "isolation",
+      "name": "GreenLeaf user does NOT see PureGlow guideline",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "isolation",
+      "name": "GreenLeaf user does NOT see PureGlow rule",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "isolation",
+      "name": "GreenLeaf user does NOT see PureGlow claim",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "isolation",
+      "name": "GreenLeaf user does NOT see PureGlow team member",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "isolation",
+      "name": "PureGlow submission hidden from GreenLeaf list",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "isolation",
+      "name": "PureGlow submission direct fetch blocked",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "isolation",
+      "name": "PureGlow exception does NOT suppress GreenLeaf finding",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "audit",
+      "name": "audit events load",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "audit",
+      "name": "audit contains real operations",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "audit",
+      "name": "CSV export works",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "audit",
+      "name": "audit health metrics computed",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "audit",
+      "name": "no delete route for audit (append-only)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "ai",
+      "name": "AI provider unconfigured -> ai_available() False",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "ai",
+      "name": "semantic_findings degrades to None",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "ai",
+      "name": "minimal_edit_suggestion degrades to None",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "area": "ai",
+      "name": "LIVE LLM request (requires LLM_* credentials)",
+      "status": "BLOCKED",
+      "detail": "No LLM_BASE_URL/LLM_API_KEY configured; deterministic engine is source of truth."
+    },
+    {
+      "area": "rule_engine",
+      "name": "deterministic: same input -> same findings",
+      "status": "PASS",
+      "detail": ""
+    }
+  ]
+}

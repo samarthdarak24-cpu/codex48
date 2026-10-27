@@ -15,8 +15,15 @@ router = APIRouter(prefix="/team", tags=["team"])
 
 @router.get("")
 def list_team(
-    _: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list:
-    users = db.query(models.User).order_by(models.User.name).all()
+    # Workspace isolation: never expose members of another workspace.
+    ws = current_user.workspace or "PureGlow"
+    users = (
+        db.query(models.User)
+        .filter((models.User.workspace == ws) | (models.User.workspace.is_(None)))
+        .order_by(models.User.name)
+        .all()
+    )
     return [auth.get_user_out(u) for u in users]

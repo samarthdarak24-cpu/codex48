@@ -21,7 +21,12 @@ def get_current_user(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
     user = db.get(User, payload["sub"])
     if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+        # The token is well-formed but its account no longer exists (e.g. the
+        # database was reseeded). Tell the client to re-authenticate.
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session expired — please sign in again.",
+        )
     return user
 
 

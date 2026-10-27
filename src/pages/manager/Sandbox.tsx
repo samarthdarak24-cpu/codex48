@@ -25,6 +25,7 @@ import { Field, Input, Select } from '@/components/ui/Field'
 import { DataTable, EmptyState, type Column } from '@/components/ui/Table'
 import { ImpactBadge, StatusBadge } from '@/components/ui/Badge'
 import { Donut, DonutLegend, Tabs, Thumb } from '@/components/ui/Misc'
+import { ContentThumb } from '@/components/content/ContentThumb'
 import { useToast } from '@/components/ui/Toast'
 import { FileIcon } from '@/pages/content/Overview'
 import { simulationStats } from '@/lib/selectors'
@@ -58,11 +59,12 @@ const SUGGESTIONS: Record<string, string> = {
 }
 
 export default function Sandbox() {
-  const { rules, simulations, loading, runSimulation, activateSimulation } = useData()
+  const { rules, simulations, submissions, loading, runSimulation, activateSimulation } = useData()
   const navigate = useNavigate()
   const toast = useToast()
 
   const activeRules = useMemo(() => rules.filter((r) => r.status === 'active'), [rules])
+  const submissionById = useMemo(() => new Map(submissions.map((s) => [s.id, s])), [submissions])
   const [ruleId, setRuleId] = useState('')
   const [changeType, setChangeType] = useState(CHANGE_TYPES[0])
   const [newValue, setNewValue] = useState('')
@@ -110,7 +112,7 @@ export default function Sandbox() {
       header: 'Content Item',
       cell: (row) => (
         <div className="flex items-center gap-2.5">
-          <Thumb spec={row.thumb} size={30} />
+          <ContentThumb thumb={row.thumb} assetRef={submissionById.get(row.submissionId)?.assetRef} size={30} />
           <div className="min-w-0">
             <p className="truncate text-base font-medium leading-[17px] text-ink">{row.title}</p>
             <p className="truncate text-2xs leading-[14px] text-muted">{row.meta}</p>
@@ -421,7 +423,11 @@ export default function Sandbox() {
                         .filter((i) => i.impact !== 'Compliant')
                         .map((i) => (
                           <div key={i.submissionId} className="flex items-start gap-2.5 rounded-lg border border-line p-2.5">
-                            <Thumb spec={i.thumb} size={28} />
+                            <ContentThumb
+                              thumb={i.thumb}
+                              assetRef={submissionById.get(i.submissionId)?.assetRef}
+                              size={28}
+                            />
                             <div className="min-w-0 flex-1">
                               <p className="text-xs font-medium text-ink">{i.title}</p>
                               <p className="text-2xs leading-[15px] text-muted">{i.note}</p>

@@ -23,6 +23,7 @@ import { Field, Input, SearchInput, Select, Textarea } from '@/components/ui/Fie
 import { DataTable, EmptyState, Pagination, type Column } from '@/components/ui/Table'
 import { ExceptionBadge, Badge } from '@/components/ui/Badge'
 import { Avatar, Donut, DonutLegend, Modal, Thumb } from '@/components/ui/Misc'
+import { ContentThumb } from '@/components/content/ContentThumb'
 import { useToast } from '@/components/ui/Toast'
 import { exceptionStats, expiringSoon } from '@/lib/selectors'
 import { cn, daysUntil, fmtDate, fmtDateTime, relative } from '@/lib/utils'
@@ -72,6 +73,7 @@ export default function ExceptionsPage() {
 
   const stats = exceptionStats(exceptions)
   const expiring = expiringSoon(exceptions)
+  const submissionById = useMemo(() => new Map(submissions.map((s) => [s.id, s])), [submissions])
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -107,15 +109,18 @@ export default function ExceptionsPage() {
       key: 'content',
       header: 'Content',
       width: '208px',
-      cell: (row) => (
-        <div className="flex items-center gap-2.5">
-          <Thumb spec={row.thumb} size={32} />
-          <div className="min-w-0">
-            <p className="truncate text-base font-medium leading-[17px] text-ink">{row.contentTitle}</p>
-            <p className="truncate text-2xs leading-[14px] text-muted">{row.contentMeta}</p>
+      cell: (row) => {
+        const sub = submissionById.get(row.contentId)
+        return (
+          <div className="flex items-center gap-2.5">
+            <ContentThumb thumb={row.thumb} assetRef={sub?.assetRef} size={32} />
+            <div className="min-w-0">
+              <p className="truncate text-base font-medium leading-[17px] text-ink">{row.contentTitle}</p>
+              <p className="truncate text-2xs leading-[14px] text-muted">{row.contentMeta}</p>
+            </div>
           </div>
-        </div>
-      ),
+        )
+      },
     },
     {
       key: 'brand',

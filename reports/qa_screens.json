@@ -1,0 +1,152 @@
+{
+  "screens": [
+    {
+      "route": "/app/overview",
+      "label": "creator-overview",
+      "ok": true,
+      "textLen": 1836,
+      "overflow": 0,
+      "markerOk": true,
+      "errors": []
+    },
+    {
+      "route": "/app/new",
+      "label": "creator-new",
+      "ok": true,
+      "textLen": 2068,
+      "overflow": 0,
+      "markerOk": true,
+      "errors": []
+    },
+    {
+      "route": "/app/submissions",
+      "label": "creator-submissions",
+      "ok": true,
+      "textLen": 1655,
+      "overflow": 0,
+      "markerOk": true,
+      "errors": []
+    },
+    {
+      "route": "/app/guidelines",
+      "label": "creator-guidelines",
+      "ok": true,
+      "textLen": 1730,
+      "overflow": 0,
+      "markerOk": true,
+      "errors": []
+    },
+    {
+      "route": "/app/feedback/sub_d9560a9a136a",
+      "label": "creator-feedback",
+      "ok": true,
+      "textLen": 1913,
+      "overflow": 0,
+      "markerOk": true,
+      "errors": []
+    },
+    {
+      "route": "/manager/overview",
+      "label": "manager-overview",
+      "ok": true,
+      "textLen": 1901,
+      "overflow": 0,
+      "markerOk": true,
+      "errors": []
+    },
+    {
+      "route": "/manager/queue",
+      "label": "manager-queue",
+      "ok": true,
+      "textLen": 2099,
+      "overflow": 0,
+      "markerOk": true,
+      "errors": []
+    },
+    {
+      "route": "/manager/guidelines",
+      "label": "manager-guidelines",
+      "ok": true,
+      "textLen": 1984,
+      "overflow": 0,
+      "markerOk": true,
+      "errors": []
+    },
+    {
+      "route": "/manager/exceptions",
+      "label": "manager-exceptions",
+      "ok": true,
+      "textLen": 2179,
+      "overflow": 0,
+      "markerOk": true,
+      "errors": []
+    },
+    {
+      "route": "/manager/sandbox",
+      "label": "manager-sandbox",
+      "ok": true,
+      "textLen": 2827,
+      "overflow": 0,
+      "markerOk": true,
+      "errors": []
+    },
+    {
+      "route": "/manager/audit",
+      "label": "manager-audit",
+      "ok": true,
+      "textLen": 3198,
+      "overflow": 0,
+      "markerOk": true,
+      "errors": []
+    },
+    {
+      "route": "/",
+      "label": "marketing-home",
+      "ok": true,
+      "textLen": 18096,
+      "overflow": 0,
+      "markerOk": true,
+      "errors": []
+    },
+    {
+      "route": "/login",
+      "label": "login",
+      "ok": true,
+      "textLen": 1060,
+      "overflow": 0,
+      "markerOk": true,
+      "errors": []
+    }
+  ],
+  "interactions": {
+    "emptyFormBlocked": true,
+    "queueHasContent": true,
+    "exceptionsLoaded": true,
+    "auditLoaded": true
+  },
+  "mobile": [
+    {
+      "route": "/app/overview",
+      "label": "mobile-creator-overview",
+      "overflow": 0,
+      "textLen": 1497,
+      "ok": true
+    },
+    {
+      "route": "/app/submissions",
+      "label": "mobile-creator-submissions",
+      "overflow": 0,
+      "textLen": 1204,
+      "ok": true
+    }
+  ],
+  "consoleErrors": [],
+  "creatorLanded": "http://127.0.0.1:5173/app/overview",
+  "managerLanded": "http://127.0.0.1:5173/manager/overview",
+  "summary": {
+    "screens": 13,
+    "screensPassed": 13,
+    "consoleErrors": 0,
+    "mobilePassed": 2
+  }
+}

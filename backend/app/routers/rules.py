@@ -45,8 +45,9 @@ def _parse_dt(value: datetime | None) -> datetime | None:
 @router.get("/rules")
 def list_rules(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     ws = getattr(current_user, "workspace", "PureGlow")
+    # Workspace isolation: only this workspace's rules (NULL = legacy/shared).
     rules = db.query(models.Rule).filter(
-        (models.Rule.workspace == ws) | (models.Rule.workspace.is_(None)) | (models.Rule.workspace == "PureGlow")
+        (models.Rule.workspace == ws) | (models.Rule.workspace.is_(None))
     ).all()
     return [svc.rule_to_dict(r) for r in rules]
 

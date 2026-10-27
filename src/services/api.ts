@@ -58,6 +58,24 @@ export function setSession(next: SessionRecord | null): void {
   }
 }
 
+/** Fired when the server rejects the stored token (expired / user gone). */
+export const SESSION_EXPIRED_EVENT = 'precedent:session-expired'
+
+/** Clear the local session and tell the app to return to the login screen. */
+function clearSessionAndNotify(): void {
+  setSession(null)
+  try {
+    sessionStorage.removeItem(SESSION_KEY)
+  } catch {
+    /* storage unavailable */
+  }
+  try {
+    window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT))
+  } catch {
+    /* no window (SSR) */
+  }
+}
+
 export class ApiError extends Error {
   status: number
   constructor(message: string, status = 400) {
@@ -91,6 +109,14 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
       else if (raw != null) detail = JSON.stringify(raw)
     } catch {
       /* non-JSON error body — keep statusText */
+    }
+    // A 401 outside the login call means the stored token is no longer valid
+    // (expired, or the database was reseeded so the user id no longer exists).
+    // Drop the stale session and force a re-login instead of surfacing a raw
+    // "User not found" error on whatever action the user was attempting.
+    if (res.status === 401 && path !== '/auth/login') {
+      clearSessionAndNotify()
+      throw new ApiError('Your session has expired. Please sign in again.', 401)
     }
     throw new ApiError(detail, res.status)
   }

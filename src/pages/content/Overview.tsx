@@ -19,7 +19,7 @@ import { Button } from '@/components/ui/Button'
 import { DataTable, EmptyState, type Column } from '@/components/ui/Table'
 import { Avatar, Donut, ProgressBar, Skeleton } from '@/components/ui/Misc'
 import { StatusBadge } from '@/components/ui/Badge'
-import { Thumb } from '@/components/ui/Misc'
+import { ContentThumb } from '@/components/content/ContentThumb'
 import { RailCard } from '@/components/layout/Shell'
 import { complianceSplit, openFindings, submissionStats } from '@/lib/selectors'
 import { cn, fmtShort, relative } from '@/lib/utils'
@@ -89,7 +89,7 @@ export default function CreatorOverview() {
       header: 'Content',
       cell: (row) => (
         <div className="flex items-center gap-2.5">
-          <Thumb spec={row.thumb} size={30} />
+          <ContentThumb thumb={row.thumb} assetRef={row.assetRef} size={30} />
           <div className="min-w-0">
             <p className="truncate text-base font-medium leading-[17px] text-ink">{row.title}</p>
             <p className="truncate text-2xs leading-[14px] text-muted">{row.channel}</p>

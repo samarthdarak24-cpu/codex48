@@ -38,9 +38,19 @@ def _serialize(claim: models.ApprovedClaim) -> dict:
 @router.get("/claims")
 def list_claims(
     db: Session = Depends(get_db),
-    _: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(get_current_user),
 ) -> list[dict]:
-    claims = db.query(models.ApprovedClaim).all()
+    # Workspace isolation: a user only sees claims approved for their own
+    # workspace (NULL = legacy rows, treated as shared).
+    ws = current_user.workspace or "PureGlow"
+    claims = (
+        db.query(models.ApprovedClaim)
+        .filter(
+            (models.ApprovedClaim.workspace == ws)
+            | (models.ApprovedClaim.workspace.is_(None))
+        )
+        .all()
+    )
     return [_serialize(c) for c in claims]
 
 
@@ -53,6 +63,7 @@ def create_claim(
     now = datetime.now(timezone.utc)
     claim = models.ApprovedClaim(
         id=new_id("claim"),
+        workspace=current_user.workspace or "PureGlow",
         text=body.text,
         product=body.product,
         source=body.source,

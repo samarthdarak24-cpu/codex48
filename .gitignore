@@ -26,6 +26,7 @@ __pycache__/
 *.py[cod]
 *.db
 uploads/
+qa_uploads/
 
 # Python virtual environments (created locally; never commit)
 .venv/

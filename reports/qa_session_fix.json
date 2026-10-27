@@ -1,0 +1,13 @@
+{
+  "staleRedirectedToLogin": true,
+  "staleSessionCleared": true,
+  "loginLanded": "http://127.0.0.1:5173/app/overview",
+  "submitSucceeded": true,
+  "submitUrl": "http://127.0.0.1:5173/app/feedback/sub_b85a87c065ed",
+  "showsUserNotFound": false,
+  "consoleErrors": [
+    "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+    "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+  ],
+  "pass": true
+}
