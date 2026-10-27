@@ -2,7 +2,8 @@
 
 Builds a *modified* rule set by relaxing the target rule according to the
 proposed change, then re-evaluates every submission against the patched rule
-set. The live rule is NEVER activated; this is a pure what-if projection.
+set. The live rule is NEVER activated during simulation; this is a pure what-if projection.
+Activation is handled via an explicit, separate manager-only endpoint.
 """
 from datetime import datetime, timezone
 from types import SimpleNamespace
@@ -12,7 +13,7 @@ from sqlalchemy.orm import Session
 from .. import models
 from ..ai import explain_simulation
 from ..ids import new_id
-from ..rule_engine import run_rules, VISUAL_ONLY_RULES
+from ..rule_engine import run_rules
 from ..services.audit import record
 
 
@@ -94,18 +95,41 @@ def _latest_text(sub: models.Submission) -> str:
 
 
 def run_simulation(db: Session, *, name: str, rule_id: str, change_type: str,
-                   current_value: str, new_value: str, user_id: str) -> models.Simulation:
+                   current_value: str, new_value: str, user_id: str,
+                   workspace: str = "PureGlow") -> models.Simulation:
     target_rule = db.get(models.Rule, rule_id)
     if target_rule is None:
         raise ValueError(f"Rule {rule_id} not found")
 
-    active_rules = db.query(models.Rule).filter(models.Rule.status == "active").all()
-    submissions = db.query(models.Submission).all()
+    # Snapshot target rule attributes before simulation run to verify immutability
+    prev_condition = target_rule.condition
+    prev_status = target_rule.status
+
+    rule_query = db.query(models.Rule).filter(models.Rule.status == "active")
+    sub_query = db.query(models.Submission)
+    if workspace:
+        rule_query = rule_query.filter(
+            (models.Rule.workspace == workspace)
+            | (models.Rule.workspace.is_(None))
+            | (models.Rule.workspace == "PureGlow")
+        )
+        sub_query = sub_query.filter(
+            (models.Submission.workspace == workspace)
+            | (models.Submission.workspace.is_(None))
+            | (models.Submission.workspace == "PureGlow")
+        )
+
+    active_rules = rule_query.all()
+    submissions = sub_query.all()
 
     items: list[dict] = []
     cleared = 0
     current_totals = {"checked": 0, "compliant": 0, "needsReview": 0, "nonCompliant": 0}
     new_totals = {"checked": 0, "compliant": 0, "needsReview": 0, "nonCompliant": 0}
+
+    newly_flagged_list = []
+    resolved_list = []
+    unchanged_list = []
 
     for sub in submissions:
         asset = _asset_from_submission(sub)
@@ -126,6 +150,11 @@ def run_simulation(db: Session, *, name: str, rule_id: str, change_type: str,
 
         if current_impact != "Compliant" and new_impact == "Compliant":
             cleared += 1
+            resolved_list.append({"id": sub.id, "title": sub.title, "brand": sub.brand})
+        elif current_impact == "Compliant" and new_impact != "Compliant":
+            newly_flagged_list.append({"id": sub.id, "title": sub.title, "brand": sub.brand})
+        else:
+            unchanged_list.append({"id": sub.id, "title": sub.title, "brand": sub.brand})
 
         baseline_codes = {f.rule_code for f in baseline}
         proposed_codes = {f.rule_code for f in proposed}
@@ -150,6 +179,45 @@ def run_simulation(db: Session, *, name: str, rule_id: str, change_type: str,
             "note": note,
         })
 
+    # Check potential conflicts and exceptions needing attention
+    from .rules import _direction
+    exceptions = db.query(models.ExceptionRequest).filter(
+        models.ExceptionRequest.rule_code == target_rule.code,
+        models.ExceptionRequest.status == "Approved"
+    ).all()
+    exceptions_needing_attention = [
+        {"id": ex.id, "code": ex.code, "reason": ex.reason, "scope": ex.scope}
+        for ex in exceptions
+    ]
+
+    potential_conflicts_count = 0
+    dir_change = _direction(new_value)
+    for r in active_rules:
+        if r.code != target_rule.code and r.subject == target_rule.subject:
+            dir_r = _direction(r.condition)
+            if dir_change and dir_r and dir_change != dir_r:
+                potential_conflicts_count += 1
+
+    breakdown = {
+        "newlyFlagged": {
+            "count": len(newly_flagged_list),
+            "items": newly_flagged_list[:10],
+        },
+        "resolved": {
+            "count": len(resolved_list),
+            "items": resolved_list[:10],
+        },
+        "unchanged": {
+            "count": len(unchanged_list),
+            "items": unchanged_list[:10],
+        },
+        "potentialConflicts": potential_conflicts_count,
+        "exceptionsNeedingAttention": {
+            "count": len(exceptions_needing_attention),
+            "items": exceptions_needing_attention[:10],
+        },
+    }
+
     totals = new_totals
     insight = _build_insight(target_rule.code, change_type, current_value, new_value,
                              cleared, current_totals, new_totals)
@@ -159,8 +227,10 @@ def run_simulation(db: Session, *, name: str, rule_id: str, change_type: str,
     if ai_note:
         insight.append(ai_note)
 
+    sim_id = new_id("sim")
     sim = models.Simulation(
-        id=new_id("sim"),
+        id=sim_id,
+        workspace=workspace or "PureGlow",
         name=name,
         rule_id=rule_id,
         rule_code=target_rule.code,
@@ -173,14 +243,99 @@ def run_simulation(db: Session, *, name: str, rule_id: str, change_type: str,
         items=items,
         insight=insight,
         totals=totals,
+        breakdown=breakdown,
     )
     db.add(sim)
+
+    # Store proposed rule in proposed_rules table
+    proposed_rule = models.ProposedRule(
+        id=new_id("prop"),
+        workspace=workspace or "PureGlow",
+        simulation_id=sim_id,
+        target_rule_id=rule_id,
+        target_rule_code=target_rule.code,
+        change_type=change_type,
+        current_value=current_value or "",
+        proposed_value=new_value or "",
+        status="simulated",
+        created_by_id=user_id,
+        created_at=datetime.now(timezone.utc),
+    )
+    db.add(proposed_rule)
+
     record(db, action="Simulation", entity_title=name, entity_meta=target_rule.code,
            entity_kind="simulation", entity_id=sim.id, user_id=user_id,
-           details=f"{change_type}: {current_value or ''} -> {new_value or ''}")
+           details=f"{change_type}: {current_value or ''} -> {new_value or ''}",
+           workspace=workspace or "PureGlow")
+
     db.commit()
     db.refresh(sim)
+
+    # Prove active rule was not modified by the simulation run
+    db.refresh(target_rule)
+    assert target_rule.condition == prev_condition, "Target rule condition was modified during simulation!"
+    assert target_rule.status == prev_status, "Target rule status was modified during simulation!"
+
     return sim
+
+
+def activate_simulation_proposal(db: Session, sim_id: str, manager_id: str) -> tuple[models.Rule, models.Simulation]:
+    """Explicit separate manager-only endpoint to activate a proposed rule from a simulation."""
+    sim = db.get(models.Simulation, sim_id)
+    if not sim:
+        raise ValueError(f"Simulation {sim_id} not found")
+
+    target_rule = db.get(models.Rule, sim.rule_id)
+    if not target_rule:
+        target_rule = db.query(models.Rule).filter(models.Rule.code == sim.rule_code).first()
+    if not target_rule:
+        raise ValueError(f"Rule for simulation {sim_id} not found")
+
+    now = datetime.now(timezone.utc)
+
+    # Apply proposed change to active rule
+    if sim.change_type == "add_allowed_colour":
+        existing = target_rule.condition or ""
+        target_rule.condition = f"{existing}; Allowed color includes {sim.new_value}".strip("; ")
+    elif sim.change_type == "change_clear_space":
+        target_rule.condition = f"Clear space ratio must be at least {sim.new_value}x"
+    elif sim.change_type == "change_typeface":
+        target_rule.condition = f"Permitted typefaces: {sim.new_value}"
+    elif sim.change_type == "change_text_condition":
+        target_rule.condition = sim.new_value
+
+    target_rule.status = "active"
+
+    # Mark proposed rule as activated
+    proposed = (
+        db.query(models.ProposedRule)
+        .filter(models.ProposedRule.simulation_id == sim_id)
+        .first()
+    )
+    if proposed:
+        proposed.status = "activated"
+        proposed.activated_at = now
+        proposed.activated_by_id = manager_id
+
+    sim.status = "Activated"
+
+    record(
+        db,
+        action="Rule updated",
+        entity_title=target_rule.title,
+        entity_meta=target_rule.code,
+        brand=target_rule.workspace or "PureGlow",
+        user_id=manager_id,
+        details=f"Activated proposed changes from simulation '{sim.name}': {sim.new_value}",
+        entity_kind="rule",
+        entity_id=target_rule.id,
+        workspace=target_rule.workspace or "PureGlow",
+    )
+
+    db.commit()
+    db.refresh(target_rule)
+    db.refresh(sim)
+    return target_rule, sim
 
 
 def _impact_key(impact: str) -> str:
@@ -235,4 +390,6 @@ def simulation_to_dict(s) -> dict:
         "items": s.items or [],
         "insight": s.insight or [],
         "totals": s.totals or {},
+        "breakdown": getattr(s, "breakdown", {}) or {},
+        "workspace": getattr(s, "workspace", "PureGlow"),
     }

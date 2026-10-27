@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   BookOpen,
@@ -27,6 +27,7 @@ import { Modal, Skeleton } from '@/components/ui/Misc'
 import { guidelineStats, submissionStats } from '@/lib/selectors'
 import { useAuth } from '@/context/AuthContext'
 import { cn, fmtDate, relative } from '@/lib/utils'
+import { api } from '@/services/api'
 import type { GuidelineDoc } from '@/lib/types'
 
 const PAGE_SIZE = 6
@@ -50,6 +51,20 @@ export default function CreatorGuidelines() {
   const [version, setVersion] = useState('All Versions')
   const [page, setPage] = useState(1)
   const [preview, setPreview] = useState<GuidelineDoc | null>(null)
+  const [passages, setPassages] = useState<any[]>([])
+  const [searchingPassages, setSearchingPassages] = useState(false)
+
+  useEffect(() => {
+    if (query.trim().length >= 3) {
+      setSearchingPassages(true)
+      api.searchGuidelines(query.trim())
+        .then(setPassages)
+        .catch(() => setPassages([]))
+        .finally(() => setSearchingPassages(false))
+    } else {
+      setPassages([])
+    }
+  }, [query])
 
   const visible = useMemo(() => docs.filter((d) => d.visibleToCreators), [docs])
   const stats = guidelineStats(visible, rules, claims, exceptions)
@@ -104,13 +119,30 @@ export default function CreatorGuidelines() {
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <MetricCard label="Total Guidelines" value={String(stats.totalDocs).padStart(2, '0')} sub="Core brand documents" icon={<FileText className="h-4 w-4" />} tone="green" />
-        <MetricCard label="Active Rules" value={String(stats.activeRules).padStart(2, '0')} sub="Currently in use" icon={<ShieldCheck className="h-4 w-4" />} tone="blue" />
-        <MetricCard label="Approved Claims" value={String(stats.approvedClaims).padStart(2, '0')} sub="Verified statements" icon={<CheckCircle2 className="h-4 w-4" />} tone="purple" />
+        <MetricCard label="Active Rules" value={String(stats.activeRules).padStart(2, '0')} sub="Currently in use" icon={<ShieldCheck className="h-4 w-4" />} tone="green" />
+        <MetricCard label="Approved Claims" value={String(stats.approvedClaims).padStart(2, '0')} sub="Verified statements" icon={<CheckCircle2 className="h-4 w-4" />} tone="amber" />
         <MetricCard label="Exceptions" value={String(stats.exceptionsWithExpiry).padStart(2, '0')} sub="With expiry dates" icon={<Clock3 className="h-4 w-4" />} tone="amber" />
       </div>
 
       <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_280px]">
         <div className="min-w-0 space-y-4">
+          {passages.length > 0 && (
+            <Card className="p-3 bg-[#FAF7EF] border-line">
+              <h3 className="text-xs font-semibold uppercase tracking-[0.06em] text-brand-800 flex items-center gap-1.5 mb-2">
+                <Sparkles className="h-3 w-3" />
+                Matching Indexed Passages ({passages.length})
+              </h3>
+              <div className="space-y-2">
+                {passages.map((p) => (
+                  <div key={p.id} className="rounded border border-line bg-white p-2.5 text-xs">
+                    <p className="text-2xs text-brand-700 font-medium">Page {p.pageNumber} · Paragraph {p.paragraphNumber}</p>
+                    <p className="mt-1 text-ink-700 italic font-serif">“{p.passageText}”</p>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
+
           <Card>
             <div className="flex flex-wrap items-center gap-2 border-b border-line p-3">
               <SearchInput value={query} onChange={(v) => { setQuery(v); setPage(1) }} placeholder="Search guidelines, rules, or keywords…" className="min-w-[180px]" />

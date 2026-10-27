@@ -185,6 +185,14 @@ export const authApi = {
   async me(): Promise<User> {
     return request<User>('/auth/me', { method: 'GET' })
   },
+
+  async logout(): Promise<void> {
+    try {
+      await request('/auth/logout', { method: 'POST' })
+    } finally {
+      setSession(null)
+    }
+  },
 }
 
 /* ------------------------------------------------------------------ */
@@ -195,11 +203,14 @@ export const api = {
   submissions: () => request<Submission[]>('/submissions'),
   submission: (id: string) => request<Submission>(`/submissions/${id}`),
   guidelines: () => request<GuidelineDoc[]>('/guidelines'),
+  searchGuidelines: (q: string) => request<any[]>(`/guidelines/search?q=${encodeURIComponent(q)}`),
   rules: () => request<Rule[]>('/rules'),
   claims: () => request<ApprovedClaim[]>('/claims'),
   exceptions: () => request<ExceptionRequest[]>('/exceptions'),
+  getExceptionHistory: (id: string) => request<any[]>(`/exceptions/${id}/history`),
   simulations: () => request<Simulation[]>('/simulations'),
   audit: () => request<AuditEvent[]>('/audit'),
+  exportAuditUrl: (format: 'csv' | 'json' = 'csv') => `${API_BASE}/audit/export?format=${format}`,
   team: () => request<User[]>('/team'),
 
   /* ---------------------------------------------------------------- */
@@ -250,6 +261,12 @@ export const api = {
       body: JSON.stringify({ decision, conditions }),
     }),
 
+  revokeException: (id: string, reason: string) =>
+    request<ExceptionRequest>(`/exceptions/${id}/revoke`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    }),
+
   runSimulation: async (input: SimulationInput): Promise<Simulation> => {
     const rule = (await request<Rule[]>('/rules')).find((r) => r.id === input.ruleId)
     const name = `${input.changeType} · ${rule?.title ?? 'Rule'}`
@@ -265,6 +282,11 @@ export const api = {
       }),
     })
   },
+
+  activateSimulation: (id: string) =>
+    request<{ status: string; rule: Rule; simulation: Simulation }>(`/simulations/${id}/activate`, {
+      method: 'POST',
+    }),
 
   addDocument: (input: DocInput) => {
     const form = new FormData()
@@ -292,6 +314,9 @@ export const api = {
 
   confirmRule: (id: string) =>
     request<Rule>(`/rules/${id}/confirm`, { method: 'POST' }),
+
+  rejectRule: (id: string) =>
+    request<Rule>(`/rules/${id}/reject`, { method: 'POST' }),
 
   addClaim: (input: ClaimInput) =>
     request<ApprovedClaim>('/claims', {
@@ -338,3 +363,4 @@ export const api = {
 }
 
 export type Api = typeof api
+

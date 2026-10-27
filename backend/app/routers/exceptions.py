@@ -36,16 +36,22 @@ class DecideIn(BaseModel):
     conditions: str = ""
 
 
+class RevokeIn(BaseModel):
+    reason: str = ""
+
+
 @router.get("")
 def list_exceptions(
     db: Session = Depends(get_db),
     user: models.User = Depends(get_current_user),
 ) -> list[dict]:
-    rows = (
-        db.query(models.ExceptionRequest)
-        .order_by(models.ExceptionRequest.effective_from)
-        .all()
-    )
+    query = db.query(models.ExceptionRequest)
+    if user.workspace:
+        query = query.filter(
+            (models.ExceptionRequest.workspace == user.workspace)
+            | (models.ExceptionRequest.workspace.is_(None) if user.workspace == "PureGlow" else False)
+        )
+    rows = query.order_by(models.ExceptionRequest.effective_from).all()
     return [svc.exception_to_dict(e) for e in rows]
 
 
@@ -86,8 +92,10 @@ def create_exception(
         datetime.fromisoformat(body.expiresAt) if body.expiresAt else None
     )
 
+    ex_id = new_id("ex")
     e = models.ExceptionRequest(
-        id=new_id("ex"),
+        id=ex_id,
+        workspace=user.workspace or "PureGlow",
         code=f"EX-{1000 + count + 1}",
         content_id=body.contentId,
         content_title=content_title,
@@ -107,6 +115,20 @@ def create_exception(
         thumb_glyph=thumb.get("glyph", "leaf"),
     )
     db.add(e)
+
+    # Record ruling history entry for request
+    hist = models.ExceptionRulingHistory(
+        id=new_id("exh"),
+        exception_id=ex_id,
+        action="Requested",
+        actor_id=user.id,
+        actor_name=user.name,
+        actor_role=user.role,
+        reason_or_conditions=body.reason,
+        at=now,
+    )
+    db.add(hist)
+
     db.flush()
     record(
         db,
@@ -119,6 +141,7 @@ def create_exception(
         entity_kind="exception",
         entity_id=e.id,
         thumb=svc.exception_to_dict(e)["thumb"],
+        workspace=e.workspace or "PureGlow",
     )
     db.commit()
     db.refresh(e)
@@ -147,6 +170,19 @@ def decide_exception(
     if incoming:
         e.conditions = f"{existing}\n{incoming}".strip() if existing else incoming
 
+    # Record ruling history entry
+    hist = models.ExceptionRulingHistory(
+        id=new_id("exh"),
+        exception_id=e.id,
+        action=e.status,
+        actor_id=manager.id,
+        actor_name=manager.name,
+        actor_role=manager.role,
+        reason_or_conditions=body.conditions or e.conditions,
+        at=datetime.now(timezone.utc),
+    )
+    db.add(hist)
+
     db.flush()
     record(
         db,
@@ -159,7 +195,90 @@ def decide_exception(
         entity_kind="exception",
         entity_id=e.id,
         thumb=svc.exception_to_dict(e)["thumb"],
+        workspace=e.workspace or "PureGlow",
     )
     db.commit()
     db.refresh(e)
     return svc.exception_to_dict(e)
+
+
+@router.post("/{id}/revoke")
+def revoke_exception(
+    id: str,
+    body: RevokeIn,
+    db: Session = Depends(get_db),
+    manager: models.User = Depends(require_manager),
+) -> dict:
+    e = db.get(models.ExceptionRequest, id)
+    if not e:
+        raise HTTPException(status_code=404, detail="Exception not found")
+
+    now = datetime.now(timezone.utc)
+    e.status = "Revoked"
+    e.revoked_at = now
+    e.revoked_by_id = manager.id
+    e.revoke_reason = body.reason or "Revoked by brand manager."
+
+    # Record ruling history entry
+    hist = models.ExceptionRulingHistory(
+        id=new_id("exh"),
+        exception_id=e.id,
+        action="Revoked",
+        actor_id=manager.id,
+        actor_name=manager.name,
+        actor_role=manager.role,
+        reason_or_conditions=body.reason or "Revoked by brand manager",
+        at=now,
+    )
+    db.add(hist)
+
+    db.flush()
+    record(
+        db,
+        action="Exception",
+        entity_title=e.content_title,
+        entity_meta=e.code,
+        brand=e.brand,
+        user_id=manager.id,
+        status="Revoked",
+        details=f"Exception revoked: {body.reason or 'Revoked by brand manager.'}",
+        entity_kind="exception",
+        entity_id=e.id,
+        thumb=svc.exception_to_dict(e)["thumb"],
+        workspace=e.workspace or "PureGlow",
+    )
+    db.commit()
+    db.refresh(e)
+    return svc.exception_to_dict(e)
+
+
+@router.get("/{id}/history")
+def get_exception_history(
+    id: str,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(get_current_user),
+) -> list[dict]:
+    e = db.get(models.ExceptionRequest, id)
+    if not e:
+        raise HTTPException(status_code=404, detail="Exception not found")
+
+    rows = (
+        db.query(models.ExceptionRulingHistory)
+        .filter(models.ExceptionRulingHistory.exception_id == id)
+        .order_by(models.ExceptionRulingHistory.at.asc())
+        .all()
+    )
+    return [
+        {
+            "id": h.id,
+            "exceptionId": h.exception_id,
+            "action": h.action,
+            "actorId": h.actor_id,
+            "actorName": h.actor_name,
+            "actorRole": h.actor_role,
+            "reasonOrConditions": h.reason_or_conditions,
+            "at": h.at.isoformat() if h.at else None,
+        }
+        for h in rows
+    ]
+

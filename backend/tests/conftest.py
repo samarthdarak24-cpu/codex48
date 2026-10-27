@@ -54,6 +54,7 @@ def users():
         name="Test Manager",
         email="manager@precedent.test",
         role="manager",
+        workspace="PureGlow",
         password_hash=hash_password("precedent"),
     )
     creator = User(
@@ -61,9 +62,18 @@ def users():
         name="Test Creator",
         email="creator@precedent.test",
         role="creator",
+        workspace="PureGlow",
         password_hash=hash_password("precedent"),
     )
-    db.add_all([manager, creator])
+    other = User(
+        id="user-other-ws",
+        name="Sarah Chen",
+        email="sarah.chen@wellnesslife.co",
+        role="creator",
+        workspace="WellnessLife",
+        password_hash=hash_password("precedent"),
+    )
+    db.add_all([manager, creator, other])
     db.commit()
     db.close()
     return {
@@ -72,12 +82,21 @@ def users():
             "password": "precedent",
             "id": "manager-1",
             "role": "manager",
+            "workspace": "PureGlow",
         },
         "creator": {
             "email": "creator@precedent.test",
             "password": "precedent",
             "id": "creator-1",
             "role": "creator",
+            "workspace": "PureGlow",
+        },
+        "other": {
+            "email": "sarah.chen@wellnesslife.co",
+            "password": "precedent",
+            "id": "user-other-ws",
+            "role": "creator",
+            "workspace": "WellnessLife",
         },
     }
 
@@ -101,3 +120,9 @@ def manager_token(client, users) -> str:
 @pytest.fixture
 def creator_token(client, users) -> str:
     return get_token(client, users["creator"]["email"], users["creator"]["password"])
+
+
+@pytest.fixture
+def other_workspace_token(client, users) -> str:
+    return get_token(client, users["other"]["email"], users["other"]["password"])
+

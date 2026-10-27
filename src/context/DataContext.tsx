@@ -43,11 +43,14 @@ interface DataState extends DataBundle {
   decideSubmission: (submissionId: string, action: ReviewDecisionAction, note: string) => void
   requestException: (input: ExceptionInput) => Promise<ExceptionRequest>
   decideException: (id: string, decision: 'Approved' | 'Rejected', conditions: string) => void
+  revokeException: (id: string, reason: string) => void
   runSimulation: (input: SimulationInput) => Promise<Simulation>
+  activateSimulation: (id: string) => Promise<void>
   addDocument: (input: DocInput) => Promise<GuidelineDoc>
   setDocStatus: (id: string, status: GuidelineDoc['status']) => void
   addRule: (input: RuleInput) => Promise<Rule>
   confirmRule: (id: string) => void
+  rejectRule: (id: string) => void
   addClaim: (input: ClaimInput) => Promise<ApprovedClaim>
   approveAsset: (id: string) => Promise<void>
 }
@@ -265,6 +268,19 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     [fail],
   )
 
+  const revokeException = useCallback(
+    (id: string, reason: string) => {
+      api
+        .revokeException(id, reason)
+        .then(async () => {
+          const [exceptions, audit] = await Promise.all([api.exceptions(), api.audit()])
+          setBundle((prev) => ({ ...prev, exceptions, audit }))
+        })
+        .catch(fail)
+    },
+    [fail],
+  )
+
   /* ---------------------------------------------------------------- */
   /* Simulation                                                        */
   /* ---------------------------------------------------------------- */
@@ -276,6 +292,24 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         const simulations = await api.simulations()
         setBundle((prev) => ({ ...prev, simulations }))
         return created
+      } catch (err) {
+        fail(err)
+        throw err
+      }
+    },
+    [fail],
+  )
+
+  const activateSimulation = useCallback(
+    async (id: string): Promise<void> => {
+      try {
+        await api.activateSimulation(id)
+        const [simulations, rules, audit] = await Promise.all([
+          api.simulations(),
+          api.rules(),
+          api.audit(),
+        ])
+        setBundle((prev) => ({ ...prev, simulations, rules, audit }))
       } catch (err) {
         fail(err)
         throw err
@@ -344,6 +378,19 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     [fail],
   )
 
+  const rejectRule = useCallback(
+    (id: string) => {
+      api
+        .rejectRule(id)
+        .then(async () => {
+          const rules = await api.rules()
+          setBundle((prev) => ({ ...prev, rules }))
+        })
+        .catch(fail)
+    },
+    [fail],
+  )
+
   const addClaim = useCallback(
     async (input: ClaimInput): Promise<ApprovedClaim> => {
       try {
@@ -383,11 +430,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       decideSubmission,
       requestException,
       decideException,
+      revokeException,
       runSimulation,
+      activateSimulation,
       addDocument,
       setDocStatus,
       addRule,
       confirmRule,
+      rejectRule,
       addClaim,
       approveAsset,
     }),
@@ -402,11 +452,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       decideSubmission,
       requestException,
       decideException,
+      revokeException,
       runSimulation,
+      activateSimulation,
       addDocument,
       setDocStatus,
       addRule,
       confirmRule,
+      rejectRule,
       addClaim,
       approveAsset,
     ],

@@ -53,7 +53,13 @@ def main() -> None:
             avatar_tone="teal", workspace="PureGlow",
             workspace_status="active", password_hash=pw,
         )
-        db.add_all([david, emily])
+        sarah = models.User(
+            id=new_id("u"), name="Sarah Chen", email="sarah.chen@wellnesslife.co",
+            role="creator", title="Content Specialist", initials="SC",
+            avatar_tone="amber", workspace="WellnessLife",
+            workspace_status="active", password_hash=pw,
+        )
+        db.add_all([david, emily, sarah])
         db.commit()
 
         # ------------------------------------------------------------------
@@ -216,7 +222,20 @@ def main() -> None:
         rule_objs = []
         for r in rules_data:
             r.setdefault("status", "active")
-            rule_objs.append(models.Rule(id=new_id("rule"), **r))
+            rule = models.Rule(id=new_id("rule"), **r)
+            rule_objs.append(rule)
+            if r.get("source_passage") and r.get("source_doc_id"):
+                db.add(
+                    models.GuidelinePassage(
+                        id=new_id("gp"),
+                        doc_id=r["source_doc_id"],
+                        workspace="PureGlow",
+                        page_number=r.get("source_page", 1),
+                        paragraph_number=1,
+                        heading=r.get("subject", ""),
+                        passage_text=r["source_passage"],
+                    )
+                )
         db.add_all(rule_objs)
         db.commit()
 
@@ -425,8 +444,9 @@ def main() -> None:
                  expires=now() + timedelta(days=10)),
         ]
         for e in excs:
+            ex_id = new_id("exc")
             db.add(models.ExceptionRequest(
-                id=new_id("exc"), code=e["code"], content_id=e["content"].id,
+                id=ex_id, code=e["code"], content_id=e["content"].id,
                 content_title=e["content"].title,
                 content_meta=f"{e['content'].type} · {e['content'].channel}",
                 brand=e["content"].brand, rule_code=e["rule_code"],
@@ -441,6 +461,27 @@ def main() -> None:
                 thumb_palette=e["content"].thumb_palette,
                 thumb_glyph=e["content"].thumb_glyph,
             ))
+            db.add(models.ExceptionRulingHistory(
+                id=new_id("erh"),
+                exception_id=ex_id,
+                action="Requested",
+                actor_id=emily.id,
+                actor_name=emily.name,
+                actor_role="creator",
+                reason_or_conditions=e["reason"],
+                at=now() - timedelta(days=2),
+            ))
+            if e.get("decided"):
+                db.add(models.ExceptionRulingHistory(
+                    id=new_id("erh"),
+                    exception_id=ex_id,
+                    action=e["status"],
+                    actor_id=david.id,
+                    actor_name=david.name,
+                    actor_role="manager",
+                    reason_or_conditions=e.get("conditions", ""),
+                    at=now() - timedelta(days=1),
+                ))
         db.commit()
 
         # ------------------------------------------------------------------
