@@ -363,7 +363,7 @@ export default function ManagerOverview() {
                 <li key={l.to}>
                   <button
                     onClick={() => navigate(l.to)}
-                    className="flex w-full items-center gap-1.5 rounded-lg px-1 py-1.5 text-left text-xs text-ink-600 transition-colors hover:bg-[#F8FBFF] hover:text-brand-700"
+                    className="flex w-full items-center gap-1.5 rounded-lg px-1 py-1.5 text-left text-xs text-ink-600 transition-colors hover:bg-[#FAF7EF] hover:text-brand-700"
                   >
                     <ArrowRight className="h-3 w-3 text-muted-light" />
                     <span className="flex-1 truncate">{l.label}</span>

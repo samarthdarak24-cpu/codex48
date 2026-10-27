@@ -225,7 +225,7 @@ export default function AuditHistory() {
               row.status === 'Rejected' && 'bg-danger-500',
               row.status === 'Exception' && 'bg-grape-500',
               row.status === 'Revised' && 'bg-brand-500',
-              row.status === 'Recorded' && 'bg-[#93A4BA]',
+              row.status === 'Recorded' && 'bg-[#8C8578]',
             )}
           />
           {row.status}
@@ -429,8 +429,8 @@ export default function AuditHistory() {
                 segments={[
                   { value: stats.approvals, color: '#10B981', label: 'Approvals' },
                   { value: stats.rejections, color: '#EF4444', label: 'Rejections' },
-                  { value: stats.exceptions, color: '#8B5CF6', label: 'Exceptions' },
-                  { value: stats.revisions, color: '#2F6FED', label: 'Revisions' },
+                  { value: stats.exceptions, color: '#7C8F5E', label: 'Exceptions' },
+                  { value: stats.revisions, color: '#4E7A3D', label: 'Revisions' },
                 ]}
                 centerValue={stats.total}
                 centerLabel="Total"
@@ -441,8 +441,8 @@ export default function AuditHistory() {
                   segments={[
                     { value: stats.approvals, color: '#10B981', label: 'Approvals' },
                     { value: stats.rejections, color: '#EF4444', label: 'Rejections' },
-                    { value: stats.exceptions, color: '#8B5CF6', label: 'Exceptions' },
-                    { value: stats.revisions, color: '#2563EB', label: 'Revisions' },
+                    { value: stats.exceptions, color: '#7C8F5E', label: 'Exceptions' },
+                    { value: stats.revisions, color: '#4E7A3D', label: 'Revisions' },
                   ]}
                 />
               </div>
@@ -469,7 +469,7 @@ export default function AuditHistory() {
                       e.status === 'Rejected' && 'bg-danger-500',
                       e.status === 'Exception' && 'bg-grape-500',
                       e.status === 'Revised' && 'bg-brand-500',
-                      e.status === 'Recorded' && 'bg-[#93A4BA]',
+                      e.status === 'Recorded' && 'bg-[#8C8578]',
                     )}
                   />
                   <div className="min-w-0">

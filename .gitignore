@@ -27,5 +27,9 @@ __pycache__/
 *.db
 uploads/
 
+# Python virtual environments (created locally; never commit)
+.venv/
+.venv312/
+
 # Captured review screenshots
 .shots

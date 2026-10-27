@@ -1,6 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
-import { authApi, type Session } from '@/services/api'
-import { users } from '@/lib/demo-data'
+import { authApi, setSession, type Session } from '@/services/api'
 import type { Role, User } from '@/lib/types'
 
 const STORAGE_KEY = 'precedent.session'
@@ -30,10 +29,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     try {
       const parsed = JSON.parse(raw) as Session
-      // Re-resolve the account so a tampered payload cannot grant a role.
-      const trusted = users.find((u) => u.id === parsed.user?.id)
-      if (trusted) {
-        setUser(trusted)
+      // Role comes from the backend-provided user object, never the payload.
+      if (parsed?.user?.id) {
+        setSession(parsed)
+        setUser(parsed.user)
         setStatus('authenticated')
       } else {
         sessionStorage.removeItem(STORAGE_KEY)

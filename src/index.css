@@ -25,27 +25,27 @@
   }
 
   ::selection {
-    background: #d7e6fe;
-    color: #0f2138;
+    background: #E3E7D5;
+    color: #23282A;
   }
 
   /* Slim, unobtrusive scrollbars */
   * {
     scrollbar-width: thin;
-    scrollbar-color: #cfdcee transparent;
+    scrollbar-color: #DDD6C6 transparent;
   }
   *::-webkit-scrollbar {
     width: 8px;
     height: 8px;
   }
   *::-webkit-scrollbar-thumb {
-    background: #d5e1f0;
+    background: #E0D9CA;
     border-radius: 999px;
     border: 2px solid transparent;
     background-clip: content-box;
   }
   *::-webkit-scrollbar-thumb:hover {
-    background: #bccfe6;
+    background: #CFC8B6;
     background-clip: content-box;
   }
   *::-webkit-scrollbar-track {
@@ -53,12 +53,12 @@
   }
 
   :focus-visible {
-    outline: 2px solid #2f6fed;
+    outline: 2px solid #4E7A3D;
     outline-offset: 2px;
   }
 
   input[type='checkbox'] {
-    accent-color: #2f6fed;
+    accent-color: #4E7A3D;
   }
 }
 
@@ -97,7 +97,7 @@
   }
 
   .row-hover {
-    @apply transition-colors hover:bg-[#F8FBFF];
+    @apply transition-colors hover:bg-[#FAF7EF];
   }
 
   .link {
@@ -105,7 +105,7 @@
   }
 
   .surface-tint {
-    background-image: radial-gradient(120% 100% at 0% 0%, #ffffff 0%, #f8fbff 45%, #f3f8fe 100%);
+    background-image: radial-gradient(120% 100% at 0% 0%, #ffffff 0%, #FAF7EF 45%, #f3f8fe 100%);
   }
 
   .divide-line > * + * {
@@ -254,7 +254,7 @@
   }
 
   .mkt-pill-dark {
-    @apply inline-flex items-center justify-center gap-2 rounded-full bg-ink px-5 py-3 text-[14px] font-medium text-white transition-all duration-200 hover:bg-[#16283f] hover:shadow-[0_8px_24px_-10px_rgba(15,33,56,.5)] active:scale-[.985];
+    @apply inline-flex items-center justify-center gap-2 rounded-full bg-ink px-5 py-3 text-[14px] font-medium text-white transition-all duration-200 hover:bg-[#24302A] hover:shadow-[0_8px_24px_-10px_rgba(15,33,56,.5)] active:scale-[.985];
   }
 
   .mkt-pill-light {

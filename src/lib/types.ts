@@ -171,6 +171,7 @@ export interface Submission {
   priority: Priority
   thumb: ThumbSpec
   asset?: AssetFacts
+  assetRef?: AssetRef | null
   versions: ContentVersion[]
   findings: Finding[]
   comments: Comment[]
@@ -196,6 +197,33 @@ export interface AssetFacts {
   typeface?: string
   aspectRatio?: string
   unreadable?: boolean
+}
+
+/** A brand/product image attached to a submission (snapshot of the asset). */
+export interface AssetRef {
+  id: string
+  name: string
+  url?: string | null
+  source?: string | null
+  attribution?: string | null
+}
+
+/** A record in the brand/product image library. */
+export interface BrandAsset {
+  id: string
+  name: string
+  brand: string
+  category: string
+  filePath?: string | null
+  url?: string | null
+  source: string
+  sourceUrl?: string | null
+  status: string
+  width?: number | null
+  height?: number | null
+  notes: string
+  uploadedById: string
+  createdAt: string
 }
 
 /* ------------------------------------------------------------------ */

@@ -15,7 +15,6 @@ import {
   LogOut,
   Menu,
   MessageSquare,
-  RotateCcw,
   Search,
   ShieldCheck,
   Users,
@@ -26,7 +25,6 @@ import { useAuth } from '@/context/AuthContext'
 import { useData } from '@/context/DataContext'
 import { exceptionStats, awaitingDecision } from '@/lib/selectors'
 import { Avatar } from '@/components/ui/Misc'
-import { clearDemoBundle } from '@/services/demoStore'
 import { CountBubble } from '@/components/ui/Badge'
 
 /* ------------------------------------------------------------------ */
@@ -316,17 +314,6 @@ function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
               <div className="my-1 h-px bg-line" />
               <button
                 role="menuitem"
-                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-base text-ink-600 transition-colors hover:bg-[#F5F9FE]"
-                onClick={() => {
-                  clearDemoBundle()
-                  window.location.reload()
-                }}
-              >
-                <RotateCcw className="h-3.5 w-3.5 text-muted" />
-                Reset demo data
-              </button>
-              <button
-                role="menuitem"
                 className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-base font-medium text-danger-600 transition-colors hover:bg-danger-50"
                 onClick={() => {
                   logout()
@@ -408,7 +395,7 @@ export function DashboardLayout() {
 
       {mobileOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
-          <div className="absolute inset-0 bg-[#0F2138]/40 animate-fade-in" onClick={() => setMobileOpen(false)} />
+          <div className="absolute inset-0 bg-[#23282A]/40 animate-fade-in" onClick={() => setMobileOpen(false)} />
           <div className="absolute left-0 top-0 h-full animate-slide-in">
             <Sidebar onNavigate={() => setMobileOpen(false)} />
           </div>
@@ -500,7 +487,7 @@ export function QuickAction({
   return (
     <button
       onClick={onClick}
-      className="group flex w-full items-start gap-2.5 rounded-lg px-1 py-1.5 text-left transition-colors hover:bg-[#F8FBFF]"
+      className="group flex w-full items-start gap-2.5 rounded-lg px-1 py-1.5 text-left transition-colors hover:bg-[#FAF7EF]"
     >
       <span className={cn('mt-[1px] flex h-6 w-6 shrink-0 items-center justify-center rounded-md', tones[tone])}>
         {icon}

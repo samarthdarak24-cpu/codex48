@@ -33,10 +33,17 @@ export function Reveal({
           io.disconnect()
         }
       },
-      { threshold: 0.1, rootMargin: '0px 0px -8% 0px' },
+      { threshold: 0.02, rootMargin: '0px 0px 80px 0px' },
     )
     io.observe(el)
-    return () => io.disconnect()
+
+    // Fallback timer so content is never stuck hidden on headless capture or fast scroll
+    const fallback = setTimeout(() => setShown(true), 1500)
+
+    return () => {
+      io.disconnect()
+      clearTimeout(fallback)
+    }
   }, [])
 
   return (

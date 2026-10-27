@@ -9,30 +9,36 @@ against real stored content before anything is activated.
 
 ---
 
-## Status — Phase 2 of 6 complete (frontend)
+## Status — frontend + backend + database + AI integration complete
 
-This repository currently contains **the complete frontend**, built strictly against the 11 reference screens.
-The backend, database, document extraction, LLM integration and deployment are the next phases and are **not built
-yet**. The table below is deliberately literal — nothing here claims to be finished that isn't.
+The React frontend (Phase 2), the FastAPI backend (Phase 3), SQLAlchemy models + Alembic (Phase 4), document
+extraction, configurable AI, and the brand/product image library are all built. The UI talks to the real API,
+every mutation persists to the database, and the deterministic rule engine runs **server-side**.
 
 | Area | State |
 |---|---|
-| 12 screens (login + 5 creator + 6 manager) | ✅ Built, responsive, shared design system |
-| Design system (tokens, cards, tables, badges, modals, toasts, empty/loading/error states) | ✅ Built |
-| Navigation, route guards, role separation | ✅ Built (client-side; server enforcement pending) |
-| Deterministic rule engine (text + asset rules) | ✅ Working prototype in `src/lib/ruleEngine.ts` |
-| Content submission → findings → version → decision → audit | ✅ Works end to end in the browser |
-| Exception request → decision → expiry checks | ✅ Works end to end in the browser |
-| Rule impact simulation | ✅ Works, evaluates real stored content |
-| Audit trail + CSV export | ✅ Works |
-| Persistence | ⚠️ In-memory + `sessionStorage` demo store — **not** PostgreSQL yet |
-| Authentication | ⚠️ Frontend session only — **no** password hashing or tokens yet |
-| Document upload / PDF+DOCX extraction | ⚠️ UI + metadata only — no PyMuPDF / python-docx yet |
-| LLM-assisted rule extraction | ❌ Not built |
+| 12 screens (login + 5 creator + 6 manager) | ✅ Responsive, shared design system |
+| Design system (tokens, cards, tables, badges, modals, toasts, empty/loading/error) | ✅ |
+| Navigation, route guards, role separation | ✅ Client + **server-enforced RBAC** |
+| Deterministic rule engine (text + asset rules) | ✅ `backend/app/rule_engine.py` (mirror of the client) |
+| Content submission → findings → version → decision → audit | ✅ End-to-end against the database |
+| Exception request → decision → expiry checks | ✅ Enforced server-side (expired cannot be approved) |
+| Rule impact simulation | ✅ Server-side, over stored content |
+| Rule conflict detection | ✅ `GET /rules/conflicts` |
+| Audit trail + guideline health | ✅ `GET /audit`, `GET /audit/health` |
+| Persistence | ✅ SQLAlchemy + SQLite (dev) / PostgreSQL via `DATABASE_URL` |
+| Authentication | ✅ Argon2 hashing + signed JWT |
+| Document upload / PDF+DOCX extraction | ✅ PyMuPDF + python-docx with page counts |
+| AI-assisted rule suggestions | ✅ Configurable LLM; degrades gracefully when no key |
+| Brand / product image library | ✅ Upload, approve, optional external-source adapter |
+| Backend tests | ✅ 24 pytest tests passing |
+| Browser e2e | ✅ Login (both roles) → submit → findings → evidence → queue → audit, 0 console errors |
 
 ---
 
 ## Run it
+
+### Frontend
 
 ```bash
 npm install
@@ -40,6 +46,31 @@ npm run dev          # http://127.0.0.1:5173
 npm run build        # typecheck + production build
 npm run typecheck
 ```
+
+### Backend (FastAPI + SQLAlchemy)
+
+> **Python version:** use **Python 3.12**. The pinned FastAPI / pydantic / pymupdf
+> releases publish wheels for 3.12 only; on 3.13 `pip install -r requirements.txt`
+> tries to compile them from source and fails. (pymupdf is pinned to `1.24.13`, which
+> does have a 3.13 wheel, but pydantic-core still requires 3.12.)
+
+```bash
+cd backend
+python -m venv .venv && . .venv/Scripts/activate      # Windows — use a 3.12 interpreter
+pip install -r requirements.txt
+cp .env.example .env                                  # optional: DATABASE_URL / LLM_*
+python seed.py                                        # fictional demo data (idempotent: clears + reseeds)
+uvicorn app.main:app --reload --port 8000
+```
+
+- API: `http://127.0.0.1:8000` · OpenAPI docs: `http://127.0.0.1:8000/docs`
+- The Vite dev server calls `http://127.0.0.1:8000` (override with `VITE_API_BASE`).
+- **Database**: defaults to SQLite (`precedent.db`) so it runs with zero setup. For PostgreSQL set
+  `DATABASE_URL=postgresql+psycopg://user:pass@host:5432/precedent` and run `alembic upgrade head`.
+- **AI (optional)**: set `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL` to any OpenAI-compatible endpoint. Without a
+  key, AI helpers return `None` and the deterministic engine remains the source of truth.
+- **Tests**: `cd backend && pytest -q`.
+- **E2E**: with both servers running, `npm i --no-save playwright-core && node e2e-check.mjs`.
 
 ### Demo accounts
 
@@ -50,8 +81,8 @@ Fictional accounts. Both use the password `precedent`.
 | Brand Manager | `david.kim@pureglow.co` | `/manager/overview` |
 | Content Creator | `emily.carter@pureglow.co` | `/app/overview` |
 
-The login screen has one-click buttons for both. The role comes from the resolved account record, never from a
-field the browser can set, and each role is blocked from the other's routes.
+The login screen has one-click buttons for both. The role comes from the backend account record, never from a field
+the browser can set, and each role is blocked from the other's routes (client guard **and** server `require_manager`).
 
 ---
 
@@ -88,45 +119,61 @@ policy-management permissions. Upload lives on the manager's Guidelines & Rules 
 src/
   components/
     layout/Shell.tsx        Sidebar, topbar, page header, rail helpers, route layout
-    ui/                     Button, Badge, Card, Field, Table, Misc (Avatar/Donut/Tabs/Modal), Toast
+    ui/                     Button, Badge, Card, Field, Table, Misc, Toast
   context/
-    AuthContext.tsx         Session, login, logout, role guard
-    DataContext.tsx         Working set + all mutations (mirrors the future API surface)
-  hooks/useApiData.ts       Loading / error / refetch primitive
+    AuthContext.tsx         Session, login, logout, role guard (JWT from the API)
+    DataContext.tsx         Loads the working set from the API; mutations call the API then refetch
   lib/
     types.ts                Domain types — the backend contract
     selectors.ts            Every dashboard metric is DERIVED here, never hardcoded
-    ruleEngine.ts           Deterministic rule evaluation (text + asset facts)
-    demo-data.ts            ⚠️ Isolated fictional dataset
-    utils.ts                Dates, formatting, cn()
+    ruleEngine.ts           Client mirror of the server rule engine
   services/
-    api.ts                  The single seam where mock data becomes real API calls
-    demoStore.ts            ⚠️ Temporary sessionStorage stand-in for PostgreSQL
+    api.ts                  The single HTTP seam (Bearer token, ApiError, all reads + writes)
   pages/                    One file per screen
+```
+
+```
+backend/
+  app/
+    main.py                 FastAPI app, CORS, router wiring
+    config.py               pydantic-settings (DATABASE_URL, SECRET_KEY, LLM_*, uploads)
+    db.py                   engine, SessionLocal, Base, get_db, init_db
+    models.py               SQLAlchemy models — 1:1 with src/lib/types.ts
+    schemas.py              Auth + common Pydantic
+    security.py             Argon2 hashing + JWT
+    deps.py                 get_current_user, require_manager (RBAC)
+    rule_engine.py          Deterministic engine (text + asset facts)
+    ai.py                   Configurable LLM client; returns None when unconfigured
+    services/               submissions, documents, rules, exceptions, simulation, assets, audit
+    routers/                auth, team, submissions, guidelines, rules, claims, exceptions,
+                            simulations, audit, assets
+  alembic/                  migrations wired to app settings
+  seed.py                   fictional demo dataset
+  tests/                    pytest (engine, auth, RBAC, exceptions, submissions, simulation, conflicts)
 ```
 
 ### Two rules the codebase follows
 
 1. **No hardcoded metrics.** Every number on every dashboard comes from `lib/selectors.ts`, computed from the
-   records the service layer returned. Empty database → honest zero states, not fake numbers.
-2. **One seam for data.** No component calls `fetch` or imports demo data. Swapping in the FastAPI backend means
-   editing `services/api.ts` and deleting `services/demoStore.ts` — nothing else changes.
+   records the API returned. Empty database → honest zero states, not fake numbers.
+2. **One seam for data.** No component calls `fetch` or imports demo data. Swapping the backend is confined to
+   `services/api.ts`.
 
-### The rule engine
+---
 
-`src/lib/ruleEngine.ts` is deterministic and dependency-free. It is the client mirror of what will become
-`app/services/rule_engine.py`.
+## The rule engine (deterministic, server-side)
 
-- **Text rules** (`CL-03`, `CL-04`, `CL-06`, `MK-02`, `PA-05`, `TV-02`) are evaluated with explicit, testable
-  conditions — superlatives, regulated health language, discount claims without a window, urgency stacking,
-  unapproved claim wording, missing disclosure.
-- **Asset rules** (`BR-01`, `LO-02`, `TY-01`) read facts captured with the submission
-  (`backgroundColour`, `clearSpaceRatio`, `typeface`, `aspectRatio`).
+`backend/app/rule_engine.py` is the production engine; `src/lib/ruleEngine.ts` is a faithful client mirror.
+
+- **Text rules** (`CL-03`, `CL-04`, `CL-06`, `MK-02`, `PA-05`, `TV-02`) use explicit, testable conditions —
+  superlatives, regulated health language, discount claims without a window, urgency stacking, unapproved claim
+  wording, missing disclosure.
+- **Asset rules** (`BR-01`, `LO-02`, `TY-01`, `IM-03`, `SM-01`) read facts captured with the submission
+  (`backgroundColour`, `clearSpaceRatio`, `typeface`, `aspectRatio`, `unreadable`).
 - When a rule **cannot** be evaluated from stored evidence, the result is `unknown` → surfaced as
-  **Needs review**, never as a pass or a fail.
-
-Every finding cites the `sourcePassage` stored on the rule record itself, so a displayed citation always exists in
-the source data. Nothing is generated by a model.
+  **Needs review**, never a pass or a fail.
+- Every finding carries the rule's stored `sourcePassage`, so a displayed citation always resolves to real source
+  data. Nothing is generated by a model.
 
 ### Simulation semantics
 
@@ -140,18 +187,45 @@ The sandbox compares the current rule set against a proposed rule set over **sto
 
 ---
 
-## What is intentionally not real yet
+## The eight features → endpoints
 
-| Thing | Why | Where it gets fixed |
-|---|---|---|
-| `sessionStorage` demo store | No API exists yet; without it a reload would wipe the workflow you just demonstrated | Delete `services/demoStore.ts` when `services/api.ts` hits FastAPI |
-| Password check in `authApi.login` | No backend to hash against | Argon2 + signed session tokens server-side |
-| File upload | No parser wired | `POST /guidelines` with PyMuPDF / python-docx |
-| Rule extraction suggestions | No LLM call yet | Backend service with citation verification |
-| Every record | Fictional demo dataset, labelled in the sidebar | PostgreSQL + migrations |
+| Feature | Endpoint(s) |
+|---|---|
+| Brand Guideline Library | `GET/POST /guidelines`, `GET /guidelines/{id}/file` (PyMuPDF / python-docx) |
+| Evidence-Linked Review | findings embedded in `GET /submissions/{id}` (cite `sourcePassage`) |
+| Minimal-Edit Suggestions | `suggestedFix` on each finding (deterministic) |
+| Version-Based Approvals | `POST /submissions/{id}/versions`, `POST /submissions/{id}/decide` |
+| Exception Rulings | `GET/POST /exceptions`, `POST /exceptions/{id}/decide` (expiry enforced) |
+| Rule Conflict Detection | `GET /rules/conflicts` |
+| Rule Impact Sandbox | `GET/POST /simulations` |
+| Audit Log + Guideline Health | `GET /audit`, `GET /audit/health` |
+| Brand / Product Image Management | `GET/POST /assets`, `POST /assets/{id}/approve`, `POST /assets/research` |
 
-The sidebar footer reads **"Fictional demo workspace · no customer data"** and the user menu has
-**Reset demo data** so a reviewer can return to a clean seed at any time.
+---
+
+## Verification (this build)
+
+- `cd backend && pytest -q` → **24 passed** (engine determinism, auth, RBAC, exception expiry, submissions +
+  audit, simulation totals/impacts, conflicts, and frontend↔backend contract regression tests for
+  exception-title derivation and auto-generated rule codes).
+- `npm run build` → **passes** (134 kB gzip JS).
+- `node e2e-check.mjs` (both servers running) → creator login → submit `100% safe / boosts immunity / 20% off` →
+  feedback page shows findings with rule codes and "View source evidence" → manager sees the new submission in the
+  queue → audit records it. **0 console errors.**
+
+---
+
+## Honesty notes
+
+- **No fabricated data.** The workspace ships a fictional seed dataset, labelled "Fictional demo workspace".
+- **No fabricated citations.** Every finding cites the stored `sourcePassage`; unevaluable checks become
+  **Needs review**.
+- **AI is optional.** With no `LLM_API_KEY`, AI helpers return nothing and the deterministic engine decides.
+- **pgvector is optional.** Core features do not require it; enable it for Postgres semantic search.
+- **Postgres switch.** SQLite is the default for local verification; set `DATABASE_URL` for PostgreSQL and run
+  `alembic upgrade head`.
+
+The sidebar footer reads **"Fictional demo workspace · no customer data"**.
 
 ---
 
@@ -169,35 +243,17 @@ The sidebar footer reads **"Fictional demo workspace · no customer data"** and 
 | Font | Inter (400–800), tabular numerals for metrics |
 | Icons | Lucide, 15px in nav, 1.9–2.2 stroke |
 
-Shared components: `Button`, `Badge` (+ domain status/priority/impact variants), `Card`/`CardHeader`/`MetricCard`,
-`Field`/`Input`/`Select`/`Textarea`/`SearchInput`/`Checkbox`, `DataTable`/`Pagination`/`EmptyState`,
-`Avatar`/`Thumb`/`Donut`/`ProgressBar`/`Tabs`/`Skeleton`/`Modal`, `Toast`.
-
 Accessibility: labelled inputs, `aria-invalid` + `role="alert"` on validation, focus-visible rings, keyboard-dismissible
 modals, `prefers-reduced-motion` respected, tables with `scope="col"` headers.
 
-Responsive: 3-column desktop → 2-column tablet → single column mobile, sidebar collapses to a drawer, and
-secondary table columns drop out below `sm` / `md` / `lg` so no row is ever clipped.
+Responsive: 3-column desktop → 2-column tablet → single column mobile; sidebar collapses to a drawer; secondary table
+columns drop out below `sm` / `md` / `lg` so no row is ever clipped.
 
 ---
 
-## Next phases
+## Remaining (production hardening)
 
-1. **Backend** — FastAPI services for auth, workspaces, guidelines, rules, claims, submissions, review, exceptions,
-   simulation, audit; every mutation transactional.
-2. **Database** — PostgreSQL + Alembic migrations; the types in `lib/types.ts` are already the schema shape.
-3. **Documents & AI** — PyMuPDF / python-docx extraction with page-level citations, LLM rule suggestions that must
-   be confirmed by a human and must resolve to a real passage.
-4. **Integration** — replace `services/api.ts` internals with real calls; delete `demoStore.ts`.
-5. **Tests** — backend tests for permissions, versioning, exception scope/expiry, conflict detection, simulation
-   reproducibility; Playwright for the end-to-end journey.
-6. **Deployment** — environment config, health checks, CORS, secrets, README handover.
-
-## Proposed Round 3 improvements
-
-1. **Visual brand checking** — analyse posters and images directly (palette extraction, logo detection, type
-   recognition) so colour and layout rules are evaluated from pixels rather than stored metadata.
-2. **Retroactive impact alerts** — when a rule or approved claim changes, automatically surface previously approved
-   content that is now non-compliant, with an owner and a remediation queue.
-3. **Multi-brand workspaces** — isolated brand scopes, per-brand rule sets, cross-brand reporting, and integration
-   with existing content workflows (CMS, DAM, ad platforms) so review happens where content is produced.
+1. **Deployment** — container images, health checks, secrets management, managed PostgreSQL.
+2. **pgvector** — semantic search over guideline passages (optional, Postgres only).
+3. **Real external image source** — wire `IMAGE_SOURCE_API_URL` to an official product-image API.
+4. **Email** — password-reset delivery (the endpoint is present and never leaks account existence).

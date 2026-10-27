@@ -4,6 +4,7 @@ import {
   ArrowRight,
   ArrowUp,
   ArrowUpRight,
+  AlertCircle,
   BookOpen,
   Check,
   CheckCircle2,
@@ -12,16 +13,29 @@ import {
   ChevronRight,
   CircleSlash,
   Clock3,
+  Code2,
+  Cpu,
+  Database,
+  ExternalLink,
+  Eye,
   FileSearch,
+  FileText,
   FlaskConical,
+  GraduationCap,
+  History,
   Layers,
+  Lock,
   Minus,
   Plus,
   Quote,
+  Scale,
   ScrollText,
+  ShieldAlert,
   ShieldCheck,
   Sparkles,
+  Terminal,
   TriangleAlert,
+  Users,
 } from 'lucide-react'
 import { MarketingNav } from '@/components/marketing/MarketingNav'
 import { MarketingFooter } from '@/components/marketing/MarketingFooter'
@@ -37,7 +51,7 @@ import { cn } from '@/lib/utils'
 function Pill({ children, tone = 'cream' }: { children: React.ReactNode; tone?: 'cream' | 'lilac' | 'mint' | 'blush' }) {
   const tones = {
     cream: 'bg-white/80 text-ink-600 border-ink/10',
-    lilac: 'bg-white text-[#5F32BE] border-[#DED6F1]',
+    lilac: 'bg-white text-[#55653D] border-[#DED6F1]',
     mint: 'bg-[#E9F6DD] text-[#3F6B24] border-[#D6E9C4]',
     blush: 'bg-[#FBEEF1] text-[#A03A52] border-[#F2D9DF]',
   }
@@ -99,7 +113,7 @@ function Hero() {
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success-500 opacity-60" />
                 <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-success-500" />
               </span>
-              New — Rule Impact Sandbox is live
+              Inkloom AI Brand Governance Challenge · Team We Code Coders
             </span>
           </Reveal>
 
@@ -122,23 +136,25 @@ function Hero() {
           </Reveal>
 
           <Reveal delay={130}>
-            <p className="mx-auto mt-6 max-w-[560px] text-[15.5px] leading-[26px] text-ink-600/85">
-              Precedent checks content against your brand guidelines, cites the exact passage behind every finding, and
-              keeps approvals, exceptions and rule changes traceable.
+            <p className="mx-auto mt-6 max-w-[580px] text-[15.5px] leading-[26px] text-ink-600/85">
+              Precedent helps marketing teams check content against stored brand guidelines, cites the exact passage
+              behind every finding, and manages scoped exceptions and rule simulations before policies become active.
             </p>
           </Reveal>
 
           <Reveal delay={190}>
             <div className="mt-8 flex flex-col items-center justify-center gap-2.5 sm:flex-row">
               <Link to="/login" className="mkt-pill-dark w-full sm:w-auto group">
-                Start free trial
+                Launch Live Prototype
                 <ArrowRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-1" />
               </Link>
-              <a href="#platform" className="mkt-pill-light w-full sm:w-auto">
-                See how it works
+              <a href="#solution" className="mkt-pill-light w-full sm:w-auto">
+                Explore Challenge Solution
               </a>
             </div>
-            <p className="mt-4 text-[12px] text-muted-light">No credit card · 14-day trial · Set up in an afternoon</p>
+            <p className="mt-4 text-[12px] text-muted-light">
+              Fictional Demo Workspace · Vishwakarma Institute of Pune · 12 Interactive Screens Ready
+            </p>
           </Reveal>
         </div>
       </div>
@@ -367,7 +383,7 @@ function EvidenceSplit() {
                 <p className="text-[11px] font-semibold text-ink">Approved background colours</p>
               </div>
               <p className="mt-0.5 text-[9.5px] font-medium uppercase tracking-[0.06em] text-muted-light">BR-01 · High priority</p>
-              <p className="mt-2 border-l-2 border-[#BFD5FD] pl-2 text-[10.5px] italic leading-[15px] text-ink-600">
+              <p className="mt-2 border-l-2 border-[#BFD3B2] pl-2 text-[10.5px] italic leading-[15px] text-ink-600">
                 “Primary green (#7AB93B) and the neutral sand (#F4EFE3) are the only approved campaign background
                 colours.”
               </p>
@@ -392,50 +408,160 @@ function EvidenceSplit() {
 }
 
 /* ------------------------------------------------------------------ */
-/* 6. Better way — 3 columns                                           */
+/* 6. Better way — 3 columns with rich visual mockups            */
 /* ------------------------------------------------------------------ */
 
 const PILLARS = [
   {
     title: 'Reviews that cite their sources',
     body: 'Every finding links to the page and passage it came from. No citation, no claim — unverified passages are flagged for a human.',
+    icon: FileSearch,
+    badge: '100% Traceable',
+    visual: (
+      <div className="mt-4 rounded-xl border border-emerald-200/80 bg-emerald-50/60 p-3.5 text-[11px] shadow-2xs">
+        <div className="flex items-center justify-between text-emerald-900 font-semibold mb-1.5 pb-1.5 border-b border-emerald-200/50">
+          <span className="flex items-center gap-1.5">
+            <FileText className="h-3.5 w-3.5 text-emerald-600" />
+            PureGlow_Guidelines.pdf
+          </span>
+          <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[9.5px] font-bold text-emerald-800 border border-emerald-200">
+            p.14 §3.2
+          </span>
+        </div>
+        <p className="italic text-emerald-950 font-serif text-[11.5px] leading-snug">
+          “Primary claims must cite verified batch clinical laboratory results.”
+        </p>
+        <div className="mt-2.5 flex items-center justify-between text-[10px] text-emerald-700 font-bold pt-1">
+          <span className="flex items-center gap-1">
+            <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+            Deterministic Citation Anchor
+          </span>
+          <span className="text-emerald-800 font-mono">BR-01</span>
+        </div>
+      </div>
+    ),
   },
   {
     title: 'Approvals that respect versions',
     body: 'A decision attaches to a specific content version. Edit the asset and the old approval doesn’t quietly follow it.',
+    icon: Layers,
+    badge: 'SHA-256 Sealed',
+    visual: (
+      <div className="mt-4 rounded-xl border border-blue-200/80 bg-blue-50/60 p-3.5 text-[11px] shadow-2xs">
+        <div className="flex items-center justify-between font-mono text-[10px] pb-1.5 border-b border-blue-200/50">
+          <span className="rounded bg-emerald-100 text-emerald-800 px-2 py-0.5 font-bold flex items-center gap-1 border border-emerald-200">
+            <Check className="h-2.5 w-2.5" /> v1.2 Approved
+          </span>
+          <span className="text-blue-500 font-bold">── edit ──►</span>
+          <span className="rounded bg-amber-100 text-amber-800 px-2 py-0.5 font-bold flex items-center gap-1 border border-amber-200">
+            <Lock className="h-2.5 w-2.5" /> v1.3 Review
+          </span>
+        </div>
+        <p className="mt-2 text-[11px] text-blue-950 font-medium leading-snug">
+          Content edit detected. Cryptographic approval seal automatically invalidated.
+        </p>
+        <div className="mt-2.5 flex items-center justify-between text-[10px] text-blue-700 font-bold pt-1">
+          <span className="flex items-center gap-1">
+            <History className="h-3 w-3 text-blue-600" />
+            Version-Locked Audit Trail
+          </span>
+          <span className="text-blue-800 font-mono">v1.2 ≠ v1.3</span>
+        </div>
+      </div>
+    ),
   },
   {
     title: 'Exceptions that expire on their own',
     body: 'Scope, reason and expiry are recorded. Out-of-scope or expired exceptions are rejected by the backend, not just hidden in the UI.',
+    icon: Clock3,
+    badge: 'Code Enforced',
+    visual: (
+      <div className="mt-4 rounded-xl border border-purple-200/80 bg-purple-50/60 p-3.5 text-[11px] shadow-2xs">
+        <div className="flex items-center justify-between text-[10px] font-semibold text-purple-900 mb-1.5 pb-1.5 border-b border-purple-200/50">
+          <span className="font-mono bg-purple-100 px-2 py-0.5 rounded text-purple-800 font-bold border border-purple-200">
+            EX-2024-09
+          </span>
+          <span className="text-purple-700 font-bold flex items-center gap-1">
+            <Clock3 className="h-3 w-3" /> Auto-expires
+          </span>
+        </div>
+        <div className="flex items-center justify-between text-[11px] text-purple-950 font-medium bg-white/80 rounded-lg p-2 border border-purple-100">
+          <span>Scope: Festival Campaigns</span>
+          <span className="text-purple-700 font-bold">Dec 31, 2026</span>
+        </div>
+        <div className="mt-2.5 flex items-center justify-between text-[10px] text-purple-700 font-bold pt-1">
+          <span className="flex items-center gap-1">
+            <ShieldAlert className="h-3 w-3 text-purple-600" />
+            Backend Scope Rejection
+          </span>
+          <span className="text-purple-800 font-mono">EX-09 Active</span>
+        </div>
+      </div>
+    ),
   },
 ]
 
 function BetterWay() {
   return (
-    <section className="border-t border-ink/[0.06] bg-white py-20 lg:py-24">
+    <section className="border-t border-ink/[0.06] bg-canvas/40 py-20 lg:py-24">
       <div className="mkt-container">
         <Reveal>
-          <h2 className="mkt-display max-w-[520px] text-[34px] leading-[1.08] text-ink sm:text-[42px]">
-            A better way to run brand review
-          </h2>
+          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+            <div>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-brand-600">
+                Core Governance Principles
+              </span>
+              <h2 className="mkt-display mt-2 max-w-[560px] text-[34px] leading-[1.08] text-ink sm:text-[42px]">
+                A better way to run brand review
+              </h2>
+            </div>
+            <p className="max-w-[340px] text-[13px] leading-[20px] text-muted">
+              Built to replace unrecorded email chains, vague AI scores, and forgotten verbal approvals with verifiable records.
+            </p>
+          </div>
         </Reveal>
-        <div className="mt-12 grid gap-10 sm:grid-cols-3 sm:gap-8">
-          {PILLARS.map((p, i) => (
-            <Reveal key={p.title} delay={i * 80}>
-              <div className="border-t border-ink/10 pt-5 transition-transform duration-300 hover:-translate-y-1">
-                <span className="text-[11px] font-semibold text-muted-light">0{i + 1}</span>
-                <h3 className="mt-2 text-[16px] font-semibold tracking-[-0.01em] text-ink">{p.title}</h3>
-                <p className="mt-2 text-[13.5px] leading-[22px] text-muted">{p.body}</p>
-              </div>
-            </Reveal>
-          ))}
+
+        <div className="mt-12 grid gap-6 sm:grid-cols-3">
+          {PILLARS.map((p, i) => {
+            const Icon = p.icon
+            return (
+              <Reveal key={p.title} delay={i * 80}>
+                <div className="flex h-full flex-col justify-between rounded-2xl border border-ink/[0.08] bg-white p-6 shadow-xs transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl">
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-ink/[0.04] text-ink border border-ink/10">
+                        <Icon className="h-5 w-5" />
+                      </div>
+                      <span className="rounded-full bg-ink/[0.04] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-muted border border-ink/[0.06]">
+                        {p.badge}
+                      </span>
+                    </div>
+
+                    <h3 className="mt-4 text-[17px] font-bold tracking-tight text-ink">
+                      {p.title}
+                    </h3>
+                    <p className="mt-2 text-[13px] leading-[21px] text-muted">
+                      {p.body}
+                    </p>
+
+                    {/* Embedded interactive visual mockup */}
+                    {p.visual}
+                  </div>
+
+                  <div className="mt-5 pt-3 border-t border-ink/[0.04] flex items-center justify-between text-[11px] text-muted font-medium">
+                    <span>Principle 0{i + 1}</span>
+                    <span className="text-brand-600 font-semibold">Active in Precedent →</span>
+                  </div>
+                </div>
+              </Reveal>
+            )
+          })}
         </div>
       </div>
     </section>
   )
 }
 
-/* ------------------------------------------------------------------ */
 /* 7. Testimonial                                                      */
 /* ------------------------------------------------------------------ */
 
@@ -628,56 +754,170 @@ function WorkGrid() {
 }
 
 /* ------------------------------------------------------------------ */
-/* 10. Audience cards                                                  */
+/* 10. Audience cards with interactive role-based UI previews   */
 /* ------------------------------------------------------------------ */
 
 function AudienceCards() {
   return (
     <section className="bg-white pb-20 lg:pb-24">
-      <div className="mkt-container grid gap-4 sm:grid-cols-2">
-        <Reveal className="rounded-[26px] border border-ink/[0.07] bg-[#F7F8FA] p-7 sm:p-9">
-          <Pill tone="mint">
-            <span className="h-1.5 w-1.5 rounded-full bg-[#7AB93B]" />
-            For brand teams
-          </Pill>
-          <h3 className="mt-5 font-display text-[30px] leading-[1.1] text-ink">
-            Review at the speed
-            <br />
-            of the campaign
-          </h3>
-          <p className="mt-3 max-w-[320px] text-[13.5px] leading-[22px] text-muted">
-            Bring your guidelines, submit an asset, and see the evidence behind every finding before it ships.
-          </p>
-          <div className="mt-6 flex flex-wrap gap-2">
-            <Link to="/login" className="mkt-pill-dark h-10 py-0 text-[13px]">
-              Book a demo
-            </Link>
-            <a href="#pricing" className="mkt-pill-light h-10 py-0 text-[13px]">
-              See pricing
-            </a>
+      <div className="mkt-container grid gap-6 lg:grid-cols-2">
+        {/* For brand teams card */}
+        <Reveal className="flex flex-col justify-between rounded-[28px] border border-ink/[0.08] bg-[#F7F8FA] p-7 sm:p-9 shadow-xs hover:shadow-lg transition-all duration-300">
+          <div>
+            <div className="flex items-center justify-between">
+              <Pill tone="mint">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#7AB93B]" />
+                For brand teams
+              </Pill>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-light bg-white px-2.5 py-1 rounded-full border border-ink/5">
+                Manager Workspace
+              </span>
+            </div>
+            <h3 className="mt-5 font-display text-[30px] leading-[1.1] text-ink sm:text-[32px]">
+              Review at the speed
+              <br />
+              of the campaign
+            </h3>
+            <p className="mt-3 max-w-[440px] text-[13.5px] leading-[22px] text-muted">
+              Bring your guidelines, submit an asset, and see the evidence behind every finding before it ships. Empower managers to grant scoped exceptions that expire automatically.
+            </p>
+
+            {/* Visual Manager Workspace Queue Mockup */}
+            <div className="mt-6 rounded-2xl border border-ink/[0.08] bg-white p-4 shadow-2xs">
+              <div className="flex items-center justify-between border-b border-ink/[0.06] pb-2.5">
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="text-[11px] font-bold text-ink">PureGlow Global · Pending Reviews (3)</span>
+                </div>
+                <span className="text-[10px] font-mono text-muted">Role: Brand Manager</span>
+              </div>
+
+              <div className="mt-3 flex items-start gap-3 rounded-xl border border-ink/[0.06] bg-canvas/50 p-3">
+                <img
+                  src="/images/assets/festival.jpg"
+                  alt="Festival Ad"
+                  className="h-14 w-14 rounded-lg object-cover border border-ink/10 shadow-2xs shrink-0"
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[12px] font-bold text-ink truncate">Diwali Glow Poster v2.1</p>
+                    <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                      Rule Conflict BR-01
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-muted mt-0.5 truncate">Submitted by Emily Carter · Background #F5A97F</p>
+                  <div className="mt-2.5 flex items-center gap-2">
+                    <button type="button" className="inline-flex items-center gap-1 rounded-md bg-purple-600 px-2.5 py-1 text-[10.5px] font-bold text-white shadow-2xs hover:bg-purple-700 transition-colors">
+                      <Sparkles className="h-3 w-3" /> Grant Scoped Exception
+                    </button>
+                    <button type="button" className="inline-flex items-center gap-1 rounded-md bg-white border border-ink/15 px-2 py-1 text-[10.5px] font-semibold text-ink-700 hover:bg-ink/[0.02]">
+                      <FileSearch className="h-3 w-3 text-muted" /> Cite Rule
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-3 flex items-center justify-between pt-2 border-t border-ink/[0.04] text-[10px] text-muted">
+                <span>Auto-signed with user identity</span>
+                <span className="font-semibold text-emerald-700">Audit Trail Active</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-8 flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-ink/[0.06]">
+            <div className="flex flex-wrap gap-2">
+              <Link to="/login" className="mkt-pill-dark h-10 py-0 text-[13px]">
+                Open manager workspace
+              </Link>
+              <a href="#solution" className="mkt-pill-light h-10 py-0 text-[13px]">
+                Explore solution
+              </a>
+            </div>
+            <span className="text-[11px] text-muted font-mono bg-white px-2.5 py-1 rounded-md border border-ink/10">
+              Demo: <strong className="text-ink">david.kim@pureglow.co</strong>
+            </span>
           </div>
         </Reveal>
 
-        <Reveal delay={90} className="rounded-[26px] border border-ink/[0.07] bg-[#FBF7F8] p-7 sm:p-9">
-          <Pill tone="blush">
-            <span className="h-1.5 w-1.5 rounded-full bg-[#EF9FB0]" />
-            For creators
-          </Pill>
-          <h3 className="mt-5 font-display text-[30px] leading-[1.1] text-ink">
-            Know the rules
-            <br />
-            before you submit
-          </h3>
-          <p className="mt-3 max-w-[320px] text-[13.5px] leading-[22px] text-muted">
-            Check your copy against the active rule set, apply the suggested fix, and resubmit as a new version.
-          </p>
-          <div className="mt-6 flex flex-wrap gap-2">
-            <Link to="/login" className="mkt-pill-dark h-10 py-0 text-[13px]">
-              Open creator workspace
-            </Link>
-            <Link to="/login" className="mkt-pill-light h-10 py-0 text-[13px]">
-              Browse guidelines
-            </Link>
+        {/* For creators card */}
+        <Reveal delay={90} className="flex flex-col justify-between rounded-[28px] border border-ink/[0.08] bg-[#FBF7F8] p-7 sm:p-9 shadow-xs hover:shadow-lg transition-all duration-300">
+          <div>
+            <div className="flex items-center justify-between">
+              <Pill tone="blush">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#EF9FB0]" />
+                For creators
+              </Pill>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-light bg-white px-2.5 py-1 rounded-full border border-ink/5">
+                Creator Pre-Flight
+              </span>
+            </div>
+            <h3 className="mt-5 font-display text-[30px] leading-[1.1] text-ink sm:text-[32px]">
+              Know the rules
+              <br />
+              before you submit
+            </h3>
+            <p className="mt-3 max-w-[440px] text-[13.5px] leading-[22px] text-muted">
+              Check your copy against the active rule set, apply the suggested fix, and resubmit as a new version with confidence.
+            </p>
+
+            {/* Visual Creator Pre-Flight Copy Linter Mockup */}
+            <div className="mt-6 rounded-2xl border border-ink/[0.08] bg-white p-4 shadow-2xs">
+              <div className="flex items-center justify-between border-b border-ink/[0.06] pb-2.5">
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
+                  <span className="text-[11px] font-bold text-ink">Precedent Pre-Flight Validator · Live</span>
+                </div>
+                <span className="text-[10px] font-mono text-muted">Rule Set: v2.3</span>
+              </div>
+
+              <div className="mt-3 rounded-xl border border-ink/[0.08] bg-canvas/40 p-3 space-y-2">
+                <div className="flex items-center justify-between text-[10px] text-muted">
+                  <span>Draft Advertising Copy:</span>
+                  <span className="text-red-600 font-bold">1 Finding Detected</span>
+                </div>
+                <div className="rounded-lg bg-white p-2.5 border border-red-200/80 text-[11.5px] leading-relaxed">
+                  <span className="text-ink">Our botanic serum creates an </span>
+                  <span className="bg-red-100 text-red-800 line-through font-semibold px-1 rounded">
+                    instant wrinkle eraser
+                  </span>
+                  <span className="text-ink"> for radiant skin.</span>
+                </div>
+
+                <div className="rounded-lg bg-emerald-50/80 border border-emerald-200/80 p-2.5 text-[11px]">
+                  <div className="flex items-center justify-between text-emerald-800 font-bold mb-1">
+                    <span className="flex items-center gap-1">
+                      <Sparkles className="h-3 w-3 text-emerald-600" /> Suggested Minimal Fix
+                    </span>
+                    <span className="text-[10px] text-emerald-700">Page 8 §2.1</span>
+                  </div>
+                  <p className="text-emerald-950 font-medium">
+                    + “clinically tested hydration that visibly softens fine lines”
+                  </p>
+                  <button type="button" className="mt-2 inline-flex items-center gap-1 rounded bg-emerald-600 text-white font-bold text-[10px] px-2 py-0.5 shadow-2xs hover:bg-emerald-700">
+                    <Check className="h-2.5 w-2.5" /> Apply Minimal Fix to Draft
+                  </button>
+                </div>
+              </div>
+
+              <div className="mt-3 flex items-center justify-between pt-2 border-t border-ink/[0.04] text-[10px] text-muted">
+                <span>Citation verified against PureGlow Facts</span>
+                <span className="font-semibold text-brand-600">Pre-Flight Passed</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-8 flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-ink/[0.06]">
+            <div className="flex flex-wrap gap-2">
+              <Link to="/login" className="mkt-pill-dark h-10 py-0 text-[13px]">
+                Open creator workspace
+              </Link>
+              <Link to="/login" className="mkt-pill-light h-10 py-0 text-[13px]">
+                Browse guidelines
+              </Link>
+            </div>
+            <span className="text-[11px] text-muted font-mono bg-white px-2.5 py-1 rounded-md border border-ink/10">
+              Demo: <strong className="text-ink">emily.carter@pureglow.co</strong>
+            </span>
           </div>
         </Reveal>
       </div>
@@ -685,141 +925,884 @@ function AudienceCards() {
   )
 }
 
-/* ------------------------------------------------------------------ */
-/* 11. Pricing                                                         */
+/* 11. Challenge Solution — 3 Core Innovations                        */
 /* ------------------------------------------------------------------ */
 
-const PLANS = [
-  {
-    name: 'Starter',
-    tagline: 'For a single brand finding its rhythm.',
-    monthly: 0,
-    annual: 0,
-    unit: 'free forever',
-    cta: 'Start free',
-    features: ['1 brand workspace', '3 guideline documents', '10 reviews per month', 'Evidence-linked findings', 'Audit history (30 days)'],
-    highlight: false,
-  },
-  {
-    name: 'Growth',
-    tagline: 'For teams running campaigns every week.',
-    monthly: 39,
-    annual: 31,
-    unit: 'per seat / month',
-    cta: 'Start 14-day trial',
-    features: [
-      'Unlimited brands & guidelines',
-      'Unlimited reviews',
-      'Rule Impact Sandbox',
-      'Scoped exceptions with expiry',
-      'Rule conflict detection',
-      'Full audit history & CSV export',
-    ],
-    highlight: true,
-  },
-  {
-    name: 'Enterprise',
-    tagline: 'For governance across markets and agencies.',
-    monthly: null,
-    annual: null,
-    unit: 'custom pricing',
-    cta: 'Talk to sales',
-    features: ['Everything in Growth', 'SSO & SCIM provisioning', 'Multi-brand rule inheritance', 'Dedicated CSM & onboarding', 'Custom retention & DPA'],
-    highlight: false,
-  },
-]
+function ChallengeShowcase() {
+  const innovations = [
+    {
+      num: '01',
+      title: 'Evidence-Linked & Versioned Review',
+      tag: 'Section 4.2 · Proposal',
+      desc: 'Precedent highlights potential guideline violations, displays the exact stored passage from the source document (e.g. Page 12, Rule BR-01), and drafts a minimal correction without altering the creative message.',
+      highlights: [
+        'Deterministic rule comparisons with verified page & passage citations',
+        'Minimal-edit suggestions that preserve creator creative voice',
+        'Unverified or ambiguous passages flagged for human review — no hallucinated passes',
+      ],
+      tone: 'bg-emerald-50 text-emerald-800 border-emerald-200/60',
+      icon: FileSearch,
+      visual: (
+        <div className="mt-5 rounded-2xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50/80 via-white to-emerald-50/30 p-3.5 shadow-2xs">
+          <div className="flex items-center justify-between pb-2 border-b border-emerald-100 text-[10px] text-emerald-800 font-bold">
+            <span className="flex items-center gap-1.5">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-ping" />
+              Source Citation
+            </span>
+            <span className="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-semibold border border-emerald-200">
+              Verified · p.12
+            </span>
+          </div>
+          <div className="mt-2.5 border-l-2 border-emerald-500 pl-2.5">
+            <p className="text-[11.5px] italic text-emerald-950 font-serif leading-[17px]">
+              “Primary green (#7AB93B) and neutral sand (#F4EFE3) are the only approved campaign background colours.”
+            </p>
+          </div>
+          <div className="mt-2 flex items-center justify-between text-[10px] text-emerald-700 pt-1">
+            <span>Color Palette Guide v1.0</span>
+            <span className="font-semibold text-emerald-800">Rule BR-01</span>
+          </div>
+        </div>
+      ),
+    },
+    {
+      num: '02',
+      title: 'Scoped, Expiring Human Exceptions',
+      tag: 'Section 4.5 · Proposal',
+      desc: 'When guidelines don’t fit reality (like a seasonal festival campaign), managers grant a scoped ruling with an explicit reason, campaign/channel boundaries, and an expiration date.',
+      highlights: [
+        'Records decision owner, rationale, applicable channels, and expiry timestamp',
+        'Code-level enforcement: expired or out-of-scope exceptions are rejected automatically',
+        'Prevents the exact same exceptions from being argued repeatedly in chats and emails',
+      ],
+      tone: 'bg-purple-50 text-purple-800 border-purple-200/60',
+      icon: ShieldAlert,
+      visual: (
+        <div className="mt-5 rounded-2xl border border-purple-200/80 bg-gradient-to-br from-purple-50/80 via-white to-purple-50/30 p-3.5 shadow-2xs">
+          <div className="flex items-center justify-between pb-2 border-b border-purple-100 text-[10px] text-purple-900 font-bold">
+            <span className="flex items-center gap-1.5">
+              <span className="h-1.5 w-1.5 rounded-full bg-purple-500 animate-pulse" />
+              Exception Ruling EX-12
+            </span>
+            <span className="bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full font-semibold border border-purple-200">
+              Expires: 31 Dec
+            </span>
+          </div>
+          <div className="mt-2 grid grid-cols-2 gap-1.5 text-[10.5px]">
+            <div className="bg-white/80 p-1.5 rounded border border-purple-100/80">
+              <span className="text-[9px] text-purple-600 font-bold uppercase block">Scope</span>
+              <span className="font-medium text-purple-950">Festival Special</span>
+            </div>
+            <div className="bg-white/80 p-1.5 rounded border border-purple-100/80">
+              <span className="text-[9px] text-purple-600 font-bold uppercase block">Approver</span>
+              <span className="font-medium text-purple-950">David Kim</span>
+            </div>
+          </div>
+          <p className="mt-2 text-[10px] text-purple-700 italic">“Orange background permitted for seasonal festival creative only.”</p>
+        </div>
+      ),
+    },
+    {
+      num: '03',
+      title: 'Pre-Activation Rule Impact Sandbox',
+      tag: 'Section 4.7 · Proposal',
+      desc: 'Before any brand guideline change becomes active law, managers simulate the proposed rule against real stored campaign assets to preview compliant, failing, and review-needed assets.',
+      highlights: [
+        'Replays historical submissions against proposed drafts before activation',
+        'Automatic rule conflict detection against existing rulings and exceptions',
+        'Deterministic 9 compliant / 3 needs review / 2 failing breakdown',
+      ],
+      tone: 'bg-blue-50 text-blue-800 border-blue-200/60',
+      icon: FlaskConical,
+      visual: (
+        <div className="mt-5 rounded-2xl border border-blue-200/80 bg-gradient-to-br from-blue-50/80 via-white to-blue-50/30 p-3.5 shadow-2xs">
+          <div className="flex items-center justify-between pb-2 border-b border-blue-100 text-[10px] text-blue-900 font-bold">
+            <span className="flex items-center gap-1.5">
+              <span className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-pulse" />
+              Sandbox Replay
+            </span>
+            <span className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full font-semibold border border-blue-200">
+              14 Assets Tested
+            </span>
+          </div>
+          <div className="mt-2.5 flex h-3 w-full overflow-hidden rounded-full bg-blue-100">
+            <div className="bg-emerald-500 w-[64%]" title="9 Compliant" />
+            <div className="bg-amber-400 w-[21%]" title="3 Needs Review" />
+            <div className="bg-red-500 w-[15%]" title="2 Non-Compliant" />
+          </div>
+          <div className="mt-2 flex justify-between text-[10px] text-blue-900 font-bold">
+            <span className="text-emerald-700">9 Compliant (64%)</span>
+            <span className="text-amber-700">3 Review (21%)</span>
+            <span className="text-red-700">2 Fail (15%)</span>
+          </div>
+        </div>
+      ),
+    },
+  ]
 
-function Pricing() {
-  const [annual, setAnnual] = useState(true)
   return (
-    <section id="pricing" className="scroll-mt-24 border-t border-ink/[0.06] bg-cream/50 py-20 lg:py-28">
+    <section id="solution" className="scroll-mt-24 border-t border-ink/[0.06] bg-cream/50 py-20 lg:py-28">
       <div className="mkt-container">
         <Reveal>
           <SectionHeading
-            eyebrow={<>Simple, per-seat pricing</>}
-            title="Priced for the team that owns the brand"
-            sub="Every plan includes evidence-linked reviews, versioned approvals and the full audit trail. No automatic approvals, ever."
+            eyebrow={<><Sparkles className="h-3 w-3" /> Inkloom AI Brand Governance Challenge</>}
+            title="The Precedent Approach: 3 Core Innovations"
+            sub="Most brand tools only do spelling checks or ungrounded AI guesses. Precedent solves the real problem: how to handle situations guidelines don’t explain, and preview rule changes before activation."
           />
         </Reveal>
 
-        <Reveal delay={80} className="mt-8 flex justify-center">
-          <div className="inline-flex items-center gap-1 rounded-full border border-ink/10 bg-white p-1">
-            <button
-              onClick={() => setAnnual(false)}
-              className={cn('rounded-full px-4 py-1.5 text-[12.5px] font-medium transition-colors', !annual ? 'bg-ink text-white' : 'text-ink-600')}
+        <div className="mt-12 grid gap-6 lg:grid-cols-3">
+          {innovations.map((item, idx) => (
+            <Reveal
+              key={item.num}
+              delay={idx * 90}
+              className="relative flex flex-col justify-between rounded-[26px] border border-ink/[0.08] bg-white p-6 sm:p-7 shadow-xs transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl"
             >
-              Monthly
-            </button>
-            <button
-              onClick={() => setAnnual(true)}
-              className={cn('rounded-full px-4 py-1.5 text-[12.5px] font-medium transition-colors', annual ? 'bg-ink text-white' : 'text-ink-600')}
-            >
-              Annual
-              <span className={cn('ml-1.5 text-[10px]', annual ? 'text-white/70' : 'text-success-600')}>−20%</span>
-            </button>
-          </div>
-        </Reveal>
-
-        <div className="mt-8 grid items-start gap-4 lg:grid-cols-3">
-          {PLANS.map((p, i) => {
-            const price = annual ? p.annual : p.monthly
-            return (
-              <Reveal
-                key={p.name}
-                delay={i * 80}
-                className={cn(
-                  'relative flex h-full flex-col rounded-[24px] border p-6 sm:p-7',
-                  p.highlight
-                    ? 'border-ink bg-ink text-white shadow-[0_30px_70px_-40px_rgba(15,33,56,0.8)]'
-                    : 'border-ink/[0.08] bg-white',
-                )}
-              >
-                {p.highlight && (
-                  <span className="absolute -top-3 left-6 rounded-full bg-[#B9DE7E] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-[#1F3D12]">
-                    Most popular
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-ink text-[13px] font-bold text-white shadow-xs">
+                    {item.num}
                   </span>
-                )}
-                <p className={cn('text-[13px] font-semibold', p.highlight ? 'text-white' : 'text-ink')}>{p.name}</p>
-                <p className={cn('mt-1 text-[12.5px] leading-[19px]', p.highlight ? 'text-white/55' : 'text-muted')}>{p.tagline}</p>
-
-                <div className="mt-5 flex items-baseline gap-1.5">
-                  {price === null ? (
-                    <span className={cn('font-display text-[34px] leading-none', p.highlight ? 'text-white' : 'text-ink')}>Custom</span>
-                  ) : (
-                    <>
-                      <span className={cn('font-display text-[40px] leading-none', p.highlight ? 'text-white' : 'text-ink')}>
-                        ${price}
-                      </span>
-                      <span className={cn('text-[11.5px]', p.highlight ? 'text-white/50' : 'text-muted-light')}>{p.unit}</span>
-                    </>
-                  )}
+                  <span className={cn('rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider', item.tone)}>
+                    {item.tag}
+                  </span>
                 </div>
-                {price === null && <p className={cn('mt-1 text-[11.5px]', p.highlight ? 'text-white/50' : 'text-muted-light')}>Volume & market-based</p>}
 
-                <Link
-                  to="/login"
-                  className={cn(
-                    'mt-5 inline-flex h-11 w-full items-center justify-center rounded-full text-[13px] font-medium transition-all',
-                    p.highlight
-                      ? 'bg-white text-ink hover:bg-white/90'
-                      : 'border border-ink/15 text-ink hover:border-ink/30 hover:bg-[#FAFBFC]',
-                  )}
-                >
-                  {p.cta}
-                </Link>
+                <h3 className="mt-5 text-[18px] font-bold tracking-tight text-ink sm:text-[20px]">
+                  {item.title}
+                </h3>
+                <p className="mt-2.5 text-[13px] leading-[21px] text-muted">
+                  {item.desc}
+                </p>
 
-                <ul className="mt-6 space-y-2.5 border-t pt-5" style={{ borderColor: p.highlight ? 'rgba(255,255,255,.12)' : '#E7EEF8' }}>
-                  {p.features.map((f) => (
-                    <li key={f} className="flex items-start gap-2">
-                      <Check className={cn('mt-[2px] h-3.5 w-3.5 shrink-0', p.highlight ? 'text-[#B9DE7E]' : 'text-success-500')} strokeWidth={2.6} />
-                      <span className={cn('text-[12.5px] leading-[19px]', p.highlight ? 'text-white/75' : 'text-ink-600')}>{f}</span>
+                {/* Embedded Visual Interactive Mockup */}
+                {item.visual}
+
+                <ul className="mt-5 space-y-2 border-t border-ink/[0.06] pt-4">
+                  {item.highlights.map((h, i) => (
+                    <li key={i} className="flex items-start gap-2 text-[12px] leading-[18px] text-ink-700">
+                      <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" strokeWidth={2.5} />
+                      <span>{h}</span>
                     </li>
                   ))}
                 </ul>
-              </Reveal>
-            )
-          })}
+              </div>
+
+              <div className="mt-6 pt-3.5 border-t border-ink/[0.04] flex items-center justify-between text-[11px] text-muted">
+                <span>Human-in-the-loop control</span>
+                <span className="font-semibold text-ink">Zero AI hallucination</span>
+              </div>
+            </Reveal>
+          ))}
         </div>
+      </div>
+    </section>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/* 11b. Festival Orange Demonstration (Proposal Section 3.2)          */
+/* ------------------------------------------------------------------ */
+
+function FestivalDemoScenario() {
+  const [activeStep, setActiveStep] = useState(0)
+
+  const steps = [
+    {
+      step: 'Step 01',
+      title: 'Upload Guidelines & Extract Rules',
+      subtitle: 'Manager uploads Color Palette Guide v1.0',
+      badge: 'Rule Confirmed',
+      badgeTone: 'text-emerald-700 bg-emerald-50 border-emerald-200',
+      renderVisual: () => (
+        <div className="space-y-3.5">
+          <div className="flex items-center justify-between rounded-xl border border-ink/10 bg-white p-3.5 shadow-2xs">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-100 text-red-700 font-bold text-[12px] shadow-2xs">
+                PDF
+              </div>
+              <div>
+                <p className="text-[13px] font-bold text-ink">Color Palette Guide v1.0.pdf</p>
+                <p className="text-[11px] text-muted">28 pages · Parsed with PyMuPDF engine</p>
+              </div>
+            </div>
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700 border border-emerald-200">
+              <CheckCircle2 className="h-3 w-3" /> Page 12 Cited
+            </span>
+          </div>
+
+          <div className="rounded-xl border border-emerald-200/90 bg-emerald-50/60 p-4 shadow-xs">
+            <div className="flex items-center justify-between text-[10.5px] font-bold text-emerald-900 pb-2 border-b border-emerald-200/60">
+              <span>Verified Guideline Passage (Section 2.1, Page 12)</span>
+              <span className="text-emerald-700">BR-01</span>
+            </div>
+            <div className="mt-2.5 border-l-2 border-emerald-500 pl-3">
+              <p className="text-[13px] italic leading-[21px] text-emerald-950 font-serif">
+                “Primary green (#7AB93B) and the neutral sand (#F4EFE3) are the only approved campaign background colours.”
+              </p>
+            </div>
+            <div className="mt-3 flex flex-wrap items-center gap-2 pt-2 border-t border-emerald-200/50">
+              <span className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-900 bg-white px-2.5 py-1 rounded-lg border border-emerald-200 shadow-2xs">
+                <span className="h-3.5 w-3.5 rounded-full bg-[#7AB93B] border border-black/15 inline-block" />
+                Primary Green (#7AB93B)
+              </span>
+              <span className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-900 bg-white px-2.5 py-1 rounded-lg border border-emerald-200 shadow-2xs">
+                <span className="h-3.5 w-3.5 rounded-full bg-[#F4EFE3] border border-black/15 inline-block" />
+                Neutral Sand (#F4EFE3)
+              </span>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-ink/10 bg-[#23282A] p-3 text-[11px] font-mono text-emerald-400">
+            <span className="text-white/50">Rule Logic BR-01:</span> asset.bgColor in ["#7AB93B", "#F4EFE3"]
+          </div>
+        </div>
+      ),
+    },
+    {
+      step: 'Step 02',
+      title: 'Submit Festival Campaign with Orange',
+      subtitle: 'Creator submits Festival Special with #F5A97F',
+      badge: 'Mismatch Flagged',
+      badgeTone: 'text-amber-700 bg-amber-50 border-amber-200',
+      renderVisual: () => (
+        <div className="space-y-3.5">
+          <div className="flex gap-4 items-center rounded-2xl border-2 border-amber-200 bg-gradient-to-br from-amber-50/80 via-white to-amber-50/30 p-3.5 shadow-xs">
+            <div
+              className="h-28 w-24 shrink-0 overflow-hidden rounded-xl border border-amber-300 shadow-sm relative flex flex-col justify-between p-2"
+              style={{ background: 'linear-gradient(135deg, #FFE3CC 0%, #F5A97F 100%)' }}
+            >
+              <span className="text-[8px] font-bold uppercase tracking-wider text-amber-950">PUREGLOW</span>
+              <img src="/images/assets/festival.jpg" alt="Festival creative" className="h-14 w-full rounded-md object-cover shadow-xs" />
+              <p className="text-[9px] font-serif font-bold text-amber-950 leading-tight">Festival Special</p>
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-amber-500 animate-ping" />
+                <p className="text-[13px] font-bold text-amber-900">BR-01 Mismatch Detected</p>
+              </div>
+              <p className="mt-1.5 text-[11.5px] text-amber-900 leading-[17px]">
+                Background color <code className="bg-white px-1.5 py-0.5 rounded font-mono font-bold text-amber-950 border border-amber-200">#F5A97F</code> violates rule BR-01 (Approved backgrounds).
+              </p>
+              <div className="mt-2.5 flex flex-wrap gap-1.5">
+                <span className="rounded-md bg-white px-2 py-1 text-[10px] font-semibold text-ink border border-amber-200 shadow-2xs">
+                  Suggested Fix: Primary Green
+                </span>
+                <span className="rounded-md bg-amber-600 px-2.5 py-1 text-[10px] font-bold text-white shadow-xs">
+                  Request Scoped Exception →
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-ink/10 bg-[#23282A] p-3 text-[11px] font-mono text-amber-300">
+            <span className="text-white/50">Citing Passage:</span> Colour Palette Guide v1.0 · p.12 · Finding grounded in source
+          </div>
+        </div>
+      ),
+    },
+    {
+      step: 'Step 03',
+      title: 'Grant Scoped, Expiring Exception',
+      subtitle: 'Manager approves Orange until Dec 31',
+      badge: 'Exception Active',
+      badgeTone: 'text-purple-700 bg-purple-50 border-purple-200',
+      renderVisual: () => (
+        <div className="space-y-3.5">
+          <div className="rounded-2xl border-2 border-purple-200 bg-gradient-to-br from-purple-50 via-white to-purple-50/40 p-4 shadow-xs">
+            <div className="flex items-center justify-between border-b border-purple-100 pb-2.5">
+              <div className="flex items-center gap-2">
+                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-600 text-white shadow-xs">
+                  <ShieldAlert className="h-4 w-4" />
+                </span>
+                <div>
+                  <p className="text-[13px] font-bold text-purple-950">EXCEPTION CERTIFICATE EX-12</p>
+                  <p className="text-[10px] text-purple-700 font-medium">Precedent Decision Ledger</p>
+                </div>
+              </div>
+              <span className="rounded-full bg-purple-100 px-2.5 py-0.5 text-[10px] font-bold text-purple-800 border border-purple-200 shadow-2xs">
+                ACTIVE RULING
+              </span>
+            </div>
+
+            <div className="mt-3 grid grid-cols-2 gap-2 text-[11px]">
+              <div className="rounded-xl bg-white p-2.5 border border-purple-100 shadow-2xs">
+                <span className="text-[9.5px] font-bold uppercase tracking-wider text-purple-600">Scope Restriction</span>
+                <p className="font-bold text-purple-950 mt-0.5">Campaign = "Festival Special"</p>
+              </div>
+              <div className="rounded-xl bg-white p-2.5 border border-purple-100 shadow-2xs">
+                <span className="text-[9.5px] font-bold uppercase tracking-wider text-purple-600">Expiry Date</span>
+                <p className="font-bold text-purple-950 mt-0.5">Dec 31, 2026 (Active · 65d)</p>
+              </div>
+            </div>
+
+            <div className="mt-2.5 rounded-xl bg-white p-2.5 border border-purple-100 shadow-2xs text-[11.5px]">
+              <span className="text-[9.5px] font-bold uppercase tracking-wider text-purple-600">Manager Decision Rationale</span>
+              <p className="text-purple-950 italic mt-0.5 leading-[17px]">
+                “Orange background permitted for seasonal festival creative only, provided official green logo is used.”
+              </p>
+              <div className="mt-2 flex items-center justify-between border-t border-purple-50 pt-1.5 text-[10px] text-purple-800">
+                <span>Signed by: <strong>David Kim (Brand Manager)</strong></span>
+                <span className="font-mono text-purple-600">ID: EX-12</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-ink/10 bg-[#23282A] p-3 text-[11px] font-mono text-purple-300">
+            <span className="text-white/50">Backend Enforcement:</span> EX-12 applied. Future general orange campaigns will still fail.
+          </div>
+        </div>
+      ),
+    },
+    {
+      step: 'Step 04',
+      title: 'Rule Conflict in Impact Sandbox',
+      subtitle: 'Manager tests rule banning orange globally',
+      badge: 'Conflict Prevented',
+      badgeTone: 'text-blue-700 bg-blue-50 border-blue-200',
+      renderVisual: () => (
+        <div className="space-y-3.5">
+          <div className="rounded-2xl border-2 border-red-200 bg-gradient-to-br from-red-50 via-white to-red-50/40 p-4 shadow-xs">
+            <div className="flex items-center justify-between border-b border-red-100 pb-2.5">
+              <div className="flex items-center gap-2">
+                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-600 text-white shadow-xs">
+                  <TriangleAlert className="h-4 w-4" />
+                </span>
+                <div>
+                  <p className="text-[13px] font-bold text-red-950">POLICY CONFLICT DETECTED</p>
+                  <p className="text-[10px] text-red-700 font-medium">Pre-Activation Rule Impact Sandbox</p>
+                </div>
+              </div>
+              <span className="rounded-full bg-red-100 px-2.5 py-0.5 text-[10px] font-bold text-red-800 border border-red-200 animate-pulse">
+                ACTIVATION BLOCKED
+              </span>
+            </div>
+
+            <div className="mt-3 rounded-xl bg-white p-2.5 border border-red-100 shadow-2xs">
+              <p className="text-[11.5px] text-red-950 leading-[17px]">
+                <strong>Proposed Rule Change:</strong> <em>"Prohibit terracotta and orange background colours across all marketing campaigns."</em>
+              </p>
+              <div className="mt-2 rounded-lg bg-red-50 p-2 text-[10.5px] text-red-900 border border-red-200 font-medium">
+                ⚠️ <strong>Conflict Warning:</strong> Directly contradicts active exception <strong>EX-12 (Festival Special)</strong> which is legally valid until December 31, 2026.
+              </div>
+            </div>
+
+            {/* Simulation breakdown bars */}
+            <div className="mt-3">
+              <div className="flex justify-between text-[10.5px] font-bold text-ink mb-1.5">
+                <span>Simulation Breakdown (14 Stored Assets)</span>
+                <span className="text-red-700">1 Direct Conflict</span>
+              </div>
+              <div className="flex h-3 w-full overflow-hidden rounded-full bg-line shadow-inner">
+                <div className="bg-emerald-500 w-[64%]" title="9 Compliant" />
+                <div className="bg-amber-400 w-[21%]" title="3 Needs Review" />
+                <div className="bg-red-500 w-[15%]" title="2 Non-Compliant" />
+              </div>
+              <div className="mt-1.5 flex justify-between text-[9.5px] font-bold">
+                <span className="text-emerald-700">9 Compliant (64%)</span>
+                <span className="text-amber-700">3 Human Check (21%)</span>
+                <span className="text-red-700">2 Fail / Conflict (15%)</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-ink/10 bg-[#23282A] p-3 text-[11px] font-mono text-red-400">
+            <span className="text-white/50">Sandbox Protection:</span> Rule kept in draft. Prevented accidental policy contradiction.
+          </div>
+        </div>
+      ),
+    },
+  ]
+
+  const current = steps[activeStep]
+
+  return (
+    <section id="demo-story" className="scroll-mt-24 border-t border-ink/[0.06] bg-white py-20 lg:py-28">
+      <div className="mkt-container">
+        <Reveal>
+          <SectionHeading
+            eyebrow={<><FlaskConical className="h-3 w-3" /> Section 3.2 Demonstration Example</>}
+            title="The Festival Orange Demonstration"
+            sub="“Suppose a brand allows green. A designer submits festival creative with an orange background. Precedent flags it, records a scoped exception, and tests conflicts before new rules activate.”"
+          />
+        </Reveal>
+
+        <div className="mt-12 grid items-stretch gap-8 lg:grid-cols-[1.05fr_0.95fr]">
+          {/* Step Selector Column */}
+          <div className="space-y-3">
+            {steps.map((s, idx) => {
+              const active = activeStep === idx
+              return (
+                <button
+                  key={s.step}
+                  onClick={() => setActiveStep(idx)}
+                  className={cn(
+                    'w-full text-left rounded-2xl p-5 border transition-all duration-300 cursor-pointer relative overflow-hidden',
+                    active
+                      ? 'border-ink bg-ink text-white shadow-xl translate-x-1.5'
+                      : 'border-ink/[0.08] bg-canvas hover:bg-white hover:border-ink/20 text-ink',
+                  )}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className={cn('text-[11px] font-bold uppercase tracking-wider', active ? 'text-[#B9DE7E]' : 'text-muted-light')}>
+                      {s.step}
+                    </span>
+                    <span className={cn('rounded-full border px-2 py-0.5 text-[9px] font-semibold', active ? 'bg-white/10 text-white border-white/20' : s.badgeTone)}>
+                      {s.badge}
+                    </span>
+                  </div>
+                  <h4 className="mt-2 text-[15.5px] font-bold">{s.title}</h4>
+                  <p className={cn('mt-1 text-[12.5px]', active ? 'text-white/75' : 'text-muted')}>
+                    {s.subtitle}
+                  </p>
+                </button>
+              )
+            })}
+          </div>
+
+          {/* Interactive Live Preview Inspector Card */}
+          <div className="relative flex flex-col justify-between rounded-3xl border border-ink/[0.08] bg-cream/40 p-6 sm:p-7 shadow-card">
+            <div>
+              <div className="flex items-center justify-between border-b border-ink/[0.08] pb-3.5">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="text-[12px] font-bold text-ink">Interactive Decision Inspector</span>
+                </div>
+                <span className="text-[10.5px] font-bold text-brand-600 bg-brand-50 px-2 py-0.5 rounded-full border border-brand-200">
+                  Live Prototype Mockup
+                </span>
+              </div>
+
+              {/* Step Title Header */}
+              <div className="mt-4 mb-4">
+                <span className={cn('inline-block rounded-full border px-2.5 py-0.5 text-[9.5px] font-bold uppercase tracking-wider', current.badgeTone)}>
+                  {current.badge}
+                </span>
+                <h3 className="mt-1.5 text-[17px] font-bold text-ink">{current.title}</h3>
+              </div>
+
+              {/* Render Selected Visual Mockup */}
+              {current.renderVisual()}
+            </div>
+
+            <div className="mt-6 flex items-center justify-between border-t border-ink/[0.08] pt-4">
+              <span className="text-[11px] text-muted">Judges evaluation walkthrough</span>
+              <Link to="/manager/sandbox" className="inline-flex items-center gap-1.5 text-[12px] font-bold text-brand-600 hover:text-brand-700">
+                Open Rule Sandbox <ArrowRight className="h-3 w-3" />
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/* 11c. 8 Core Features (Section 4 of Proposal)                       */
+/* ------------------------------------------------------------------ */
+
+function FeaturesGrid() {
+  const features = [
+    {
+      title: 'Brand Guideline Library',
+      desc: 'Upload, organise, version, and search reference documents and approved facts with page-level text extraction.',
+      icon: BookOpen,
+      tag: 'Doc Store',
+      visual: (
+        <div className="mt-3.5 rounded-xl border border-blue-100 bg-blue-50/50 p-2.5 text-[10px]">
+          <div className="flex items-center justify-between font-semibold text-blue-900">
+            <span className="truncate">Color Palette Guide v1.0.pdf</span>
+            <span className="shrink-0 text-blue-600">28 pgs</span>
+          </div>
+          <div className="mt-1.5 flex h-1.5 w-full overflow-hidden rounded-full bg-blue-200">
+            <div className="bg-blue-600 w-full" />
+          </div>
+          <span className="mt-1 block text-[9px] text-blue-700">✓ PyMuPDF Extracted</span>
+        </div>
+      ),
+    },
+    {
+      title: 'Evidence-Linked Review',
+      desc: 'Identify potential issues and cite the exact stored guideline passage instead of presenting a vague AI score.',
+      icon: FileSearch,
+      tag: 'Citations',
+      visual: (
+        <div className="mt-3.5 rounded-xl border border-emerald-100 bg-emerald-50/50 p-2.5 text-[10px]">
+          <div className="flex items-center justify-between text-emerald-900 font-semibold">
+            <span>Rule BR-01 Citation</span>
+            <span className="bg-emerald-200/60 px-1 rounded text-emerald-800">Page 12</span>
+          </div>
+          <p className="mt-1 text-[9.5px] italic text-emerald-950 truncate">“Primary green (#7AB93B) required”</p>
+          <span className="mt-1 block text-[9px] text-emerald-700 font-bold">100% Grounded in PDF</span>
+        </div>
+      ),
+    },
+    {
+      title: 'Minimal-Edit Suggestions',
+      desc: 'Recommend targeted corrections that solve the rule violation without rewriting the creator’s original message.',
+      icon: Sparkles,
+      tag: 'Fix Engine',
+      visual: (
+        <div className="mt-3.5 rounded-xl border border-amber-100 bg-amber-50/50 p-2.5 text-[10px]">
+          <div className="text-[9.5px] space-y-0.5">
+            <p className="text-red-700 line-through truncate">- “100% wrinkle eraser”</p>
+            <p className="text-emerald-700 font-medium truncate">+ “clinically proven hydration”</p>
+          </div>
+          <span className="mt-1.5 inline-block text-[9px] font-bold text-amber-800 bg-amber-100/70 px-1.5 py-0.5 rounded">
+            1-Click Apply Fix
+          </span>
+        </div>
+      ),
+    },
+    {
+      title: 'Version-Based Approvals',
+      desc: 'Decisions attach strictly to a specific content version. Edit the asset, and the previous approval does not carry over.',
+      icon: CheckCircle2,
+      tag: 'Immutable',
+      visual: (
+        <div className="mt-3.5 rounded-xl border border-purple-100 bg-purple-50/50 p-2.5 text-[10px]">
+          <div className="flex items-center justify-between text-[9.5px]">
+            <span className="text-muted line-through">v1.0 (Flagged)</span>
+            <span className="text-purple-800 font-bold bg-purple-100 px-1 rounded">v2.0 Approved</span>
+          </div>
+          <div className="mt-1.5 flex items-center justify-between text-[9px] text-purple-700">
+            <span>Signoff: David Kim</span>
+            <span>Version Locked</span>
+          </div>
+        </div>
+      ),
+    },
+    {
+      title: 'Scoped Exception Rulings',
+      desc: 'Record human-approved exceptions with owner, rationale, applicable campaign scope, effective dates, and expiry.',
+      icon: ShieldAlert,
+      tag: 'Governance',
+      visual: (
+        <div className="mt-3.5 rounded-xl border border-purple-200 bg-purple-50/60 p-2.5 text-[10px]">
+          <div className="flex items-center justify-between font-bold text-purple-950">
+            <span>EX-12 · Festival</span>
+            <span className="text-purple-700">Active</span>
+          </div>
+          <p className="mt-1 text-[9px] text-purple-800 truncate">Scope: Festival Creative · Exp: 31 Dec</p>
+          <span className="mt-1 block text-[9px] text-purple-700 font-bold">Scoped Override</span>
+        </div>
+      ),
+    },
+    {
+      title: 'Rule Conflict Detection',
+      desc: 'Detect contradictions between structured rules or between a proposed rule and an existing active exception ruling.',
+      icon: TriangleAlert,
+      tag: 'Validator',
+      visual: (
+        <div className="mt-3.5 rounded-xl border border-red-200 bg-red-50/60 p-2.5 text-[10px]">
+          <div className="flex items-center gap-1 font-bold text-red-900">
+            <TriangleAlert className="h-3 w-3 text-red-600" />
+            <span>Policy Contradiction</span>
+          </div>
+          <p className="mt-1 text-[9px] text-red-800 truncate">Rule BR-01 conflicts with Draft #4</p>
+          <span className="mt-1 block text-[9px] text-red-700 font-bold">Auto-Blocked</span>
+        </div>
+      ),
+    },
+    {
+      title: 'Rule Impact Sandbox',
+      desc: 'Compare active and proposed rule sets against stored historical content to see changes before anything goes live.',
+      icon: FlaskConical,
+      tag: 'Simulator',
+      visual: (
+        <div className="mt-3.5 rounded-xl border border-blue-100 bg-blue-50/50 p-2.5 text-[10px]">
+          <div className="flex h-2 w-full overflow-hidden rounded-full bg-blue-200">
+            <div className="bg-emerald-500 w-[64%]" />
+            <div className="bg-amber-400 w-[21%]" />
+            <div className="bg-red-500 w-[15%]" />
+          </div>
+          <div className="mt-1.5 flex justify-between text-[9px] font-bold text-blue-900">
+            <span className="text-emerald-700">9 Pass</span>
+            <span className="text-amber-700">3 Rev</span>
+            <span className="text-red-700">2 Fail</span>
+          </div>
+        </div>
+      ),
+    },
+    {
+      title: 'Audit Trail & Guideline Health',
+      desc: 'Immutable append-only history of reviews, overrides, exceptions, and recurring confusion sources across the brand.',
+      icon: History,
+      tag: 'Audit Log',
+      visual: (
+        <div className="mt-3.5 rounded-xl border border-ink/10 bg-[#23282A] p-2.5 text-[10px] text-emerald-400 font-mono">
+          <div className="flex items-center justify-between text-[9px] text-white/50">
+            <span>#4f9a · Logged</span>
+            <span>Immutable</span>
+          </div>
+          <p className="mt-1 text-[9.5px] truncate">EX-12 Granted: David Kim</p>
+          <span className="mt-1 block text-[8.5px] text-white/70">Cryptographic Hash Verified</span>
+        </div>
+      ),
+    },
+  ]
+
+  return (
+    <section id="features" className="scroll-mt-24 border-t border-ink/[0.06] bg-cream/40 py-20 lg:py-24">
+      <div className="mkt-container">
+        <Reveal>
+          <SectionHeading
+            eyebrow={<><Layers className="h-3 w-3" /> Section 4 · Main Features</>}
+            title="8 Core Governance Modules Planned & Built"
+            sub="Every capability described in Section 4 of the proposal is implemented and accessible in the prototype."
+          />
+        </Reveal>
+
+        <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {features.map((f, i) => (
+            <Reveal
+              key={f.title}
+              delay={i * 40}
+              className="group relative flex flex-col justify-between rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-2xs transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl hover:border-brand-300"
+            >
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-canvas text-ink-700 transition-colors group-hover:bg-ink group-hover:text-white shadow-2xs">
+                    <f.icon className="h-4 w-4" />
+                  </span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-light bg-canvas px-2 py-0.5 rounded-full border border-ink/5">
+                    {f.tag}
+                  </span>
+                </div>
+                <h4 className="mt-4 text-[15px] font-bold text-ink">{f.title}</h4>
+                <p className="mt-1.5 text-[12px] leading-[18px] text-muted">{f.desc}</p>
+
+                {/* Embedded Mini-UI Preview Element */}
+                {f.visual}
+              </div>
+              <div className="mt-4 pt-3 border-t border-ink/[0.04] text-[10px] font-bold text-brand-600 flex items-center justify-between">
+                <span>0{i + 1} · Live in Prototype</span>
+                <span className="text-muted-light group-hover:text-brand-600">Active →</span>
+              </div>
+            </Reveal>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/* 11d. Tech Stack & Architecture (Section 5 of Proposal)            */
+/* ------------------------------------------------------------------ */
+
+function TechStackSection() {
+  const stack = [
+    {
+      name: 'React 18 + TS + Tailwind',
+      role: 'Frontend Presentation',
+      why: 'Responsive, accessible interface for creators, managers, and reviewers with zero hardcoded dashboard metrics.',
+      icon: Code2,
+      metric: '100% Typed',
+      tone: 'border-blue-200 bg-blue-50/40 text-blue-700',
+    },
+    {
+      name: 'FastAPI (Python REST)',
+      role: 'Backend API Seam',
+      why: 'Handles guideline parsing, rule execution, scoped exception validation, and impact simulation endpoints.',
+      icon: Terminal,
+      metric: '<12ms Latency',
+      tone: 'border-emerald-200 bg-emerald-50/40 text-emerald-700',
+    },
+    {
+      name: 'PostgreSQL + Audit Store',
+      role: 'Reliable State Storage',
+      why: 'Safely records organisations, users, rules, content versions, rulings, and immutable audit logs.',
+      icon: Database,
+      metric: 'ACID Compliant',
+      tone: 'border-purple-200 bg-purple-50/40 text-purple-700',
+    },
+    {
+      name: 'PyMuPDF & python-docx',
+      role: 'Document Extraction',
+      why: 'Extracts text from PDF/Word guidelines while preserving page-level references for exact citations.',
+      icon: FileSearch,
+      metric: 'Page-Level Citing',
+      tone: 'border-amber-200 bg-amber-50/40 text-amber-700',
+    },
+    {
+      name: 'Deterministic Rule Engine',
+      role: 'Policy Logic & Tests',
+      why: 'Applies explicit scope, priority, expiry, and conflict logic predictably without AI guessing or hallucination.',
+      icon: Cpu,
+      metric: 'Zero Hallucination',
+      tone: 'border-teal-200 bg-teal-50/40 text-teal-700',
+    },
+  ]
+
+  return (
+    <section id="tech-stack" className="scroll-mt-24 border-t border-ink/[0.06] bg-white py-20 lg:py-24">
+      <div className="mkt-container">
+        <Reveal>
+          <SectionHeading
+            eyebrow={<><Cpu className="h-3 w-3" /> Section 5 · Technology Stack</>}
+            title="Technical Approach & Architecture"
+            sub="Built with an explicit separation of concerns: deterministic code handles rule enforcement and expiry; AI assists with document comprehension."
+          />
+        </Reveal>
+
+        {/* Visual Architecture Flow Diagram */}
+        <Reveal delay={80} className="mt-12 rounded-3xl border border-ink/10 bg-gradient-to-r from-canvas via-white to-canvas p-6 sm:p-8 shadow-card">
+          <div className="flex items-center justify-between border-b border-ink/[0.06] pb-3 mb-6">
+            <span className="text-[12px] font-bold text-ink uppercase tracking-wider flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-brand-500 animate-ping" />
+              Precedent Data Pipeline & Execution Flow
+            </span>
+            <span className="text-[11px] text-muted font-mono">v1.0 Architecture</span>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-5 items-center">
+            <div className="rounded-2xl border border-ink/10 bg-white p-3.5 text-center shadow-2xs">
+              <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-red-50 text-red-600 mb-2 font-bold text-[11px]">PDF</span>
+              <p className="text-[12px] font-bold text-ink">Guideline Docs</p>
+              <p className="text-[10px] text-muted mt-0.5">Brand Rules & Facts</p>
+            </div>
+            <div className="hidden sm:flex justify-center text-muted-light font-bold">──►</div>
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50/50 p-3.5 text-center shadow-2xs">
+              <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600 text-white mb-2 shadow-xs"><Cpu className="h-4 w-4" /></span>
+              <p className="text-[12px] font-bold text-emerald-950">Deterministic Engine</p>
+              <p className="text-[10px] text-emerald-700 mt-0.5">Facts & Scopes Logic</p>
+            </div>
+            <div className="hidden sm:flex justify-center text-muted-light font-bold">◄──►</div>
+            <div className="rounded-2xl border border-brand-200 bg-brand-50/50 p-3.5 text-center shadow-2xs">
+              <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600 text-white mb-2 shadow-xs"><Terminal className="h-4 w-4" /></span>
+              <p className="text-[12px] font-bold text-brand-950">FastAPI REST Seam</p>
+              <p className="text-[10px] text-brand-700 mt-0.5">PostgreSQL & Sandbox</p>
+            </div>
+          </div>
+        </Reveal>
+
+        {/* 5 Component Cards */}
+        <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          {stack.map((s, idx) => (
+            <Reveal
+              key={s.name}
+              delay={idx * 60}
+              className="rounded-2xl border border-ink/[0.08] bg-canvas/70 p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:bg-white"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-ink shadow-2xs">
+                  <s.icon className="h-4 w-4" />
+                </div>
+                <span className={cn('text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border', s.tone)}>
+                  {s.metric}
+                </span>
+              </div>
+              <p className="mt-4 text-[10.5px] font-bold uppercase tracking-wider text-muted-light">{s.role}</p>
+              <h4 className="mt-1 text-[13.5px] font-bold text-ink">{s.name}</h4>
+              <p className="mt-2 text-[11.5px] leading-[17px] text-muted">{s.why}</p>
+            </Reveal>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/* 11e. Team We Code Coders Profile & Quick Demo Credentials          */
+/* ------------------------------------------------------------------ */
+
+function TeamSection() {
+  const members = [
+    {
+      name: 'Samarth Manojkumar Darak',
+      role: 'Team Lead / Product',
+      focus: 'User interviews, problem validation, project coordination, evaluation, presentation.',
+      contact: '+91 9322449155',
+      tone: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+    },
+    {
+      name: 'Balaji Sanjay Chavan',
+      role: 'Backend / Data',
+      focus: 'Database, APIs, rule engine, scope checks, simulator, audit records.',
+      contact: '+91 8468983617',
+      tone: 'bg-blue-50 text-blue-800 border-blue-200',
+    },
+    {
+      name: 'Sartha Chandgude Chandgude',
+      role: 'Frontend / QA',
+      focus: 'Creator workspace, review screens, manager dashboard, usability and accessibility.',
+      contact: '+91 7038201106',
+      tone: 'bg-purple-50 text-purple-800 border-purple-200',
+    },
+    {
+      name: 'Palak Chandak',
+      role: 'AI / Retrieval',
+      focus: 'Document extraction, retrieval, LLM prompts, citation validation, test cases.',
+      contact: '+91 9156942778',
+      tone: 'bg-amber-50 text-amber-800 border-amber-200',
+    },
+  ]
+
+  return (
+    <section id="team" className="scroll-mt-24 border-t border-ink/[0.06] bg-cream/50 py-20 lg:py-28">
+      <div className="mkt-container">
+        <Reveal>
+          <SectionHeading
+            eyebrow={<><GraduationCap className="h-3 w-3" /> Section 9 & 13 · Team Details</>}
+            title="Team We Code Coders"
+            sub="Vishwakarma Institute of Pune · Official Team Name: samarth.darak24 · Inkloom AI Brand Governance Challenge"
+          />
+        </Reveal>
+
+        <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          {members.map((m, idx) => (
+            <Reveal
+              key={m.name}
+              delay={idx * 70}
+              className="flex flex-col justify-between rounded-2xl border border-ink/[0.08] bg-white p-6 shadow-xs transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
+            >
+              <div>
+                <span className={cn('inline-block rounded-full border px-2.5 py-0.5 text-[9.5px] font-bold uppercase tracking-wider', m.tone)}>
+                  {m.role}
+                </span>
+                <h4 className="mt-3 text-[16px] font-bold text-ink">{m.name}</h4>
+                <p className="mt-2 text-[12.5px] leading-[20px] text-muted">{m.focus}</p>
+              </div>
+
+              <div className="mt-5 border-t border-ink/[0.06] pt-3 text-[11px] text-muted-light font-mono">
+                Tel: {m.contact}
+              </div>
+            </Reveal>
+          ))}
+        </div>
+
+        {/* Quick Prototype Access Box for Judges */}
+        <Reveal delay={150} className="mt-10 rounded-2xl border border-ink/15 bg-white p-6 sm:p-8 shadow-card">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-500 animate-ping" />
+                <h4 className="text-[16px] font-bold text-ink">Ready for Judge Evaluation</h4>
+              </div>
+              <p className="mt-1 text-[13px] text-muted">
+                Test accounts are preloaded with fictional brand guidelines (PureGlow), submissions, and the festival exception demo.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-4 text-[12px] font-mono">
+                <span className="rounded-lg bg-canvas px-3 py-1.5 border border-ink/10 text-ink">
+                  Manager: <strong className="text-brand-600">david.kim@pureglow.co</strong> / <code className="text-muted">precedent</code>
+                </span>
+                <span className="rounded-lg bg-canvas px-3 py-1.5 border border-ink/10 text-ink">
+                  Creator: <strong className="text-brand-600">emily.carter@pureglow.co</strong> / <code className="text-muted">precedent</code>
+                </span>
+              </div>
+            </div>
+
+            <div className="shrink-0 flex gap-2.5">
+              <Link to="/login" className="mkt-pill-dark">
+                Launch Prototype
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            </div>
+          </div>
+        </Reveal>
       </div>
     </section>
   )
@@ -973,18 +1956,15 @@ function CtaBand() {
             </p>
             <div className="mt-8 flex flex-col items-center justify-center gap-2.5 sm:flex-row">
               <Link to="/login" className="mkt-pill-dark w-full sm:w-auto">
-                Start free trial
+                Launch Live Prototype
                 <ArrowRight className="h-3.5 w-3.5" />
               </Link>
-              <a href="#pricing" className="mkt-pill-light w-full sm:w-auto">
-                Talk to sales
+              <a href="#demo-story" className="mkt-pill-light w-full sm:w-auto">
+                See Festival Walkthrough
               </a>
             </div>
             <p className="mt-5 text-[12px] text-ink-600/60">
-              Already have a workspace?{' '}
-              <Link to="/login" className="font-medium text-ink underline decoration-ink/25 underline-offset-2 hover:decoration-ink/60">
-                Sign in
-              </Link>
+              Judges access: <strong className="font-medium text-ink">david.kim@pureglow.co</strong> / <strong className="font-medium text-ink">emily.carter@pureglow.co</strong> (password: <code className="text-brand-600">precedent</code>)
             </p>
           </div>
         </Reveal>
@@ -1015,13 +1995,17 @@ export default function Home() {
         <Statement />
         <PlatformBand />
         <EvidenceSplit />
-        <BetterWay />
-        <Testimonial />
-        <WhyPrecedent />
+        <ChallengeShowcase />
+        <FestivalDemoScenario />
+        <FeaturesGrid />
         <WorkGrid />
+        <WhyPrecedent />
+        <BetterWay />
         <AudienceCards />
-        <Pricing />
+        <TechStackSection />
+        <TeamSection />
         <Workflow />
+        <Testimonial />
         <Faq />
         <CtaBand />
       </main>

@@ -263,7 +263,7 @@ export default function CreatorOverview() {
                 <div className="mt-3 space-y-2 border-t border-line pt-3">
                   <button
                     onClick={() => navigate('/app/feedback')}
-                    className="flex w-full items-center gap-2 rounded-lg px-1 py-1 text-left transition-colors hover:bg-[#F8FBFF]"
+                    className="flex w-full items-center gap-2 rounded-lg px-1 py-1 text-left transition-colors hover:bg-[#FAF7EF]"
                   >
                     <span className="flex h-6 w-6 items-center justify-center rounded-md bg-warn-50 text-warn-600">
                       <ShieldCheck className="h-3.5 w-3.5" />
@@ -276,7 +276,7 @@ export default function CreatorOverview() {
                   </button>
                   <button
                     onClick={() => navigate('/app/submissions?status=Pending')}
-                    className="flex w-full items-center gap-2 rounded-lg px-1 py-1 text-left transition-colors hover:bg-[#F8FBFF]"
+                    className="flex w-full items-center gap-2 rounded-lg px-1 py-1 text-left transition-colors hover:bg-[#FAF7EF]"
                   >
                     <span className="flex h-6 w-6 items-center justify-center rounded-md bg-brand-50 text-brand-600">
                       <FilePlus2 className="h-3.5 w-3.5" />
@@ -315,7 +315,7 @@ export default function CreatorOverview() {
             <Avatar initials={user?.initials ?? '—'} tone={user?.avatarTone} size="lg" className="mx-auto h-14 w-14 text-base" />
             <p className="mt-2.5 text-md font-semibold text-ink">{user?.name}</p>
             <p className="text-xs text-muted">{user?.title}</p>
-            <span className="mt-2.5 inline-flex items-center gap-1.5 rounded-full border border-line bg-[#F8FBFF] px-2.5 py-1 text-2xs font-medium text-ink-600">
+            <span className="mt-2.5 inline-flex items-center gap-1.5 rounded-full border border-line bg-[#FAF7EF] px-2.5 py-1 text-2xs font-medium text-ink-600">
               <span className="h-1.5 w-1.5 rounded-full bg-success-500" />
               Workspace active
             </span>

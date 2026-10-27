@@ -5,29 +5,29 @@ export default {
     extend: {
       colors: {
         ink: {
-          DEFAULT: '#0F2138',
-          900: '#0B1B2E',
-          700: '#1C3350',
-          600: '#3A5372',
+          DEFAULT: '#23282A',
+          900: '#1B1F20',
+          700: '#33393B',
+          600: '#4A5154',
         },
         muted: {
-          DEFAULT: '#6B7C93',
-          light: '#8C9CB2',
+          DEFAULT: '#6F6A5C',
+          light: '#948E7E',
         },
         line: {
-          DEFAULT: '#E7EEF8',
-          strong: '#D8E3F2',
+          DEFAULT: '#E7E1D3',
+          strong: '#DAD2C0',
         },
-        canvas: '#F5F8FD',
+        canvas: '#F7F3EA',
         brand: {
-          50: '#EEF4FF',
-          100: '#DCE8FE',
-          200: '#BFD5FD',
-          300: '#93B7FB',
-          400: '#5F92F7',
-          500: '#2F6FED',
-          600: '#1F5BD8',
-          700: '#1B49AE',
+          50: '#EEF3EA',
+          100: '#DCE7D5',
+          200: '#BFD3B2',
+          300: '#9DB98C',
+          400: '#74975F',
+          500: '#4E7A3D',
+          600: '#3D6330',
+          700: '#314F27',
         },
         success: {
           50: '#ECFDF5',
@@ -51,11 +51,11 @@ export default {
           700: '#B02323',
         },
         grape: {
-          50: '#F6F2FF',
-          100: '#EDE5FF',
-          500: '#8B5CF6',
-          600: '#7743E8',
-          700: '#5F32BE',
+          50: '#F3F1E7',
+          100: '#E7E3D3',
+          500: '#7C8F5E',
+          600: '#6A7C4E',
+          700: '#55653D',
         },
         cream: {
           DEFAULT: '#FBF6EC',
@@ -69,9 +69,9 @@ export default {
           300: '#E7C87F',
         },
         lilac: {
-          50: '#F6F3FC',
-          100: '#EDE8F8',
-          200: '#DED6F1',
+          50: '#F4F2E8',
+          100: '#EAE6D6',
+          200: '#DBD5BF',
         },
       },
       fontFamily: {
@@ -100,7 +100,7 @@ export default {
         card: '0 1px 2px rgba(15,33,56,0.04), 0 6px 18px -10px rgba(15,33,56,0.10)',
         lift: '0 4px 10px rgba(15,33,56,0.05), 0 18px 40px -22px rgba(15,33,56,0.22)',
         pop: '0 10px 30px -8px rgba(15,33,56,0.18)',
-        ring: '0 0 0 3px rgba(47,111,237,0.14)',
+        ring: '0 0 0 3px rgba(78,122,61,0.18)',
       },
       keyframes: {
         'fade-up': {

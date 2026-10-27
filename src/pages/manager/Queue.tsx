@@ -17,6 +17,7 @@ import {
   ListChecks,
 } from 'lucide-react'
 import { useData } from '@/context/DataContext'
+import { AttachedAsset } from '@/components/content/AttachedAsset'
 import { PageHeader } from '@/components/layout/Shell'
 import { Card, MetricCard } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -37,7 +38,7 @@ const STATUS_FILTERS = ['All', 'Pending', 'In Review', 'Ready for Approval', 'Ap
 const PRIORITIES = ['All', 'High', 'Medium', 'Low'] as const
 
 export default function ReviewQueue() {
-  const { submissions, exceptions, team, decideSubmission, loading } = useData()
+  const { submissions, exceptions, team, decideSubmission, approveAsset, loading } = useData()
   const navigate = useNavigate()
   const { id } = useParams()
   const toast = useToast()
@@ -52,6 +53,17 @@ export default function ReviewQueue() {
   const [openId, setOpenId] = useState<string | null>(id ?? null)
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
+  const [approvedAssets, setApprovedAssets] = useState<string[]>([])
+
+  async function onApproveAsset(assetId: string) {
+    try {
+      await approveAsset(assetId)
+      setApprovedAssets((prev) => [...prev, assetId])
+      toast.success('Asset approved', 'The decision is recorded in the audit trail.')
+    } catch {
+      toast.error('Could not approve asset', 'Please try again.')
+    }
+  }
   const [bulkOpen, setBulkOpen] = useState(false)
   const [openEvidence, setOpenEvidence] = useState<string[]>([])
 
@@ -415,7 +427,20 @@ export default function ReviewQueue() {
                 <StatusBadge status={active.status} />
               </div>
 
-              <div className="rounded-lg border border-line bg-[#FBFDFF] p-2.5">
+              {active.assetRef && (
+                <div className="flex items-center gap-2">
+                  <AttachedAsset assetRef={active.assetRef} className="flex-1" />
+                  {approvedAssets.includes(active.assetRef.id) ? (
+                    <span className="text-2xs font-medium text-success-600">Image approved</span>
+                  ) : (
+                    <Button size="sm" variant="outline" onClick={() => onApproveAsset(active.assetRef!.id)}>
+                      Approve image
+                    </Button>
+                  )}
+                </div>
+              )}
+
+              <div className="rounded-lg border border-line bg-[#FAF7EF] p-2.5">
                 <p className="mb-1 text-2xs font-semibold uppercase tracking-[0.06em] text-muted">Submitted copy</p>
                 <p className="text-xs leading-[18px] text-ink-600">{active.versions[active.versions.length - 1]?.text}</p>
               </div>
@@ -441,7 +466,7 @@ export default function ReviewQueue() {
                         <div className="flex flex-wrap items-center gap-1.5">
                           <span className={cn('h-1.5 w-1.5 rounded-full', f.severity === 'High' ? 'bg-danger-500' : f.severity === 'Medium' ? 'bg-warn-500' : 'bg-brand-400')} />
                           <p className="text-xs font-semibold text-ink">{f.ruleTitle}</p>
-                          <span className="rounded bg-[#EEF3FA] px-1 py-px text-[9px] font-semibold text-ink-600">{f.ruleCode}</span>
+                          <span className="rounded bg-[#F1ECE0] px-1 py-px text-[9px] font-semibold text-ink-600">{f.ruleCode}</span>
                           {!f.evidenceVerified && <Badge tone="warn" size="sm">Unverified</Badge>}
                         </div>
                         <p className="mt-1 text-2xs leading-[15px] text-ink-600">{f.explanation}</p>
@@ -465,7 +490,7 @@ export default function ReviewQueue() {
                           </div>
                         )}
                         {f.suggestedFix && (
-                          <div className="mt-1.5 rounded-md bg-[#F8FBFF] p-2 text-2xs leading-[15px]">
+                          <div className="mt-1.5 rounded-md bg-[#FAF7EF] p-2 text-2xs leading-[15px]">
                             <span className="text-danger-600 line-through">{f.suggestedFix.original}</span>
                             <span className="mx-1 text-muted-light">→</span>
                             <span className="font-medium text-success-700">{f.suggestedFix.proposed}</span>

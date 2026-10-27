@@ -33,11 +33,11 @@ const PAGE_SIZE = 6
 
 const categoryTone: Record<string, string> = {
   'Visual Identity': 'bg-[#EAF3E0] text-[#3F6B24]',
-  Communication: 'bg-[#F1EBFF] text-[#5F32BE]',
+  Communication: 'bg-[#F1EBFF] text-[#55653D]',
   Claims: 'bg-[#FFF3DE] text-[#A96A0C]',
   'Visual Content': 'bg-[#FFE9EC] text-[#B0304A]',
   'Social Media': 'bg-[#E3F6EE] text-[#0A7F5A]',
-  Marketing: 'bg-[#E8EFFB] text-[#1B49AE]',
+  Marketing: 'bg-[#E8EFFB] text-[#314F27]',
 }
 
 export default function CreatorGuidelines() {
@@ -159,7 +159,7 @@ export default function CreatorGuidelines() {
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-1.5">
                         <p className="truncate text-base font-medium text-ink">{doc.name}</p>
-                        <span className="rounded bg-[#EEF3FA] px-1 py-px text-[9.5px] font-semibold text-ink-600">{doc.version}</span>
+                        <span className="rounded bg-[#F1ECE0] px-1 py-px text-[9.5px] font-semibold text-ink-600">{doc.version}</span>
                       </div>
                       <p className="truncate text-xs leading-[16px] text-muted">{doc.description}</p>
                       <p className="mt-0.5 flex items-center gap-2 text-2xs text-muted-light">
@@ -227,7 +227,7 @@ export default function CreatorGuidelines() {
                   <li key={rule!.id}>
                     <button
                       onClick={() => setPreview(docs.find((d) => d.id === rule!.sourceDocId) ?? null)}
-                      className="group flex w-full items-start gap-2 rounded-lg px-1 py-1.5 text-left transition-colors hover:bg-[#F8FBFF]"
+                      className="group flex w-full items-start gap-2 rounded-lg px-1 py-1.5 text-left transition-colors hover:bg-[#FAF7EF]"
                     >
                       <span className="mt-[1px] flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-[#F2F7FD] text-brand-600">
                         <Icon className="h-3 w-3" />
@@ -356,11 +356,11 @@ export default function CreatorGuidelines() {
 function DocGlyph({ category }: { category: string }) {
   const map: Record<string, React.ReactNode> = {
     'Visual Identity': <Palette className="h-4 w-4 text-[#5B8C2A]" />,
-    Communication: <Type className="h-4 w-4 text-[#7743E8]" />,
+    Communication: <Type className="h-4 w-4 text-[#6A7C4E]" />,
     Claims: <CheckCircle2 className="h-4 w-4 text-[#D98A12]" />,
     'Visual Content': <FileText className="h-4 w-4 text-[#B0304A]" />,
     'Social Media': <Sparkles className="h-4 w-4 text-[#0A7F5A]" />,
-    Marketing: <BookOpen className="h-4 w-4 text-[#1B49AE]" />,
+    Marketing: <BookOpen className="h-4 w-4 text-[#314F27]" />,
   }
   return <>{map[category] ?? <FileText className="h-4 w-4 text-brand-500" />}</>
 }

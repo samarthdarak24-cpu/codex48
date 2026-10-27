@@ -42,7 +42,7 @@ const CHANGE_TYPES = [
 
 /** Sensible starting point per rule so the first run is immediately meaningful. */
 const SUGGESTIONS: Record<string, string> = {
-  rule_bg_colour: 'Add Teal #2E7D8F to approved backgrounds',
+  rule_bg_colour: 'Add Teal #3F7A5C to approved backgrounds',
   rule_claims: 'Replace “fragrance free” with “made without added fragrance”',
   rule_superlatives: 'Add prohibited term: 100% safe',
   rule_health: 'Add prohibited term: immunity',
@@ -218,7 +218,7 @@ export default function Sandbox() {
                   id="sim-value"
                   value={newValue}
                   onChange={(e) => setNewValue(e.target.value)}
-                  placeholder="e.g. Add “Teal #2E7D8F” to allowed colours"
+                  placeholder="e.g. Add “Teal #3F7A5C” to allowed colours"
                   className="text-xs"
                 />
               </Field>
@@ -405,7 +405,7 @@ export default function Sandbox() {
                   <button
                     onClick={() => setActiveSimId(s.id)}
                     className={cn(
-                      'flex w-full items-start gap-2 rounded-lg px-1 py-1 text-left transition-colors hover:bg-[#F8FBFF]',
+                      'flex w-full items-start gap-2 rounded-lg px-1 py-1 text-left transition-colors hover:bg-[#FAF7EF]',
                       activeSim?.id === s.id && 'bg-brand-50/60',
                     )}
                   >
@@ -455,7 +455,7 @@ function ResultTile({
   sub?: string
 }) {
   const tones = {
-    neutral: 'bg-[#F5F9FE] text-ink border-[#E7EEF8]',
+    neutral: 'bg-[#F5F9FE] text-ink border-[#E7E1D3]',
     success: 'bg-success-50/70 text-success-700 border-success-100',
     warn: 'bg-warn-50/70 text-warn-700 border-warn-100',
     danger: 'bg-danger-50/70 text-danger-700 border-danger-100',

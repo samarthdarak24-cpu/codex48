@@ -76,6 +76,27 @@ def suggest_rules_from_text(guideline_text: str) -> Optional[list[dict]]:
     return _parse_json_list(llm_complete(system, user, max_tokens=1500))
 
 
+def semantic_findings(text: str, rules: list[dict]) -> Optional[list[dict]]:
+    """Ask the model for semantic issues mapped to EXISTING rule codes only.
+
+    Returns [{ruleCode, explanation, severity}] or None. The caller attaches the
+    matched rule's stored source passage — the model is never asked to supply a
+    quotation, so evidence cannot be fabricated.
+    """
+    if not ai_available():
+        return None
+    system = (
+        "You review marketing copy against brand rules. Return ONLY a JSON array of "
+        "objects {ruleCode, explanation, severity} where ruleCode MUST be one of the "
+        "provided codes. Never invent codes or quotes. Return [] if none."
+    )
+    rule_list = "\n".join(
+        f"- {r.get('code')}: {r.get('title')} — {r.get('summary', '')}" for r in rules
+    )
+    user = f"Rules:\n{rule_list}\n\nCopy:\n{text[:4000]}\n\nReturn a JSON array."
+    return _parse_json_list(llm_complete(system, user, max_tokens=900))
+
+
 def explain_conflict(rule_a: dict, rule_b: dict) -> Optional[str]:
     system = "You explain brand-rule conflicts concisely for a manager. No fabrication."
     user = (

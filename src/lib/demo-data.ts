@@ -746,7 +746,7 @@ export const submissions: Submission[] = [
     issueCount: 2,
     priority: 'High',
     thumb: { kind: 'art', palette: P.lime, glyph: 'bottle' },
-    asset: { backgroundColour: '#2E7D8F', aspectRatio: '4:5', typeface: 'Söhne', clearSpaceRatio: 1.0 },
+    asset: { backgroundColour: '#3F7A5C', aspectRatio: '4:5', typeface: 'Söhne', clearSpaceRatio: 1.0 },
     versions: [
       {
         id: 'v1',
@@ -773,7 +773,7 @@ export const submissions: Submission[] = [
         type: 'Brand colour',
         severity: 'High',
         explanation:
-          'The background is a saturated teal (#2E7D8F) which is not part of the approved campaign background palette. Approved backgrounds are primary green (#7AB93B) and neutral sand (#F4EFE3).',
+          'The background is a saturated teal (#3F7A5C) which is not part of the approved campaign background palette. Approved backgrounds are primary green (#7AB93B) and neutral sand (#F4EFE3).',
         sourceDocId: 'doc_colour',
         sourceDocName: 'Colour Palette Guide',
         sourceVersion: 'v1.0',
@@ -782,7 +782,7 @@ export const submissions: Submission[] = [
           'Primary green (#7AB93B) and the neutral sand (#F4EFE3) are the only approved campaign background colours. Accent colours may not be used as full-bleed backgrounds.',
         evidenceVerified: true,
         suggestedFix: {
-          original: 'Background: #2E7D8F (teal, full bleed)',
+          original: 'Background: #3F7A5C (teal, full bleed)',
           proposed: 'Background: #7AB93B (primary green, full bleed)',
           rationale:
             'Changing only the background fill keeps the layout, photography and copy untouched — the smallest change that satisfies BR-01.',
@@ -1827,7 +1827,7 @@ export const simulations: Simulation[] = [
     ruleCode: 'BR-01',
     changeType: 'Update allowed colours',
     currentValue: 'Green #7AB93B, Sand #F4EFE3',
-    newValue: 'Green #7AB93B, Sand #F4EFE3, Teal #2E7D8F',
+    newValue: 'Green #7AB93B, Sand #F4EFE3, Teal #3F7A5C',
     status: 'Completed',
     createdAt: iso(0, 10, 24),
     createdById: 'u_david',

@@ -9,7 +9,7 @@ const toneStyles: Record<Tone, { pill: string; dot: string }> = {
   warn: { pill: 'bg-warn-50 text-warn-700 ring-warn-100', dot: 'bg-warn-500' },
   danger: { pill: 'bg-danger-50 text-danger-700 ring-danger-100', dot: 'bg-danger-500' },
   grape: { pill: 'bg-grape-50 text-grape-700 ring-grape-100', dot: 'bg-grape-500' },
-  neutral: { pill: 'bg-[#F1F5FA] text-ink-600 ring-[#E4EBF4]', dot: 'bg-[#93A4BA]' },
+  neutral: { pill: 'bg-[#F1F5FA] text-ink-600 ring-[#E4EBF4]', dot: 'bg-[#8C8578]' },
 }
 
 export function Badge({

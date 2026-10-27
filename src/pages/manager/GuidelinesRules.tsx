@@ -43,11 +43,11 @@ const CATEGORIES: GuidelineDoc['category'][] = [
 
 const categoryChip: Record<string, string> = {
   'Visual Identity': 'bg-[#EAF3E0] text-[#3F6B24]',
-  Communication: 'bg-[#F1EBFF] text-[#5F32BE]',
+  Communication: 'bg-[#F1EBFF] text-[#55653D]',
   Claims: 'bg-[#FFF3DE] text-[#A96A0C]',
   'Visual Content': 'bg-[#FFE9EC] text-[#B0304A]',
   'Social Media': 'bg-[#E3F6EE] text-[#0A7F5A]',
-  Marketing: 'bg-[#E8EFFB] text-[#1B49AE]',
+  Marketing: 'bg-[#E8EFFB] text-[#314F27]',
 }
 
 export default function GuidelinesRules() {
@@ -202,7 +202,7 @@ export default function GuidelinesRules() {
       cell: (row) => (
         <div className="min-w-0">
           <p className="flex items-center gap-1.5 text-base font-medium leading-[17px] text-ink">
-            <span className="rounded bg-[#EEF3FA] px-1 py-px text-[9.5px] font-semibold text-ink-600">{row.code}</span>
+            <span className="rounded bg-[#F1ECE0] px-1 py-px text-[9.5px] font-semibold text-ink-600">{row.code}</span>
             {row.title}
           </p>
           <p className="truncate text-2xs leading-[14px] text-muted">{row.summary}</p>
@@ -514,7 +514,7 @@ export default function GuidelinesRules() {
                     <span
                       className={cn(
                         'h-1.5 w-1.5 rounded-full',
-                        ['bg-brand-500', 'bg-grape-500', 'bg-warn-500', 'bg-danger-500', 'bg-success-500', 'bg-[#93A4BA]'][i % 6],
+                        ['bg-brand-500', 'bg-grape-500', 'bg-warn-500', 'bg-danger-500', 'bg-success-500', 'bg-[#8C8578]'][i % 6],
                       )}
                     />
                     <span className="min-w-0 flex-1 truncate text-xs text-ink-600">{label}</span>
@@ -771,7 +771,7 @@ export default function GuidelinesRules() {
                   <li key={r.id} className="rounded-lg border border-line p-2">
                     <div className="flex items-center justify-between gap-2">
                       <p className="text-xs font-semibold text-ink">
-                        <span className="mr-1.5 rounded bg-[#EEF3FA] px-1 py-px text-[9.5px] font-semibold text-ink-600">{r.code}</span>
+                        <span className="mr-1.5 rounded bg-[#F1ECE0] px-1 py-px text-[9.5px] font-semibold text-ink-600">{r.code}</span>
                         {r.title}
                       </p>
                       <RuleBadge status={r.status} />

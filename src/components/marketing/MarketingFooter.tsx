@@ -76,15 +76,18 @@ export function MarketingFooter() {
         </div>
 
         <div className="mt-12 flex flex-col gap-3 border-t border-ink/[0.07] pt-6 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-[12px] text-muted-light">© {new Date().getFullYear()} Precedent. All rights reserved.</p>
-          <p className="text-[12px] text-muted-light">
-            8 core governance features · 12 screens · Built for brand teams
+          <p className="text-[12px] font-medium text-ink-700">
+            Inkloom AI Brand Governance Challenge · Team We Code Coders
+          </p>
+          <p className="text-[12px] text-muted">
+            Vishwakarma Institute of Pune · Team Lead: Samarth Manojkumar Darak
           </p>
         </div>
 
         <p className="mt-4 max-w-2xl text-[11px] leading-[17px] text-muted-light/90">
-          Precedent is a demonstration product. Company names, campaign assets, customer stories and figures shown on
-          this page are fictional and used for illustration only.
+          Precedent is a pre-publication brand review and decision-management platform developed for the
+          Inkloom AI Brand Governance Challenge. Featuring evidence-linked guidelines, scoped expiring exceptions,
+          and pre-activation rule simulation.
         </p>
       </div>
     </footer>

@@ -7,9 +7,11 @@ import { cn } from '@/lib/utils'
 
 const LINKS = [
   { label: 'Platform', href: '#platform' },
-  { label: 'How it works', href: '#workflow' },
-  { label: 'Pricing', href: '#pricing' },
-  { label: 'Customers', href: '#customers' },
+  { label: 'Solution', href: '#solution' },
+  { label: 'Festival Demo', href: '#demo-story' },
+  { label: 'Features', href: '#features' },
+  { label: 'Tech Stack', href: '#tech-stack' },
+  { label: 'Team', href: '#team' },
   { label: 'FAQ', href: '#faq' },
 ]
 
@@ -70,7 +72,7 @@ export function MarketingNav() {
                   Sign in
                 </Link>
                 <Link to="/login" className="mkt-pill-dark h-10 py-0 text-[13px]">
-                  Book a demo
+                  Launch Prototype
                 </Link>
               </>
             )}

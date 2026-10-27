@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { useData } from '@/context/DataContext'
 import { PageHeader } from '@/components/layout/Shell'
+import { BrandAssetsPicker } from '@/components/content/BrandAssetsPicker'
 import { Card, CardHeader } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Field, Input, Select, Textarea } from '@/components/ui/Field'
@@ -59,6 +60,7 @@ export default function NewContent() {
     return d.toISOString().slice(0, 10)
   })
   const [dragOver, setDragOver] = useState(false)
+  const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
 
   const activeRules = useMemo(() => rules.filter((r) => r.status === 'active'), [rules])
@@ -79,7 +81,14 @@ export default function NewContent() {
     if (!validate()) return
     setSubmitting(true)
     try {
-      const submission = await submitContent({ title: title.trim(), type, channel, brand, text: text.trim() })
+      const submission = await submitContent({
+        title: title.trim(),
+        type,
+        channel,
+        brand,
+        text: text.trim(),
+        assetId: selectedAssetId ?? undefined,
+      })
       toast.success(
         'Submitted for review',
         submission.issueCount > 0
@@ -108,6 +117,7 @@ export default function NewContent() {
         channel,
         brand,
         text: text.trim() || 'Draft submitted together with an exception request.',
+        assetId: selectedAssetId ?? undefined,
       })
       await requestException({
         contentId: submission.id,
@@ -350,6 +360,8 @@ export default function NewContent() {
 
         {/* Right rail */}
         <div className="space-y-4">
+          <BrandAssetsPicker brand={brand} selectedId={selectedAssetId} onSelect={setSelectedAssetId} />
+
           <Card>
             <CardHeader
               title="Brand Guidelines"
@@ -483,7 +495,7 @@ export default function NewContent() {
 
 function PreviewCard({ title, text, brand, channel }: { title: string; text: string; brand: Brand; channel: string }) {
   return (
-    <div className="overflow-hidden rounded-lg border border-line bg-[#F8FBFF]">
+    <div className="overflow-hidden rounded-lg border border-line bg-[#FAF7EF]">
       <div className="relative flex h-[150px] flex-col justify-between bg-gradient-to-br from-[#E8F5C8] via-[#D7EFB0] to-[#B9DE7E] p-3">
         <div className="flex items-start justify-between">
           <div>

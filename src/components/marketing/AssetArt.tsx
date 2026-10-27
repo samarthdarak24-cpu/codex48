@@ -49,9 +49,9 @@ export const ASSETS: AssetVariant[] = [
     kicker: 'Botanicals',
     headline: 'Real ingredients.\nReal results.',
     from: '#E9DEFB',
-    to: '#B79BEA',
-    ink: '#2E1B4D',
-    accent: '#6B46B8',
+    to: '#A9B892',
+    ink: '#2A2E22',
+    accent: '#5E6B45',
     status: 'Approved',
     type: 'Instagram',
     glyph: 'rings',
@@ -96,10 +96,10 @@ export const ASSETS: AssetVariant[] = [
     brand: 'PureGlow',
     kicker: 'Product',
     headline: 'Gentle care for\nsensitive skin',
-    from: '#DEEBFB',
-    to: '#8FB8EE',
-    ink: '#10294A',
-    accent: '#2F5F9E',
+    from: '#E8E9DA',
+    to: '#9DB98C',
+    ink: '#223028',
+    accent: '#3C5A44',
     status: 'Approved',
     type: 'Website',
     glyph: 'blob',
@@ -144,10 +144,10 @@ export const ASSETS: AssetVariant[] = [
     brand: 'WellnessLife',
     kicker: 'Paid partnership',
     headline: 'Morning\nritual',
-    from: '#E0E3FA',
-    to: '#8E97DE',
-    ink: '#1B2149',
-    accent: '#454EA8',
+    from: '#E3E6D4',
+    to: '#8B9A6B',
+    ink: '#242A22',
+    accent: '#56663F',
     status: 'In review',
     type: 'Video',
     glyph: 'circle',
@@ -160,17 +160,17 @@ export const ASSETS: AssetVariant[] = [
 const statusTone: Record<AssetVariant['status'], string> = {
   Approved: 'bg-white/95 text-[#0A7F5A] border-emerald-200/60 shadow-emerald-500/10',
   'Needs review': 'bg-white/95 text-[#A96A0C] border-amber-200/60 shadow-amber-500/10',
-  Exception: 'bg-white/95 text-[#5F32BE] border-purple-200/60 shadow-purple-500/10',
+  Exception: 'bg-white/95 text-[#55653D] border-purple-200/60 shadow-purple-500/10',
   Pending: 'bg-white/95 text-[#A96A0C] border-amber-200/60 shadow-amber-500/10',
-  'In review': 'bg-white/95 text-[#1B49AE] border-blue-200/60 shadow-blue-500/10',
+  'In review': 'bg-white/95 text-[#314F27] border-blue-200/60 shadow-blue-500/10',
 }
 
 const dotTone: Record<AssetVariant['status'], string> = {
   Approved: 'bg-[#10B981]',
   'Needs review': 'bg-[#F0A32A]',
-  Exception: 'bg-[#8B5CF6]',
+  Exception: 'bg-[#7C8F5E]',
   Pending: 'bg-[#F0A32A]',
-  'In review': 'bg-[#2F6FED]',
+  'In review': 'bg-[#4E7A3D]',
 }
 
 function Glyph({ kind, color }: { kind: AssetVariant['glyph']; color: string }) {
@@ -260,9 +260,10 @@ export function AssetCard({
       {variant.imageUrl && (
         <div
           className={cn(
-            'relative my-2 w-full flex-1 min-h-[90px] overflow-hidden rounded-xl border border-white/40 bg-white/20 shadow-sm transition-all duration-500 group-hover:shadow-md',
-            size === 'lg' && 'my-3 min-h-[160px] rounded-2xl',
-            size === 'sm' && 'my-1.5 min-h-[65px] rounded-lg',
+            'relative w-full shrink-0 overflow-hidden rounded-xl border border-white/40 bg-white/20 shadow-sm transition-all duration-500 group-hover:shadow-md',
+            size === 'lg' && 'my-2.5 h-[160px] sm:h-[185px] rounded-2xl',
+            size === 'md' && 'my-2 h-[105px] sm:h-[120px]',
+            size === 'sm' && 'my-1 h-[60px] sm:h-[70px] rounded-lg',
           )}
         >
           {/* Skeleton placeholder while loading */}

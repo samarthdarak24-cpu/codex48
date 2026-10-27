@@ -79,9 +79,9 @@ export default function ExceptionsPage() {
   const segments = [
     { value: stats.approved, color: '#10B981', label: 'Approved' },
     { value: stats.pending, color: '#F0A32B', label: 'Pending' },
-    { value: stats.inReview, color: '#2F6FED', label: 'In review' },
+    { value: stats.inReview, color: '#4E7A3D', label: 'In review' },
     { value: stats.rejected, color: '#EF4444', label: 'Rejected' },
-    { value: stats.expired + stats.revoked, color: '#B7C4D6', label: 'Expired' },
+    { value: stats.expired + stats.revoked, color: '#C9C1AF', label: 'Expired' },
   ]
 
   const recentActivity = useMemo(() => exceptions.slice(0, 4), [exceptions])
@@ -360,7 +360,7 @@ export default function ExceptionsPage() {
                         e.status === 'Pending' && 'bg-warn-500',
                         e.status === 'In Review' && 'bg-brand-500',
                         e.status === 'Rejected' && 'bg-danger-500',
-                        (e.status === 'Expired' || e.status === 'Revoked') && 'bg-[#B7C4D6]',
+                        (e.status === 'Expired' || e.status === 'Revoked') && 'bg-[#C9C1AF]',
                       )}
                     />
                     <div className="min-w-0">

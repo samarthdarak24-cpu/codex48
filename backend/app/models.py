@@ -186,6 +186,12 @@ class Submission(Base):
     asset_typeface: Mapped[str | None] = mapped_column(String, nullable=True)
     asset_aspect_ratio: Mapped[str | None] = mapped_column(String, nullable=True)
     asset_unreadable: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Attached brand/product image (snapshot so the reference survives asset edits).
+    asset_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    asset_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    asset_url: Mapped[str | None] = mapped_column(String, nullable=True)
+    asset_source: Mapped[str | None] = mapped_column(String, nullable=True)
+    asset_attribution: Mapped[str | None] = mapped_column(String, nullable=True)
 
     versions: Mapped[list["ContentVersion"]] = relationship(
         "ContentVersion", backref="submission", cascade="all, delete-orphan",

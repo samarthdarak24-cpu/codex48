@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/Field'
 import { cn } from '@/lib/utils'
 
 const DEMO_ACCOUNTS = [
-  { role: 'Brand Manager', name: 'David Kim', email: 'david.kim@pureglow.co', tone: 'from-[#2F6FED] to-[#5F92F7]' },
+  { role: 'Brand Manager', name: 'David Kim', email: 'david.kim@pureglow.co', tone: 'from-[#4E7A3D] to-[#74975F]' },
   { role: 'Content Creator', name: 'Emily Carter', email: 'emily.carter@pureglow.co', tone: 'from-[#2FB86B] to-[#5FD48F]' },
 ]
 
@@ -76,10 +76,10 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen bg-white">
       {/* ---------------- Brand panel ---------------- */}
-      <div className="relative hidden w-[52%] overflow-hidden bg-[#0B1B2E] lg:flex lg:flex-col">
+      <div className="relative hidden w-[52%] overflow-hidden bg-[#1B231D] lg:flex lg:flex-col">
         <div className="pointer-events-none absolute inset-0">
-          <div className="absolute inset-0 bg-[radial-gradient(120%_100%_at_0%_0%,#14324F_0%,#0B1B2E_55%,#081421_100%)]" />
-          <div className="absolute -left-24 top-10 h-[380px] w-[380px] rounded-full bg-[#2F6FED]/25 blur-[110px]" />
+          <div className="absolute inset-0 bg-[radial-gradient(120%_100%_at_0%_0%,#14324F_0%,#1B231D_55%,#081421_100%)]" />
+          <div className="absolute -left-24 top-10 h-[380px] w-[380px] rounded-full bg-[#4E7A3D]/25 blur-[110px]" />
           <div className="absolute -bottom-28 right-[-60px] h-[420px] w-[420px] rounded-full bg-[#2FB86B]/20 blur-[120px]" />
           <div
             className="absolute inset-0 opacity-[0.16]"
@@ -320,7 +320,7 @@ export default function LoginPage() {
                   </Button>
                 </form>
 
-                <div className="mt-6 rounded-xl border border-line bg-[#F8FBFF] p-3">
+                <div className="mt-6 rounded-xl border border-line bg-[#FAF7EF] p-3">
                   <p className="mb-2 flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-[0.06em] text-muted">
                     <ShieldCheck className="h-3 w-3" />
                     Demo accounts
@@ -380,9 +380,9 @@ export default function LoginPage() {
 function GovernanceDiagram() {
   const nodes = [
     { x: 14, y: 52, label: 'Guidelines', tone: '#5FD48F' },
-    { x: 118, y: 20, label: 'Rules', tone: '#5F92F7' },
+    { x: 118, y: 20, label: 'Rules', tone: '#74975F' },
     { x: 118, y: 84, label: 'Evidence', tone: '#F0A32A' },
-    { x: 226, y: 52, label: 'Decision', tone: '#B79BEA' },
+    { x: 226, y: 52, label: 'Decision', tone: '#A9B892' },
   ]
   return (
     <svg viewBox="0 0 300 130" className="h-[130px] w-full max-w-[340px]" aria-hidden>

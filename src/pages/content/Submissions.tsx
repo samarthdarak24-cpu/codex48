@@ -285,7 +285,7 @@ export default function MySubmissions() {
                 <li key={row.label}>
                   <button
                     onClick={() => navigate('/app/submissions')}
-                    className="flex w-full items-center gap-2 rounded-lg px-1 py-[7px] text-left transition-colors hover:bg-[#F8FBFF]"
+                    className="flex w-full items-center gap-2 rounded-lg px-1 py-[7px] text-left transition-colors hover:bg-[#FAF7EF]"
                   >
                     <span className={cn('h-1.5 w-1.5 rounded-full', row.tone)} />
                     <span className="min-w-0 flex-1 truncate text-xs text-ink-600">{row.label}</span>
@@ -318,7 +318,7 @@ export default function MySubmissions() {
                         a.status === 'Rejected' && 'bg-danger-500',
                         a.status === 'Exception' && 'bg-grape-500',
                         a.status === 'Revised' && 'bg-brand-500',
-                        a.status === 'Recorded' && 'bg-[#93A4BA]',
+                        a.status === 'Recorded' && 'bg-[#8C8578]',
                       )}
                     />
                     <div className="min-w-0">

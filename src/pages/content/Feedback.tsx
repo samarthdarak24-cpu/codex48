@@ -21,6 +21,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useData } from '@/context/DataContext'
+import { AttachedAsset } from '@/components/content/AttachedAsset'
 import { PageHeader } from '@/components/layout/Shell'
 import { Card, MetricCard } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -320,6 +321,8 @@ export default function ReviewFeedback() {
                 </Badge>
               </div>
 
+              {selected.assetRef && <AttachedAsset assetRef={selected.assetRef} className="mx-3.5 mt-3" />}
+
               <div className="px-3.5">
                 <Tabs
                   items={[
@@ -394,7 +397,7 @@ export default function ReviewFeedback() {
                             <div className="min-w-0 flex-1">
                               <div className="flex flex-wrap items-center gap-1.5">
                                 <p className="text-xs font-semibold text-ink">{f.ruleTitle}</p>
-                                <span className="rounded bg-[#EEF3FA] px-1 py-px text-[9px] font-semibold text-ink-600">{f.ruleCode}</span>
+                                <span className="rounded bg-[#F1ECE0] px-1 py-px text-[9px] font-semibold text-ink-600">{f.ruleCode}</span>
                                 {f.status === 'resolved' && <Badge tone="success" size="sm">Resolved</Badge>}
                               </div>
                               <p className="mt-1 text-2xs leading-[15px] text-ink-600">{f.explanation}</p>
@@ -563,7 +566,7 @@ export default function ReviewFeedback() {
                     onClick={postComment}
                     disabled={!comment.trim()}
                     aria-label="Send comment"
-                    className="absolute right-1.5 top-1/2 inline-flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md bg-brand-500 text-white transition-colors hover:bg-brand-600 disabled:bg-[#D7E3F5]"
+                    className="absolute right-1.5 top-1/2 inline-flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md bg-brand-500 text-white transition-colors hover:bg-brand-600 disabled:bg-[#E2DCCB]"
                   >
                     <Send className="h-3 w-3" />
                   </button>

@@ -8,13 +8,13 @@ import type { AvatarTone, ThumbSpec } from '@/lib/types'
 /* ------------------------------------------------------------------ */
 
 const avatarTones: Record<AvatarTone, string> = {
-  blue: 'bg-[#DCE9FE] text-[#1F5BD8]',
+  blue: 'bg-[#DCE7D5] text-[#3D6330]',
   green: 'bg-[#D6F5E4] text-[#0A7F5A]',
   amber: 'bg-[#FCEBCB] text-[#A96A0C]',
-  grape: 'bg-[#E9E0FF] text-[#5F32BE]',
+  grape: 'bg-[#E9E0FF] text-[#55653D]',
   rose: 'bg-[#FBDDE3] text-[#B0304A]',
   teal: 'bg-[#D2F0EE] text-[#0E7C76]',
-  indigo: 'bg-[#DEE2FB] text-[#3B49B4]',
+  indigo: 'bg-[#DDE4D2] text-[#4E5E3B]',
 }
 
 export function Avatar({
@@ -60,11 +60,11 @@ const palettes: Record<ThumbSpec['palette'], [string, string]> = {
   lime: ['#E6F5B0', '#A8CF4A'],
   peach: ['#FFE0B8', '#F2915B'],
   mint: ['#D6F2DE', '#6FBF8E'],
-  violet: ['#E9DCFB', '#A987E8'],
-  sky: ['#D8E8FB', '#7FAEEB'],
+  violet: ['#E9DCFB', '#A9B892'],
+  sky: ['#E4E9D6', '#8FA36E'],
   rose: ['#FCDCE3', '#EC9BAA'],
   sand: ['#F4EAD3', '#D2BB8A'],
-  indigo: ['#DFE3FA', '#8E97DE'],
+  indigo: ['#E3E6D4', '#8B9A6B'],
 }
 
 function Glyph({ glyph, color }: { glyph: ThumbSpec['glyph']; color: string }) {
@@ -179,7 +179,7 @@ export function Donut({
   return (
     <div className={cn('relative shrink-0', className)} style={{ width: size, height: size }}>
       <svg width={size} height={size} className="-rotate-90">
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#EEF3FA" strokeWidth={thickness} />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#F1ECE0" strokeWidth={thickness} />
         {total > 0 &&
           segments.map((s, i) => {
             const len = (s.value / total) * c
@@ -248,7 +248,7 @@ export function ProgressBar({
     grape: 'bg-grape-500',
   }
   return (
-    <div className={cn('w-full overflow-hidden rounded-full bg-[#EEF3FA]', className)} style={{ height }}>
+    <div className={cn('w-full overflow-hidden rounded-full bg-[#F1ECE0]', className)} style={{ height }}>
       <div
         className={cn('h-full rounded-full transition-[width] duration-500', colors[tone])}
         style={{ width: `${Math.min(100, Math.max(0, value))}%` }}
@@ -372,7 +372,7 @@ export function Modal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 sm:items-center" role="dialog" aria-modal="true" aria-label={title}>
-      <div className="fixed inset-0 bg-[#0F2138]/35 backdrop-blur-[2px] animate-fade-in" onClick={onClose} />
+      <div className="fixed inset-0 bg-[#23282A]/35 backdrop-blur-[2px] animate-fade-in" onClick={onClose} />
       <div
         ref={ref}
         tabIndex={-1}
