@@ -32,6 +32,19 @@ class CommentIn(BaseModel):
     body: str
 
 
+class RemediateIn(BaseModel):
+    text: str
+    channel: str = ""
+    ruleCodes: list[str] | None = None
+    style: str = "balanced"
+
+
+class ApplyRemediationIn(BaseModel):
+    ruleCode: str | None = None
+    replacement: str | None = None
+    fullRemediatedText: str | None = None
+    note: str = "Applied 1-click brand-compliant remediation"
+
 class DecideIn(BaseModel):
     action: str
     note: str = ""
@@ -156,3 +169,37 @@ def decide(
     if not result:
         raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail="Submission not found")
     return svc.submission_to_dict(result)
+
+
+@router.post("/remediate")
+def remediate_text(
+    body: RemediateIn,
+    current_user=Depends(get_current_user),
+):
+    """1-Click AI Brand Remediator: returns tone-matched compliant copy."""
+    return svc.remediate(body.text, body.channel, body.ruleCodes, body.style)
+
+
+@router.post("/{sub_id}/remediate-apply")
+def apply_remediation_version(
+    sub_id: str,
+    body: ApplyRemediationIn,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    sub = db.get(models.Submission, sub_id)
+    if not sub:
+        raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail="Submission not found")
+    if not _is_owner_or_manager(sub, current_user):
+        raise HTTPException(status_code=http_status.HTTP_403_FORBIDDEN, detail="Not allowed")
+
+    new_text = body.fullRemediatedText
+    if not new_text:
+        # compute auto-remediated text from latest version
+        current_text = sub.versions[-1].text if sub.versions else sub.excerpt or ""
+        codes = [body.ruleCode] if body.ruleCode else None
+        res = svc.remediate(current_text, sub.channel, codes)
+        new_text = res["remediatedText"]
+
+    updated_sub = svc.add_version(db, sub_id, new_text, current_user.id, body.note)
+    return svc.submission_to_dict(updated_sub)

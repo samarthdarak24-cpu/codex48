@@ -1,3 +1,4 @@
+import { api } from '@/services/api'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
@@ -12,6 +13,7 @@ import {
   Quote,
   Send,
   ShieldAlert,
+  ShieldCheck,
   Sparkles,
   SquarePen,
   XCircle,
@@ -216,6 +218,24 @@ export default function ReviewFeedback() {
       setExcOpen(false)
     } catch (err) {
       toast.error('Could not request exception', err instanceof Error ? err.message : 'Please try again.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function autoRemediateAll() {
+    if (!selected || !latest) return
+    setBusy(true)
+    try {
+      const res = await api.remediate(latest.text, selected.channel)
+      const updated = await addVersion(selected.id, res.remediatedText, 'Auto-remediated via 1-Click Brand Remediator')
+      toast.success(
+        `Version ${updated.version} created!`,
+        `Resolved all violations with approved brand phrasing (${res.totalChanges} fix(es) applied).`
+      )
+      navigate(`/app/feedback/${updated.id}`)
+    } catch (err) {
+      toast.error('Remediation failed', err instanceof Error ? err.message : 'Please try again.')
     } finally {
       setBusy(false)
     }
@@ -456,6 +476,36 @@ export default function ReviewFeedback() {
                         </div>
                       )
                     })}
+
+                    {/* Clinical Substantiation Vault */}
+                    {selected.substantiations && selected.substantiations.length > 0 && (
+                      <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3.5 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5 font-bold text-xs text-emerald-950">
+                            <ShieldCheck className="h-4 w-4 text-emerald-600" />
+                            Substantiation Vault · Clinical Evidence ({selected.substantiations.length})
+                          </div>
+                          <Badge tone="neutral">Audited Dossier</Badge>
+                        </div>
+                        <div className="space-y-1.5">
+                          {selected.substantiations.map((subst) => (
+                            <div key={subst.id} className="rounded-md border border-emerald-200/80 bg-white p-2.5 text-xs shadow-2xs">
+                              <div className="flex items-center justify-between">
+                                <span className="font-bold text-emerald-900">{subst.claim}</span>
+                                <span className="rounded bg-emerald-100 px-1.5 py-0.5 font-mono text-[10px] text-emerald-800">
+                                  {subst.trialCode} · p.{subst.pageNumber}
+                                </span>
+                              </div>
+                              <p className="mt-1 text-[11px] text-slate-600">{subst.studyTitle}</p>
+                              <div className="mt-1 flex items-center justify-between text-[10px] text-muted">
+                                <span>Doc: {subst.sourceDocName}</span>
+                                <span className="text-emerald-700 font-semibold">Certified: {subst.certifiedDate}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
                     {selected.decisions.length > 0 && (
                       <div className="rounded-lg border border-line p-2.5">
