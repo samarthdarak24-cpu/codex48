@@ -312,7 +312,15 @@ export default function ReviewFeedback() {
               <div className="flex items-start gap-2.5 border-b border-line p-3.5">
                 <Thumb spec={selected.thumb} size={44} />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-md font-semibold leading-[19px] text-ink">{selected.title}</p>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="truncate text-md font-semibold leading-[19px] text-ink">{selected.title}</p>
+                    <button
+                      onClick={() => navigate('/app/feedback')}
+                      className="xl:hidden inline-flex items-center text-xs font-semibold text-brand-600 hover:text-brand-700 hover:underline"
+                    >
+                      ← Back
+                    </button>
+                  </div>
                   <div className="mt-1 flex flex-wrap items-center gap-1.5">
                     <StatusBadge status={selected.status} size="sm" />
                     <span className="text-2xs text-muted-light">

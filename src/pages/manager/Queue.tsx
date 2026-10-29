@@ -402,8 +402,8 @@ export default function ReviewQueue() {
               <span className="text-2xs text-muted">
                 Decision is saved against <span className="font-semibold text-ink">version {active.version}</span> only.
               </span>
-              <div className="flex gap-2">
-                <Button size="sm" variant="outline" onClick={() => decide('Declined')} disabled={busy} icon={<XCircle className="h-3 w-3" />}>
+              <div className="flex flex-wrap sm:flex-nowrap gap-2 w-full sm:w-auto">
+                <Button size="sm" variant="outline" className="flex-1 sm:flex-initial" onClick={() => decide('Declined')} disabled={busy} icon={<XCircle className="h-3 w-3" />}>
                   Decline
                 </Button>
                 <Button size="sm" variant="outline" onClick={() => decide('Changes Requested')} disabled={busy} icon={<SquarePen className="h-3 w-3" />}>
