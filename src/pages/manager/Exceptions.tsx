@@ -284,18 +284,20 @@ export default function ExceptionsPage() {
       <div className="mt-4 grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_286px]">
         <Card className="min-w-0">
           <div className="flex flex-wrap items-center gap-2 border-b border-line p-3">
-            <SearchInput value={query} onChange={(v) => { setQuery(v); setPage(1) }} placeholder="Search by content title, brand, reason, or requester…" className="min-w-[190px]" />
-            <Select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1) }} className="h-[34px] w-auto min-w-[118px] py-0 text-xs">
-              {['All Statuses', 'Pending', 'In Review', 'Approved', 'Rejected', 'Expired', 'Revoked'].map((s) => (
-                <option key={s}>{s}</option>
-              ))}
-            </Select>
-            <Select value={brand} onChange={(e) => { setBrand(e.target.value); setPage(1) }} className="h-[34px] w-auto min-w-[105px] py-0 text-xs">
-              {['All Brands', 'PureGlow', 'WellnessLife'].map((b) => (
-                <option key={b}>{b}</option>
-              ))}
-            </Select>
-            <Button className="ml-auto" icon={<Plus className="h-3.5 w-3.5" />} onClick={() => setCreateOpen(true)}>
+            <SearchInput value={query} onChange={(v) => { setQuery(v); setPage(1) }} placeholder="Search by content title, brand, reason, or requester…" className="w-full sm:w-auto flex-1 min-w-[180px]" />
+            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+              <Select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1) }} className="h-[34px] flex-1 sm:flex-initial sm:w-auto min-w-[118px] py-0 text-xs">
+                {['All Statuses', 'Pending', 'In Review', 'Approved', 'Rejected', 'Expired', 'Revoked'].map((s) => (
+                  <option key={s}>{s}</option>
+                ))}
+              </Select>
+              <Select value={brand} onChange={(e) => { setBrand(e.target.value); setPage(1) }} className="h-[34px] flex-1 sm:flex-initial sm:w-auto min-w-[105px] py-0 text-xs">
+                {['All Brands', 'PureGlow', 'WellnessLife'].map((b) => (
+                  <option key={b}>{b}</option>
+                ))}
+              </Select>
+            </div>
+            <Button className="w-full sm:w-auto sm:ml-auto" icon={<Plus className="h-3.5 w-3.5" />} onClick={() => setCreateOpen(true)}>
               Request Exception
             </Button>
           </div>
@@ -312,6 +314,7 @@ export default function ExceptionsPage() {
             columns={columns}
             rows={paged}
             loading={loading}
+            minWidth="640px"
             getKey={(r) => r.id}
             onRowClick={(r) => {
               setDetail(r)

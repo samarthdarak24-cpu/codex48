@@ -242,6 +242,7 @@ export default function ManagerOverview() {
               columns={queueColumns}
               rows={pending.slice(0, 5)}
               loading={loading}
+              minWidth="520px"
               getKey={(r) => r.id}
               onRowClick={(r) => navigate(`/manager/queue/${r.id}`)}
               empty={
@@ -266,6 +267,7 @@ export default function ManagerOverview() {
               columns={excColumns}
               rows={activeExceptions}
               loading={loading}
+              minWidth="500px"
               getKey={(r) => r.id}
               onRowClick={() => navigate('/manager/exceptions')}
               empty={<EmptyState title="No active exceptions" description="Approved exceptions appear here with their expiry dates." compact />}

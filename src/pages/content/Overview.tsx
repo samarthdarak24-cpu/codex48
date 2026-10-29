@@ -129,7 +129,7 @@ export default function CreatorOverview() {
           </h1>
           <p className="mt-1 text-base text-muted">Keep every campaign aligned with your brand.</p>
         </div>
-        <Button size="md" icon={<FilePlus2 className="h-3.5 w-3.5" />} onClick={() => navigate('/app/new')}>
+        <Button size="md" className="w-full sm:w-auto" icon={<FilePlus2 className="h-3.5 w-3.5" />} onClick={() => navigate('/app/new')}>
           New Content
         </Button>
       </div>
@@ -183,6 +183,7 @@ export default function CreatorOverview() {
                   columns={columns}
                   rows={recent}
                   loading={loading}
+                  minWidth="480px"
                   getKey={(r) => r.id}
                   onRowClick={(r) => navigate(`/app/feedback/${r.id}`)}
                   empty={

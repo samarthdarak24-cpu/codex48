@@ -403,24 +403,24 @@ export default function GuidelinesRules() {
               value={query}
               onChange={(v) => { setQuery(v); setPage(1) }}
               placeholder={tab === 'guidelines' ? 'Search guidelines or rules…' : tab === 'rules' ? 'Search rules…' : 'Search approved claims…'}
-              className="min-w-[180px]"
+              className="w-full sm:w-auto flex-1 min-w-[180px]"
             />
             {tab === 'guidelines' && (
-              <>
-                <Select value={category} onChange={(e) => { setCategory(e.target.value); setPage(1) }} className="h-[34px] w-auto min-w-[130px] py-0 text-xs">
+              <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                <Select value={category} onChange={(e) => { setCategory(e.target.value); setPage(1) }} className="h-[34px] flex-1 sm:flex-initial sm:w-auto min-w-[130px] py-0 text-xs">
                   {['All Categories', ...CATEGORIES].map((c) => (
                     <option key={c}>{c}</option>
                   ))}
                 </Select>
-                <Select value={version} onChange={(e) => { setVersion(e.target.value); setPage(1) }} className="h-[34px] w-auto min-w-[112px] py-0 text-xs">
+                <Select value={version} onChange={(e) => { setVersion(e.target.value); setPage(1) }} className="h-[34px] flex-1 sm:flex-initial sm:w-auto min-w-[112px] py-0 text-xs">
                   {['All Versions', 'Active', 'Draft', 'Archived'].map((v) => (
                     <option key={v}>{v}</option>
                   ))}
                 </Select>
-              </>
+              </div>
             )}
             <Button
-              className="ml-auto"
+              className="w-full sm:w-auto sm:ml-auto"
               icon={tab === 'guidelines' ? <Upload className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
               onClick={() => (tab === 'guidelines' ? setUploadOpen(true) : tab === 'rules' ? setRuleOpen(true) : setClaimOpen(true))}
             >
@@ -434,6 +434,7 @@ export default function GuidelinesRules() {
                 columns={docColumns}
                 rows={pagedDocs}
                 loading={loading}
+                minWidth="640px"
                 getKey={(r) => r.id}
                 onRowClick={(r) => setDetailDoc(r)}
                 empty={<EmptyState title="No guideline documents" description="Upload a PDF or DOCX guideline to begin extracting rules." action={<Button size="sm" onClick={() => setUploadOpen(true)}>Upload Document</Button>} />}
@@ -467,6 +468,7 @@ export default function GuidelinesRules() {
                 columns={ruleColumns}
                 rows={pagedRules}
                 loading={loading}
+                minWidth="640px"
                 getKey={(r) => r.id}
                 onRowClick={(r) => setDetailRule(r)}
                 empty={<EmptyState title="No rules yet" description="Create a rule draft or confirm extracted rules from an uploaded guideline." action={<Button size="sm" onClick={() => setRuleOpen(true)}>Create Rule</Button>} />}
@@ -485,6 +487,7 @@ export default function GuidelinesRules() {
                 columns={claimColumns}
                 rows={pagedClaims}
                 loading={loading}
+                minWidth="540px"
                 getKey={(r) => r.id}
                 empty={<EmptyState title="No approved claims" description="Add the exact wording your teams are allowed to use." action={<Button size="sm" onClick={() => setClaimOpen(true)}>Add Claim</Button>} />}
               />

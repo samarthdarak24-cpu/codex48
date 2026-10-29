@@ -200,26 +200,28 @@ export default function MySubmissions() {
           <Card>
             {/* Filters */}
             <div className="flex flex-wrap items-center gap-2 border-b border-line p-3">
-              <SearchInput value={query} onChange={(v) => { setQuery(v); setPage(1) }} placeholder="Search by title, type, or status…" className="min-w-[180px]" />
-              <Select value={type} onChange={(e) => { setType(e.target.value); setPage(1) }} className="h-[34px] w-auto min-w-[110px] py-0 text-xs">
-                {TYPES.map((t) => (
-                  <option key={t}>{t}</option>
-                ))}
-              </Select>
-              <Select value={status} onChange={(e) => applyStatus(e.target.value)} className="h-[34px] w-auto min-w-[130px] py-0 text-xs">
-                {STATUSES.map((s) => (
-                  <option key={s}>{s}</option>
-                ))}
-              </Select>
-              <button
-                onClick={() => setSort(sort === 'newest' ? 'oldest' : 'newest')}
-                aria-label="Toggle sort order"
-                title={`Sorted ${sort}`}
-                className="inline-flex h-[34px] w-[34px] items-center justify-center rounded-lg border border-line-strong bg-white text-ink-600 transition-colors hover:bg-[#F7FAFE]"
-              >
-                <SlidersHorizontal className="h-3.5 w-3.5" />
-              </button>
-              <Button className="ml-auto" size="md" icon={<Plus className="h-3.5 w-3.5" />} onClick={() => navigate('/app/new')}>
+              <SearchInput value={query} onChange={(v) => { setQuery(v); setPage(1) }} placeholder="Search by title, type, or status…" className="w-full sm:w-auto flex-1 min-w-[160px]" />
+              <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                <Select value={type} onChange={(e) => { setType(e.target.value); setPage(1) }} className="h-[34px] flex-1 sm:flex-initial sm:w-auto min-w-[110px] py-0 text-xs">
+                  {TYPES.map((t) => (
+                    <option key={t}>{t}</option>
+                  ))}
+                </Select>
+                <Select value={status} onChange={(e) => applyStatus(e.target.value)} className="h-[34px] flex-1 sm:flex-initial sm:w-auto min-w-[130px] py-0 text-xs">
+                  {STATUSES.map((s) => (
+                    <option key={s}>{s}</option>
+                  ))}
+                </Select>
+                <button
+                  onClick={() => setSort(sort === 'newest' ? 'oldest' : 'newest')}
+                  aria-label="Toggle sort order"
+                  title={`Sorted ${sort}`}
+                  className="inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-lg border border-line-strong bg-white text-ink-600 transition-colors hover:bg-[#F7FAFE]"
+                >
+                  <SlidersHorizontal className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              <Button className="w-full sm:w-auto sm:ml-auto" size="md" icon={<Plus className="h-3.5 w-3.5" />} onClick={() => navigate('/app/new')}>
                 New Content
               </Button>
             </div>
@@ -228,6 +230,7 @@ export default function MySubmissions() {
               columns={columns}
               rows={paged}
               loading={loading}
+              minWidth="560px"
               getKey={(r) => r.id}
               onRowClick={(r) => navigate(`/app/feedback/${r.id}`)}
               empty={

@@ -1664,12 +1664,14 @@ function TechStackSection() {
               <p className="text-[10px] text-muted mt-0.5">Brand Rules & Facts</p>
             </div>
             <div className="hidden sm:flex justify-center text-muted-light font-bold">──►</div>
+            <div className="flex sm:hidden justify-center text-muted-light font-bold text-xs">▼</div>
             <div className="rounded-2xl border border-emerald-200 bg-emerald-50/50 p-3.5 text-center shadow-2xs">
               <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600 text-white mb-2 shadow-xs"><Cpu className="h-4 w-4" /></span>
               <p className="text-[12px] font-bold text-emerald-950">Deterministic Engine</p>
               <p className="text-[10px] text-emerald-700 mt-0.5">Facts & Scopes Logic</p>
             </div>
             <div className="hidden sm:flex justify-center text-muted-light font-bold">◄──►</div>
+            <div className="flex sm:hidden justify-center text-muted-light font-bold text-xs">▲▼</div>
             <div className="rounded-2xl border border-brand-200 bg-brand-50/50 p-3.5 text-center shadow-2xs">
               <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600 text-white mb-2 shadow-xs"><Terminal className="h-4 w-4" /></span>
               <p className="text-[12px] font-bold text-brand-950">FastAPI REST Seam</p>
@@ -1785,11 +1787,11 @@ function TeamSection() {
               <p className="mt-1 text-[13px] text-muted">
                 Test accounts are preloaded with fictional brand guidelines (PureGlow), submissions, and the festival exception demo.
               </p>
-              <div className="mt-3 flex flex-wrap gap-4 text-[12px] font-mono">
-                <span className="rounded-lg bg-canvas px-3 py-1.5 border border-ink/10 text-ink">
+              <div className="mt-3 flex flex-wrap gap-2.5 sm:gap-4 text-[12px] font-mono">
+                <span className="max-w-full break-all rounded-lg bg-canvas px-3 py-1.5 border border-ink/10 text-ink">
                   Manager: <strong className="text-brand-600">david.kim@pureglow.co</strong> / <code className="text-muted">precedent</code>
                 </span>
-                <span className="rounded-lg bg-canvas px-3 py-1.5 border border-ink/10 text-ink">
+                <span className="max-w-full break-all rounded-lg bg-canvas px-3 py-1.5 border border-ink/10 text-ink">
                   Creator: <strong className="text-brand-600">emily.carter@pureglow.co</strong> / <code className="text-muted">precedent</code>
                 </span>
               </div>

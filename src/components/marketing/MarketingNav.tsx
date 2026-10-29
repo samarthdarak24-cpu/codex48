@@ -81,7 +81,7 @@ export function MarketingNav() {
           <button
             onClick={() => setOpen(true)}
             aria-label="Open menu"
-            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-ink/10 bg-white/70 text-ink sm:hidden"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-ink/10 bg-white/70 text-ink lg:hidden"
           >
             <Menu className="h-4 w-4" />
           </button>
@@ -89,9 +89,9 @@ export function MarketingNav() {
       </header>
 
       {open && (
-        <div className="fixed inset-0 z-50 sm:hidden">
+        <div className="fixed inset-0 z-50 lg:hidden">
           <div className="absolute inset-0 bg-ink/25 backdrop-blur-sm animate-fade-in" onClick={() => setOpen(false)} />
-          <div className="absolute inset-x-3 top-3 animate-pop-in rounded-3xl border border-ink/[0.07] bg-cream p-5 shadow-pop">
+          <div className="absolute inset-x-3 top-3 animate-pop-in rounded-3xl border border-ink/[0.07] bg-cream p-5 shadow-pop max-h-[90vh] overflow-y-auto">
             <div className="mb-6 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <BrandMark size={26} />
@@ -118,12 +118,26 @@ export function MarketingNav() {
               ))}
             </nav>
             <div className="mt-5 flex flex-col gap-2">
-              <Link to="/login" onClick={() => setOpen(false)} className="mkt-pill-dark w-full">
-                {signedIn ? 'Open workspace' : 'Book a demo'}
-              </Link>
-              <Link to="/login" onClick={() => setOpen(false)} className="mkt-pill-light w-full">
-                Sign in
-              </Link>
+              {signedIn ? (
+                <button
+                  onClick={() => {
+                    setOpen(false)
+                    navigate(workspace)
+                  }}
+                  className="mkt-pill-dark w-full"
+                >
+                  Open workspace
+                </button>
+              ) : (
+                <>
+                  <Link to="/login" onClick={() => setOpen(false)} className="mkt-pill-dark w-full">
+                    Launch Prototype
+                  </Link>
+                  <Link to="/login" onClick={() => setOpen(false)} className="mkt-pill-light w-full">
+                    Sign in
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>

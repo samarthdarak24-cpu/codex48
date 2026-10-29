@@ -36,8 +36,8 @@ export function MarketingFooter() {
   return (
     <footer className="border-t border-ink/[0.07] bg-white">
       <div className="mkt-container py-14 lg:py-16">
-        <div className="grid gap-10 lg:grid-cols-[1.4fr_repeat(5,minmax(0,1fr))]">
-          <div>
+        <div className="grid grid-cols-2 gap-8 sm:grid-cols-3 lg:grid-cols-[1.4fr_repeat(5,minmax(0,1fr))]">
+          <div className="col-span-2 sm:col-span-3 lg:col-span-1">
             <Link to="/" className="flex items-center gap-2.5" aria-label="Precedent home">
               <BrandMark size={28} />
               <span className="text-[18px] font-bold tracking-[-0.025em] text-ink">Precedent</span>

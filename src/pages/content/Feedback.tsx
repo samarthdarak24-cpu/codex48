@@ -258,23 +258,26 @@ export default function ReviewFeedback() {
         {/* List */}
         <Card>
           <div className="flex flex-wrap items-center gap-2 border-b border-line p-3">
-            <SearchInput value={query} onChange={(v) => { setQuery(v); setPage(1) }} placeholder="Search by title, type, or status…" className="min-w-[160px]" />
-            <Select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1) }} className="h-[34px] w-auto min-w-[125px] py-0 text-xs">
-              {['All Statuses', 'Pending', 'In Review', 'Ready for Approval', 'Changes Requested', 'Approved', 'Declined'].map((s) => (
-                <option key={s}>{s}</option>
-              ))}
-            </Select>
-            <Select value={type} onChange={(e) => { setType(e.target.value); setPage(1) }} className="h-[34px] w-auto min-w-[105px] py-0 text-xs">
-              {['All Types', 'Text', 'Image', 'Document', 'URL'].map((t) => (
-                <option key={t}>{t}</option>
-              ))}
-            </Select>
+            <SearchInput value={query} onChange={(v) => { setQuery(v); setPage(1) }} placeholder="Search by title, type, or status…" className="w-full sm:w-auto flex-1 min-w-[160px]" />
+            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+              <Select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1) }} className="h-[34px] flex-1 sm:flex-initial sm:w-auto min-w-[125px] py-0 text-xs">
+                {['All Statuses', 'Pending', 'In Review', 'Ready for Approval', 'Changes Requested', 'Approved', 'Declined'].map((s) => (
+                  <option key={s}>{s}</option>
+                ))}
+              </Select>
+              <Select value={type} onChange={(e) => { setType(e.target.value); setPage(1) }} className="h-[34px] flex-1 sm:flex-initial sm:w-auto min-w-[105px] py-0 text-xs">
+                {['All Types', 'Text', 'Image', 'Document', 'URL'].map((t) => (
+                  <option key={t}>{t}</option>
+                ))}
+              </Select>
+            </div>
           </div>
 
           <DataTable
             columns={columns}
             rows={paged}
             loading={loading}
+            minWidth="560px"
             getKey={(r) => r.id}
             onRowClick={(r) => navigate(`/app/feedback/${r.id}`)}
             empty={

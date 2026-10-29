@@ -272,33 +272,35 @@ export default function AuditHistory() {
       <div className="mt-4 grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_286px]">
         <Card className="min-w-0">
           <div className="flex flex-wrap items-center gap-2 border-b border-line p-3">
-            <SearchInput value={query} onChange={(v) => { setQuery(v); setPage(1) }} placeholder="Search by content title, brand, user, or action…" className="min-w-[180px]" />
-            <Select value={action} onChange={(e) => { setAction(e.target.value); setPage(1) }} className="h-[34px] w-auto min-w-[112px] py-0 text-xs">
-              {ACTIONS.map((a) => (
-                <option key={a}>{a}</option>
-              ))}
-            </Select>
-            <Select value={userId} onChange={(e) => { setUserId(e.target.value); setPage(1) }} className="h-[34px] w-auto min-w-[104px] py-0 text-xs">
-              <option>All Users</option>
-              {team.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.name}
-                </option>
-              ))}
-            </Select>
-            <Select value={range} onChange={(e) => { setRange(e.target.value); setPage(1) }} className="h-[34px] w-auto min-w-[110px] py-0 text-xs">
-              {RANGES.map((r) => (
-                <option key={r}>{r}</option>
-              ))}
-            </Select>
-            <button
-              onClick={reset}
-              aria-label="Reset filters"
-              className="inline-flex h-[34px] w-[34px] items-center justify-center rounded-lg border border-line-strong bg-white text-ink-600 transition-colors hover:bg-[#F7FAFE]"
-            >
-              <Filter className="h-3.5 w-3.5" />
-            </button>
-            <Button className="ml-auto" variant="outline" icon={<Download className="h-3.5 w-3.5" />} onClick={exportCsv} disabled={filtered.length === 0}>
+            <SearchInput value={query} onChange={(v) => { setQuery(v); setPage(1) }} placeholder="Search by content title, brand, user, or action…" className="w-full sm:w-auto flex-1 min-w-[180px]" />
+            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+              <Select value={action} onChange={(e) => { setAction(e.target.value); setPage(1) }} className="h-[34px] flex-1 sm:flex-initial sm:w-auto min-w-[112px] py-0 text-xs">
+                {ACTIONS.map((a) => (
+                  <option key={a}>{a}</option>
+                ))}
+              </Select>
+              <Select value={userId} onChange={(e) => { setUserId(e.target.value); setPage(1) }} className="h-[34px] flex-1 sm:flex-initial sm:w-auto min-w-[104px] py-0 text-xs">
+                <option>All Users</option>
+                {team.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.name}
+                  </option>
+                ))}
+              </Select>
+              <Select value={range} onChange={(e) => { setRange(e.target.value); setPage(1) }} className="h-[34px] flex-1 sm:flex-initial sm:w-auto min-w-[110px] py-0 text-xs">
+                {RANGES.map((r) => (
+                  <option key={r}>{r}</option>
+                ))}
+              </Select>
+              <button
+                onClick={reset}
+                aria-label="Reset filters"
+                className="inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-lg border border-line-strong bg-white text-ink-600 transition-colors hover:bg-[#F7FAFE]"
+              >
+                <Filter className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            <Button className="w-full sm:w-auto sm:ml-auto" variant="outline" icon={<Download className="h-3.5 w-3.5" />} onClick={exportCsv} disabled={filtered.length === 0}>
               Export Report
             </Button>
           </div>
@@ -315,6 +317,7 @@ export default function AuditHistory() {
             columns={columns}
             rows={paged}
             loading={loading}
+            minWidth="640px"
             getKey={(r) => r.id}
             dense
             empty={

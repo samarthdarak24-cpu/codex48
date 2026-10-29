@@ -1,18 +1,18 @@
-import { createContext, useCallback, useContext, useMemo, useState } from 'react'
+import React, { createContext, useCallback, useContext, useMemo, useState } from 'react'
 import { AlertTriangle, CheckCircle2, Info, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-type ToastTone = 'success' | 'error' | 'info'
+export type ToastTone = 'success' | 'error' | 'info'
 
-interface Toast {
-  id: number
+export interface ToastItem {
+  id: string
   title: string
   description?: string
-  tone: ToastTone
+  tone?: ToastTone
 }
 
 interface ToastApi {
-  push: (t: Omit<Toast, 'id'>) => void
+  push: (toast: Omit<ToastItem, 'id'>) => void
   success: (title: string, description?: string) => void
   error: (title: string, description?: string) => void
   info: (title: string, description?: string) => void
@@ -21,18 +21,16 @@ interface ToastApi {
 const ToastContext = createContext<ToastApi | null>(null)
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
-  const [toasts, setToasts] = useState<Toast[]>([])
+  const [toasts, setToasts] = useState<ToastItem[]>([])
 
-  const remove = useCallback((id: number) => setToasts((prev) => prev.filter((t) => t.id !== id)), [])
-
-  const push = useCallback(
-    (t: Omit<Toast, 'id'>) => {
-      const id = Date.now() + Math.random()
-      setToasts((prev) => [...prev.slice(-2), { ...t, id }])
-      window.setTimeout(() => remove(id), 4600)
-    },
-    [remove],
-  )
+  const push = useCallback((t: Omit<ToastItem, 'id'>) => {
+    const id = Math.random().toString(36).slice(2, 9)
+    const item: ToastItem = { ...t, id }
+    setToasts((prev) => [...prev, item])
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((x) => x.id !== id))
+    }, 4500)
+  }, [])
 
   const api = useMemo<ToastApi>(
     () => ({
@@ -47,7 +45,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={api}>
       {children}
-      <div className="pointer-events-none fixed bottom-4 right-4 z-[60] flex w-[330px] flex-col gap-2">
+      <div className="pointer-events-none fixed bottom-4 right-4 z-[60] flex w-[330px] max-w-[calc(100vw-32px)] flex-col gap-2">
         {toasts.map((t) => {
           const Icon = t.tone === 'success' ? CheckCircle2 : t.tone === 'error' ? AlertTriangle : Info
           return (
@@ -74,11 +72,11 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                 {t.description && <p className="mt-0.5 text-xs leading-[16px] text-muted">{t.description}</p>}
               </div>
               <button
-                onClick={() => remove(t.id)}
-                aria-label="Dismiss notification"
-                className="mt-0.5 text-muted-light transition-colors hover:text-ink"
+                onClick={() => setToasts((prev) => prev.filter((x) => x.id !== t.id))}
+                aria-label="Dismiss toast"
+                className="inline-flex h-5 w-5 items-center justify-center rounded text-muted transition-colors hover:text-ink"
               >
-                <X className="h-3.5 w-3.5" />
+                <X className="h-3 w-3" />
               </button>
             </div>
           )
@@ -88,8 +86,8 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   )
 }
 
-export function useToast() {
+export function useToast(): ToastApi {
   const ctx = useContext(ToastContext)
-  if (!ctx) throw new Error('useToast must be used inside <ToastProvider>')
+  if (!ctx) throw new Error('useToast must be used within ToastProvider')
   return ctx
 }

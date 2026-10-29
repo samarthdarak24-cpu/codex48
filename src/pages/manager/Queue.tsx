@@ -241,34 +241,37 @@ export default function ReviewQueue() {
       <div className="mt-4 grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_272px]">
         <Card className="min-w-0">
           <div className="flex flex-wrap items-center gap-2 border-b border-line p-3">
-            <SearchInput value={query} onChange={(v) => { setQuery(v); setPage(1) }} placeholder="Search by title, creator, or content ID…" className="min-w-[170px]" />
-            <Select value={type} onChange={(e) => { setType(e.target.value); setPage(1) }} className="h-[34px] w-auto min-w-[118px] py-0 text-xs">
-              {CONTENT_TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {t === 'All' ? 'All Content Types' : t}
-                </option>
-              ))}
-            </Select>
-            <Select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1) }} className="h-[34px] w-auto min-w-[110px] py-0 text-xs">
-              {STATUS_FILTERS.map((s) => (
-                <option key={s} value={s}>
-                  {s === 'All' ? 'All Statuses' : s}
-                </option>
-              ))}
-            </Select>
-            <button
-              onClick={resetFilters}
-              aria-label="Reset filters"
-              className="inline-flex h-[34px] w-[34px] items-center justify-center rounded-lg border border-line-strong bg-white text-ink-600 transition-colors hover:bg-[#F7FAFE]"
-            >
-              <SlidersHorizontal className="h-3.5 w-3.5" />
-            </button>
+            <SearchInput value={query} onChange={(v) => { setQuery(v); setPage(1) }} placeholder="Search by title, creator, or content ID…" className="w-full sm:w-auto flex-1 min-w-[170px]" />
+            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+              <Select value={type} onChange={(e) => { setType(e.target.value); setPage(1) }} className="h-[34px] flex-1 sm:flex-initial sm:w-auto min-w-[118px] py-0 text-xs">
+                {CONTENT_TYPES.map((t) => (
+                  <option key={t} value={t}>
+                    {t === 'All' ? 'All Content Types' : t}
+                  </option>
+                ))}
+              </Select>
+              <Select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1) }} className="h-[34px] flex-1 sm:flex-initial sm:w-auto min-w-[110px] py-0 text-xs">
+                {STATUS_FILTERS.map((s) => (
+                  <option key={s} value={s}>
+                    {s === 'All' ? 'All Statuses' : s}
+                  </option>
+                ))}
+              </Select>
+              <button
+                onClick={resetFilters}
+                aria-label="Reset filters"
+                className="inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-lg border border-line-strong bg-white text-ink-600 transition-colors hover:bg-[#F7FAFE]"
+              >
+                <SlidersHorizontal className="h-3.5 w-3.5" />
+              </button>
+            </div>
           </div>
 
           <DataTable
             columns={columns}
             rows={paged}
             loading={loading}
+            minWidth="580px"
             getKey={(r) => r.id}
             onRowClick={(r) => setOpenId(r.id)}
             selectedIds={selectedIds}

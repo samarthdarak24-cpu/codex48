@@ -145,17 +145,19 @@ export default function CreatorGuidelines() {
 
           <Card>
             <div className="flex flex-wrap items-center gap-2 border-b border-line p-3">
-              <SearchInput value={query} onChange={(v) => { setQuery(v); setPage(1) }} placeholder="Search guidelines, rules, or keywords…" className="min-w-[180px]" />
-              <Select value={category} onChange={(e) => { setCategory(e.target.value); setPage(1) }} className="h-[34px] w-auto min-w-[130px] py-0 text-xs">
-                {categories.map((c) => (
-                  <option key={c}>{c}</option>
-                ))}
-              </Select>
-              <Select value={version} onChange={(e) => { setVersion(e.target.value); setPage(1) }} className="h-[34px] w-auto min-w-[115px] py-0 text-xs">
-                {['All Versions', 'Active', 'Draft', 'Archived'].map((v) => (
-                  <option key={v}>{v}</option>
-                ))}
-              </Select>
+              <SearchInput value={query} onChange={(v) => { setQuery(v); setPage(1) }} placeholder="Search guidelines, rules, or keywords…" className="w-full sm:w-auto flex-1 min-w-[180px]" />
+              <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                <Select value={category} onChange={(e) => { setCategory(e.target.value); setPage(1) }} className="h-[34px] flex-1 sm:flex-initial sm:w-auto min-w-[130px] py-0 text-xs">
+                  {categories.map((c) => (
+                    <option key={c}>{c}</option>
+                  ))}
+                </Select>
+                <Select value={version} onChange={(e) => { setVersion(e.target.value); setPage(1) }} className="h-[34px] flex-1 sm:flex-initial sm:w-auto min-w-[115px] py-0 text-xs">
+                  {['All Versions', 'Active', 'Draft', 'Archived'].map((v) => (
+                    <option key={v}>{v}</option>
+                  ))}
+                </Select>
+              </div>
             </div>
 
             <div className="flex items-center justify-between px-4 pb-1 pt-3">
