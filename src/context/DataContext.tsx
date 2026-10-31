@@ -35,7 +35,12 @@ export interface DataBundle {
 
 interface DataState extends DataBundle {
   loading: boolean
+  /** Initial load failure — rendered by the page's own error state. */
   error: string | null
+  /** The last write that failed. Rendered as a banner so a failed decision
+   *  can never look like a successful one. */
+  mutationError: string | null
+  clearMutationError: () => void
   refetch: () => void
   submitContent: (input: SubmitInput) => Promise<Submission>
   addVersion: (submissionId: string, text: string, note: string) => Promise<Submission>
@@ -126,6 +131,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [bundle, setBundle] = useState<DataBundle>(EMPTY)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [mutationError, setMutationError] = useState<string | null>(null)
   const [nonce, setNonce] = useState(0)
 
   useEffect(() => {
@@ -170,8 +176,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const refetch = useCallback(() => setNonce((n) => n + 1), [])
 
   const fail = useCallback((err: unknown) => {
-    setError(err instanceof Error ? err.message : 'The request failed. Please try again.')
+    setMutationError(err instanceof Error ? err.message : 'The request failed. Please try again.')
   }, [])
+
+  const clearMutationError = useCallback(() => setMutationError(null), [])
 
   /* ---------------------------------------------------------------- */
   /* Content                                                           */
@@ -423,6 +431,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       ...bundle,
       loading,
       error,
+      mutationError,
+      clearMutationError,
       refetch,
       submitContent,
       addVersion,
@@ -445,6 +455,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       bundle,
       loading,
       error,
+      mutationError,
+      clearMutationError,
       refetch,
       submitContent,
       addVersion,

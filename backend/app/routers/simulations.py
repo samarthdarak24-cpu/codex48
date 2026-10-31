@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from ..db import get_db
-from ..deps import get_current_user, require_manager
+from ..deps import get_current_user, require_manager, require_workspace
 from .. import models
 from ..services import simulation as svc
 from ..services.rules import rule_to_dict
@@ -64,6 +64,8 @@ def activate_simulation(
     user: models.User = Depends(require_manager),
 ) -> dict:
     """Separate manager-only endpoint to activate proposed rule changes from a sandbox simulation."""
+    sim = db.get(models.Simulation, id)
+    require_workspace(sim, user, shared=True, detail="Simulation not found")
     try:
         rule, sim = svc.activate_simulation_proposal(db, id, user.id)
     except ValueError as exc:

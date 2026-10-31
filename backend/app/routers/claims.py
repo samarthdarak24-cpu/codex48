@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from ..db import get_db
-from ..deps import get_current_user, require_manager
+from ..deps import get_current_user, require_manager, require_workspace
 from .. import models
 from ..ids import new_id
 from ..services.audit import record
@@ -85,4 +85,44 @@ def create_claim(
     )
     db.commit()
     db.refresh(claim)
+    return _serialize(claim)
+
+
+@router.post("/claims/{claim_id}/withdraw")
+def withdraw_claim(
+    claim_id: str,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(require_manager),
+) -> dict:
+    """Withdraw an approved claim.
+
+    A3 Sentinel trigger: any published content that used this claim has to be
+    re-checked, because the substantiation it relied on no longer exists.
+    """
+    claim = db.get(models.ApprovedClaim, claim_id)
+    require_workspace(claim, current_user, shared=True, detail="Claim not found")
+
+    claim.status = "withdrawn"
+    record(
+        db,
+        action="Revoked",
+        entity_title=claim.text,
+        entity_kind="claim",
+        entity_id=claim.id,
+        user_id=current_user.id,
+        details=f"Withdrew claim for {claim.product}",
+    )
+    db.commit()
+    db.refresh(claim)
+
+    try:
+        from ..services import sentinel as sentinel_svc
+
+        sentinel_svc.on_claim_withdrawn(
+            db, claim=claim, actor_id=current_user.id,
+            workspace=claim.workspace or "PureGlow",
+        )
+    except Exception:  # pragma: no cover - defensive
+        pass
+
     return _serialize(claim)

@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from .. import models
 from ..db import get_db
-from ..deps import get_current_user, require_manager
+from ..deps import get_current_user, require_manager, require_workspace
 from ..ids import new_id
 from ..services import rules as svc
 from ..services.audit import record
@@ -118,8 +118,7 @@ def confirm_rule(
     user: models.User = Depends(require_manager),
 ):
     r = db.get(models.Rule, rule_id)
-    if not r:
-        raise HTTPException(status_code=404, detail="Rule not found")
+    require_workspace(r, user, shared=True, detail="Rule not found")
 
     r.status = "active"
     db.flush()
@@ -136,6 +135,131 @@ def confirm_rule(
     )
     db.commit()
     db.refresh(r)
+
+    # A3 Sentinel: activating a rule can make already-approved content
+    # non-compliant. Never let that failure break the activation itself.
+    sentinel_result = None
+    try:
+        from ..services import sentinel as sentinel_svc
+
+        sentinel_result = sentinel_svc.on_rule_activated(
+            db, rule=r, actor_id=user.id, workspace=r.workspace or "PureGlow"
+        )
+    except Exception as exc:  # pragma: no cover - defensive
+        sentinel_result = {"error": f"{type(exc).__name__}: {exc}"}
+
+    payload = svc.rule_to_dict(r)
+    payload["sentinel"] = sentinel_result
+    return payload
+
+
+class RuleEditBody(BaseModel):
+    """Partial update for a structured rule (A3 trigger: rule edited)."""
+
+    title: str | None = None
+    summary: str | None = None
+    subject: str | None = None
+    condition: str | None = None
+    action: str | None = None
+    scope: str | None = None
+    priority: str | None = None
+    source_passage: str | None = None
+    status: str | None = None
+
+
+@router.patch("/rules/{rule_id}")
+def edit_rule(
+    rule_id: str,
+    body: RuleEditBody,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(require_manager),
+):
+    """Edit a rule. Any real change re-checks approved/published content."""
+    r = db.get(models.Rule, rule_id)
+    require_workspace(r, user, shared=True, detail="Rule not found")
+
+    before = {
+        "title": r.title,
+        "summary": r.summary,
+        "subject": r.subject,
+        "condition": r.condition,
+        "action": r.action,
+        "scope": r.scope,
+        "priority": r.priority,
+        "source_passage": r.source_passage,
+        "status": r.status,
+    }
+    data = body.model_dump(exclude_none=True)
+    for field, value in data.items():
+        setattr(r, field, value)
+    db.flush()
+
+    after = {k: getattr(r, k) for k in before}
+    changed = {k: (before[k], after[k]) for k in before if before[k] != after[k]}
+
+    record(
+        db,
+        action="Rule updated",
+        entity_title=r.title,
+        entity_meta=r.code,
+        user_id=user.id,
+        brand=r.workspace or "PureGlow",
+        details=f"Edited rule {r.code}: " + ", ".join(changed.keys()) if changed else f"No change to {r.code}",
+        entity_kind="rule",
+        entity_id=r.id,
+    )
+    db.commit()
+    db.refresh(r)
+
+    sentinel_result = None
+    if changed:
+        try:
+            from ..services import sentinel as sentinel_svc
+
+            sentinel_result = sentinel_svc.on_rule_edited(
+                db, rule=r, before=before, after=after,
+                actor_id=user.id, workspace=r.workspace or "PureGlow",
+            )
+        except Exception as exc:  # pragma: no cover - defensive
+            sentinel_result = {"error": f"{type(exc).__name__}: {exc}"}
+
+    payload = svc.rule_to_dict(r)
+    payload["sentinel"] = sentinel_result
+    return payload
+
+
+@router.post("/rules/{rule_id}/deactivate")
+def deactivate_rule(
+    rule_id: str,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(require_manager),
+):
+    r = db.get(models.Rule, rule_id)
+    require_workspace(r, user, shared=True, detail="Rule not found")
+    r.status = "inactive"
+    record(
+        db,
+        action="Rule updated",
+        entity_title=r.title,
+        entity_meta=r.code,
+        user_id=user.id,
+        brand=r.workspace or "PureGlow",
+        details=f"Deactivated rule {r.code}",
+        entity_kind="rule",
+        entity_id=r.id,
+    )
+    db.commit()
+    db.refresh(r)
+
+    try:
+        from ..services import sentinel as sentinel_svc
+
+        sentinel_svc.on_rule_deactivated(
+            db, rule=r, actor_id=user.id, workspace=r.workspace or "PureGlow"
+        )
+    except Exception:  # pragma: no cover - defensive
+        pass
+
     return svc.rule_to_dict(r)
 
 
@@ -146,8 +270,7 @@ def reject_rule(
     user: models.User = Depends(require_manager),
 ):
     r = db.get(models.Rule, rule_id)
-    if not r:
-        raise HTTPException(status_code=404, detail="Rule not found")
+    require_workspace(r, user, shared=True, detail="Rule not found")
 
     r.status = "rejected"
     db.flush()
@@ -194,6 +317,5 @@ def get_rule(
     current_user: models.User = Depends(get_current_user),
 ):
     r = db.get(models.Rule, rule_id)
-    if not r:
-        raise HTTPException(status_code=404, detail="Rule not found")
+    require_workspace(r, user, shared=True, detail="Rule not found")
     return svc.rule_to_dict(r)

@@ -3,6 +3,7 @@
 Responses are plain dicts with camelCase keys, matching the frontend contract.
 """
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from .. import models
@@ -75,8 +76,34 @@ def logout(user: models.User = Depends(get_current_user), db: Session = Depends(
 
 @router.post("/request-reset")
 def request_reset(body: dict, db: Session = Depends(get_db)) -> dict:
-    """Always report success so we never leak whether an email exists."""
-    return {"sent": True}
+    """Record a password-reset request for a workspace administrator.
+
+    This build sends no email. Rather than pretend it did, the request is
+    written to the audit log so an administrator can act on it, and the
+    response says so. The reply is identical whether or not the address
+    exists, so the endpoint cannot be used to enumerate accounts.
+    """
+    email = str(body.get("email") or "").strip().lower()
+    user = (
+        db.query(models.User).filter(func.lower(models.User.email) == email).first()
+        if email
+        else None
+    )
+    if user is not None:
+        record(
+            db,
+            action="Password reset requested",
+            entity_title=f"{user.name} requested a password reset",
+            entity_meta=user.workspace,
+            brand=user.workspace,
+            user_id=user.id,
+            details=f"Reset requested for {user.email}; no email delivery is configured in this build.",
+            status="Pending",
+            entity_kind="auth",
+            entity_id=user.id,
+        )
+        db.commit()
+    return {"sent": True, "delivery": "administrator"}
 
 
 @router.get("/me")

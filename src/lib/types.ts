@@ -121,7 +121,7 @@ export interface Finding {
   id: string
   ruleCode: string
   ruleTitle: string
-  type: 'Brand colour' | 'Claims' | 'Logo usage' | 'Typography' | 'Tone of voice' | 'Disclosure'
+  type: 'Brand colour' | 'Claims' | 'Logo usage' | 'Typography' | 'Tone of voice' | 'Disclosure' | 'Readability' | 'Layout'
   severity: Priority
   explanation: string
   sourceDocId: string
@@ -135,7 +135,254 @@ export interface Finding {
     proposed: string
     rationale: string
   } | null
+  /** A1: image-pixel box this finding refers to (null for text-only rules). */
+  region?: ImageBox | null
+  /**
+   * The deterministic engine's outcome. `needs_review` means the rule could not
+   * be evaluated from the evidence available — it is neither a pass nor a fail
+   * and must be surfaced for human review. This vocabulary matches the backend
+   * (`Finding.outcome` in models.py).
+   */
+  outcome?: 'violation' | 'needs_review'
+  /** Why the engine returned `unknown` (shown verbatim to the reviewer). */
+  outcomeDetail?: string
   status: 'open' | 'resolved' | 'accepted_exception'
+}
+
+/* ------------------------------------------------------------------ */
+/* A1 VisualGuard                                                      */
+/* ------------------------------------------------------------------ */
+
+export interface ImageBox {
+  x: number
+  y: number
+  w: number
+  h: number
+}
+
+export interface TextBlock {
+  text: string
+  box: ImageBox
+  confidence: number
+}
+
+export interface DominantColor {
+  hex: string
+  ratio: number
+}
+
+export interface LogoMatch {
+  logoId: string
+  name: string
+  box: ImageBox
+  confidence: number
+  method: string
+  confident: boolean
+}
+
+export interface ContrastFinding {
+  check: string
+  region: ImageBox
+  text: string
+  value: number | null
+  threshold: number
+  status: 'pass' | 'fail' | 'unknown'
+  foreground: string | null
+  background: string | null
+  isLargeText: boolean
+}
+
+export interface LayoutMetrics {
+  width: number
+  height: number
+  aspectRatio: string
+  aspectValue: number
+  margins: { top: number; right: number; bottom: number; left: number }
+  textAreaRatio: number
+  emptySpaceRatio: number
+  clearSpaceRatio: number | null
+  clearSpaceRatioWidth: number | null
+  logoCount: number
+  textBlockCount: number
+  status: string
+}
+
+export interface AssetAnalysis {
+  id: string
+  assetId: string | null
+  submissionId: string | null
+  status: 'pending' | 'processing' | 'complete' | 'failed'
+  error: string | null
+  width: number
+  height: number
+  ocrText: string
+  ocrConfidence: number
+  textBlocks: TextBlock[]
+  dominantColors: DominantColor[]
+  logoMatches: LogoMatch[]
+  layoutMetrics: LayoutMetrics | Record<string, never>
+  contrastFindings: ContrastFinding[]
+  analyzerVersions: Record<string, string>
+  unreadable: boolean
+  createdAt: string | null
+  completedAt: string | null
+  summary: {
+    textRegions: number
+    logos: number
+    contrastFailures: number
+    contrastUnknown: number
+    background: string | null
+    aspectRatio: string
+  }
+  submission?: Submission
+}
+
+/* ------------------------------------------------------------------ */
+/* A2 Evidence Intelligence                                            */
+/* ------------------------------------------------------------------ */
+
+export type AiSourceType = 'ai_suggestion' | 'needs_human_review' | 'rejected'
+
+export interface AiFinding {
+  id: string
+  submissionId: string
+  versionId: string | null
+  ruleCode: string | null
+  ruleTitle: string
+  passageId: string | null
+  sourceType: AiSourceType
+  confidence: number
+  similarity: number
+  rationale: string
+  minimalEdit: { original: string; proposed: string; rationale: string } | null
+  quote: string
+  citationVerified: boolean
+  rejectedReason: string | null
+  model: string
+  promptVersion: string
+  createdAt: string | null
+}
+
+export interface RetrievedPassage {
+  passageId: string
+  ruleCode: string
+  docId: string
+  heading: string
+  text: string
+  score: number
+  bm25Score: number
+  vectorScore: number
+  method: string
+  rank: number
+}
+
+export interface EvidenceCapabilities {
+  llmConfigured: boolean
+  embeddingModel: string | null
+  promptVersion: string
+  retrieval: 'hybrid_bm25_vector' | 'bm25_only'
+}
+
+/**
+ * AI Trust Panel figures. Every number is aggregated from stored
+ * `ai_call_log` rows — the API never estimates or back-fills them.
+ */
+export interface AiTrustSummary {
+  workspace: string
+  days: number
+  promptVersion: string
+  model: string
+  totalCalls: number
+  byPurpose: Record<string, number>
+  byStatus: { success: number; timeout: number; error: number; skipped: number }
+  successRate: number
+  timeoutRate: number
+  errorRate: number
+  skippedRate: number
+  citationsVerified: number
+  citationsRejected: number
+  citationRejectionRate: number
+  avgLatencyMs: number
+  redactionCount: number
+  tokensIn: number
+  tokensOut: number
+  retrievalMethod: string
+  embeddingModel: string | null
+  lastCallAt: string | null
+}
+
+/** `/health` — capability report shown in the trust panel. */
+export interface SystemHealth {
+  status: string
+  app: string
+  version: string
+  database: { ok: boolean; driver?: string; error?: string }
+  storage: { ok: boolean; writable?: boolean; error?: string }
+  ocr: { ok: boolean; engine?: string; detail?: string }
+  embeddings: { ok: boolean; available?: boolean; model?: string; dim?: number | null; error?: string | null }
+  llm: { ok: boolean; configured: boolean; model: string | null; daily_call_limit: number }
+  scheduler: { enabled: boolean; running: boolean; cron: string; next_run: string | null; last_run: unknown; last_error: string | null }
+  retrieval: string
+}
+
+/* ------------------------------------------------------------------ */
+/* A3 Sentinel                                                         */
+/* ------------------------------------------------------------------ */
+
+export interface Publication {
+  id: string
+  submissionId: string
+  versionId: string | null
+  channel: string
+  status: 'published' | 'withdrawn'
+  publishedAt: string | null
+  publishedBy: string
+}
+
+/** A publication as Sentinel sees it, with the content context it needs. */
+export interface MonitoredPublication extends Publication {
+  title: string
+  type: string
+  openTasks: number
+}
+
+export type SentinelTrigger =
+  | 'rule_activated'
+  | 'rule_edited'
+  | 'rule_deactivated'
+  | 'exception_expired'
+  | 'exception_revoked'
+  | 'claim_withdrawn'
+
+export interface ReassessmentTask {
+  id: string
+  submissionId: string
+  versionId: string | null
+  submissionTitle: string
+  triggerType: SentinelTrigger
+  triggerRef: string
+  reason: string
+  affectedRuleCodes: string[]
+  assigneeId: string | null
+  status: 'open' | 'resolved' | 'dismissed'
+  dueAt: string | null
+  resolution: string | null
+  resolutionNote: string
+  resolvedById: string | null
+  resolvedAt: string | null
+  createdAt: string | null
+  isOverdue: boolean
+}
+
+export interface AppNotification {
+  id: string
+  userId: string
+  type: 'sentinel_task' | 'exception_expiring' | 'decision' | 'system'
+  title: string
+  payload: Record<string, unknown>
+  readAt: string | null
+  createdAt: string | null
+  isRead: boolean
 }
 
 export interface Comment {

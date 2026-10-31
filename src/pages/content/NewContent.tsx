@@ -19,6 +19,8 @@ import {
 import { useData } from '@/context/DataContext'
 import { PageHeader } from '@/components/layout/Shell'
 import { BrandAssetsPicker } from '@/components/content/BrandAssetsPicker'
+import { PosterDropzone, type PosterUploadResult } from '@/components/visual/PosterDropzone'
+import { AnalysisPanel } from '@/components/visual/AnalysisPanel'
 import { Card, CardHeader } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Field, Input, Select, Textarea } from '@/components/ui/Field'
@@ -47,7 +49,6 @@ export default function NewContent() {
   const [channel, setChannel] = useState('Social Media')
   const [brand, setBrand] = useState<Brand>('PureGlow')
   const [text, setText] = useState('')
-  const [files, setFiles] = useState<string[]>([])
   const [errors, setErrors] = useState<{ title?: string; text?: string }>({})
   const [submitting, setSubmitting] = useState(false)
   const [exceptionOpen, setExceptionOpen] = useState(false)
@@ -59,9 +60,8 @@ export default function NewContent() {
     d.setDate(d.getDate() + 30)
     return d.toISOString().slice(0, 10)
   })
-  const [dragOver, setDragOver] = useState(false)
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null)
-  const fileInput = useRef<HTMLInputElement>(null)
+  const [poster, setPoster] = useState<PosterUploadResult | null>(null)
 
   const activeRules = useMemo(() => rules.filter((r) => r.status === 'active'), [rules])
   const guidance = activeRules.slice(0, 3)
@@ -136,18 +136,19 @@ export default function NewContent() {
     }
   }
 
-  function handleFiles(list: FileList | null) {
-    if (!list) return
-    setFiles((prev) => [...prev, ...Array.from(list).map((f) => f.name)].slice(0, 4))
-  }
 
   return (
     <>
       <PageHeader
         title="New Content"
-        subtitle="Submit your content for brand review. Precedent will check it against your brand guidelines and highlight any potential issues."
+        subtitle="Checked against your active brand rules before it reaches a reviewer."
         backTo="/app/overview"
         backLabel="Back to Dashboard"
+        actions={
+          <Button variant="outline" size="sm" icon={<ShieldAlert className="h-3.5 w-3.5" />} onClick={() => setExceptionOpen(true)}>
+            Request exception
+          </Button>
+        }
       />
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_288px]">
@@ -259,62 +260,6 @@ export default function NewContent() {
                 </Field>
               </div>
 
-              <div className="mt-3">
-                <p className="mb-1.5 text-xs font-semibold text-ink-700">
-                  Attach Files <span className="font-normal text-muted">(optional)</span>
-                </p>
-                <div
-                  onDragOver={(e) => {
-                    e.preventDefault()
-                    setDragOver(true)
-                  }}
-                  onDragLeave={() => setDragOver(false)}
-                  onDrop={(e) => {
-                    e.preventDefault()
-                    setDragOver(false)
-                    handleFiles(e.dataTransfer.files)
-                  }}
-                  onClick={() => fileInput.current?.click()}
-                  className={cn(
-                    'flex cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed px-4 py-5 text-center transition-colors',
-                    dragOver ? 'border-brand-400 bg-brand-50/60' : 'border-line-strong bg-[#FBFDFF] hover:border-brand-200',
-                  )}
-                >
-                  <Upload className="mb-1.5 h-4 w-4 text-muted" />
-                  <p className="text-xs font-medium text-ink-600">Drag & drop files here or click to upload</p>
-                  <p className="mt-0.5 text-2xs text-muted-light">Supports: pdf, docx, jpg, png (max 10MB each)</p>
-                  <input
-                    ref={fileInput}
-                    type="file"
-                    multiple
-                    className="hidden"
-                    onChange={(e) => handleFiles(e.target.files)}
-                    accept=".pdf,.docx,.jpg,.jpeg,.png"
-                  />
-                </div>
-                {files.length > 0 && (
-                  <ul className="mt-2 space-y-1">
-                    {files.map((f) => (
-                      <li key={f} className="flex items-center gap-2 rounded-md bg-[#F7FAFE] px-2 py-1.5 text-2xs text-ink-600">
-                        <Paperclip className="h-3 w-3 text-muted" />
-                        <span className="min-w-0 flex-1 truncate">{f}</span>
-                        <button
-                          type="button"
-                          onClick={() => setFiles((prev) => prev.filter((x) => x !== f))}
-                          aria-label={`Remove ${f}`}
-                          className="text-muted transition-colors hover:text-danger-600"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                <p className="mt-1.5 text-2xs text-muted-light">
-                  Attachments are stored for reference. Text content is what the rule engine checks in this build.
-                </p>
-              </div>
-
               <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3.5">
                 <Button
                   type="button"
@@ -322,8 +267,8 @@ export default function NewContent() {
                   onClick={() => {
                     setTitle('')
                     setText('')
-                    setFiles([])
                     setErrors({})
+                    setPoster(null)
                   }}
                 >
                   Clear
@@ -349,11 +294,51 @@ export default function NewContent() {
             </div>
           </div>
 
-          <div className="flex items-start gap-2 rounded-xl border border-brand-100 bg-brand-50/60 px-3.5 py-2.5">
+          {/* VisualGuard — poster upload + inline analysis */}
+          {(type === 'Image' || poster) && (
+            <Card className="card-pad">
+              <div className="mb-1 flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <h2 className="flex items-center gap-1.5 text-lg font-semibold tracking-[-0.01em] text-ink">
+                    <ImageIcon className="h-4 w-4 text-brand-500" />
+                    Poster check
+                  </h2>
+                  <p className="mt-0.5 text-xs leading-[18px] text-muted">
+                    VisualGuard reads the text, finds logos and measures contrast on the original pixels.
+                  </p>
+                </div>
+                <span className="rounded-full bg-grape-50 px-2 py-[2px] text-2xs font-medium text-grape-700">
+                  Advisory visual analysis
+                </span>
+              </div>
+
+              <div className="mt-3">
+                <PosterDropzone
+                  onUploaded={(result) => setPoster(result)}
+                  title={title.trim() || undefined}
+                  channel={channel}
+                  brand={brand}
+                />
+              </div>
+
+              {poster && (
+                <div className="mt-4">
+                  <AnalysisPanel analysisId={poster.analysisId} submissionId={poster.submissionId} />
+                </div>
+              )}
+
+              {!poster && (
+                <p className="mt-2 text-2xs leading-[16px] text-muted-light">
+                  Stored as its own asset, so the analysis can be re-run later.
+                </p>
+              )}
+            </Card>
+          )}
+
+          <div className="flex items-start gap-2 rounded-xl border border-brand-100 bg-brand-50/50 px-3.5 py-2.5">
             <Info className="mt-[1px] h-3.5 w-3.5 shrink-0 text-brand-500" />
-            <p className="text-xs leading-[17px] text-brand-700/90">
-              Your content will be checked automatically against the active rule set. You’ll see any issues, suggested
-              minimal changes, and the exact guideline section used for the review.
+            <p className="text-xs leading-[18px] text-brand-700/90">
+              Findings show the exact guideline passage they came from. Missing facts become “needs review”, never a pass.
             </p>
           </div>
         </form>
@@ -364,10 +349,10 @@ export default function NewContent() {
 
           <Card>
             <CardHeader
-              title="Brand Guidelines"
+              title="Before you submit"
               action={
                 <button onClick={() => navigate('/app/guidelines')} className="text-xs font-medium text-brand-600 hover:text-brand-700">
-                  View all
+                  All rules
                 </button>
               }
               dense
@@ -375,57 +360,22 @@ export default function NewContent() {
             <ul className="divide-line">
               {loading && <li className="px-4 py-3 text-xs text-muted">Loading rules…</li>}
               {!loading && guidance.length === 0 && <li className="px-4 py-3 text-xs text-muted">No active rules yet.</li>}
-              {guidance.map((r) => (
-                <li key={r.id} className="px-4 py-2.5">
-                  <p className="flex items-center gap-1.5 text-xs font-medium text-ink">
-                    <CheckCircle2 className="h-3 w-3 text-success-500" />
-                    {r.title}
-                  </p>
-                  <p className="mt-0.5 pl-[18px] text-2xs leading-[14px] text-muted">
-                    {r.code} · {r.sourceVersion} · {r.scope}
-                  </p>
+              {guidance.slice(0, 4).map((r) => (
+                <li key={r.id} className="flex items-start gap-2 px-4 py-2.5">
+                  <CheckCircle2 className="mt-[3px] h-3 w-3 shrink-0 text-success-500" />
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium leading-[17px] text-ink">{r.title}</p>
+                    <p className="text-2xs text-muted">{r.code} · {r.scope}</p>
+                  </div>
                 </li>
               ))}
             </ul>
             <div className="border-t border-line px-4 py-2.5">
-              <p className="flex items-start gap-1.5 text-2xs leading-[15px] text-muted">
-                <Info className="mt-[1px] h-3 w-3 shrink-0 text-brand-400" />
-                Your brand mostly uses green backgrounds for all campaigns.
+              <p className="flex items-start gap-1.5 text-2xs leading-[16px] text-muted">
+                <Lightbulb className="mt-[1px] h-3 w-3 shrink-0 text-warn-500" />
+                Green backgrounds are the brand default for every campaign.
               </p>
             </div>
-          </Card>
-
-          <Card className="p-4">
-            <h2 className="mb-2 flex items-center gap-1.5 text-md font-semibold text-ink">
-              <Lightbulb className="h-3.5 w-3.5 text-warn-500" />
-              Quick Tips
-            </h2>
-            <ul className="space-y-1.5">
-              {[
-                'Use approved brand colours and logo.',
-                'Avoid unapproved claims (e.g. “100% safe”).',
-                'Check the latest brand guidelines before submitting.',
-              ].map((tip) => (
-                <li key={tip} className="flex items-start gap-1.5 text-xs leading-[16px] text-ink-600">
-                  <CheckCircle2 className="mt-[2px] h-3 w-3 shrink-0 text-success-500" />
-                  {tip}
-                </li>
-              ))}
-            </ul>
-          </Card>
-
-          <Card className="p-4">
-            <h2 className="mb-1 flex items-center gap-1.5 text-md font-semibold text-ink">
-              <ShieldAlert className="h-3.5 w-3.5 text-grape-500" />
-              Need an Exception?
-            </h2>
-            <p className="mb-2.5 text-xs leading-[16px] text-muted">
-              If you need to use content that doesn’t follow a rule, you can request an exception. A brand manager must
-              approve it, and it expires on the date you set.
-            </p>
-            <Button variant="outline" block size="sm" onClick={() => setExceptionOpen(true)}>
-              Request Exception
-            </Button>
           </Card>
         </div>
       </div>
@@ -496,24 +446,24 @@ export default function NewContent() {
 function PreviewCard({ title, text, brand, channel }: { title: string; text: string; brand: Brand; channel: string }) {
   return (
     <div className="overflow-hidden rounded-lg border border-line bg-[#FAF7EF]">
-      <div className="relative flex h-[150px] flex-col justify-between bg-gradient-to-br from-[#E8F5C8] via-[#D7EFB0] to-[#B9DE7E] p-3">
+      <div className="relative flex h-[168px] flex-col justify-between bg-gradient-to-br from-[#E8F5C8] via-[#D7EFB0] to-[#B9DE7E] p-3">
         <div className="flex items-start justify-between">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#2C4A1E]/70">{brand}</p>
-            <p className="mt-0.5 text-[8px] uppercase tracking-[0.12em] text-[#2C4A1E]/50">Skincare</p>
+            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#2C4A1E]/70">{brand}</p>
+            <p className="mt-0.5 text-[10px] uppercase tracking-[0.12em] text-[#2C4A1E]/50">Skincare</p>
           </div>
-          <span className="rounded-full bg-white/70 px-1.5 py-0.5 text-[8px] font-medium text-[#2C4A1E]/70">{channel}</span>
+          <span className="rounded-full bg-white/70 px-2 py-0.5 text-[10px] font-medium text-[#2C4A1E]/70">{channel}</span>
         </div>
         <div>
-          <p className="text-[15px] font-semibold leading-[17px] text-[#1F3D12]">{title || 'Your campaign title'}</p>
-          <p className="mt-1 line-clamp-3 text-[9.5px] leading-[13px] text-[#2C4A1E]/75">
+          <p className="text-[15px] font-semibold leading-[19px] text-[#1F3D12]">{title || 'Your campaign title'}</p>
+          <p className="mt-1 line-clamp-3 text-[11.5px] leading-[16px] text-[#2C4A1E]/75">
             {text || 'Your content copy will preview here as you type.'}
           </p>
         </div>
       </div>
-      <div className="flex items-center justify-between px-2.5 py-1.5">
-        <span className="text-[9px] text-muted-light">Preview is illustrative — the saved asset is what gets reviewed.</span>
-        <ArrowLeft className="h-2.5 w-2.5 rotate-180 text-muted-light" />
+      <div className="flex items-center justify-between gap-2 px-2.5 py-1.5">
+        <span className="text-[10.5px] text-muted-light">Preview only — the saved asset is what gets reviewed.</span>
+        <ArrowLeft className="h-2.5 w-2.5 shrink-0 rotate-180 text-muted-light" />
       </div>
     </div>
   )

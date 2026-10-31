@@ -6,7 +6,6 @@ import {
   ChevronRight,
   Clock3,
   FileText,
-  HelpCircle,
   Lock,
   MoreHorizontal,
   Palette,
@@ -276,35 +275,15 @@ export default function CreatorGuidelines() {
             </ul>
           </RailCard>
 
-          <Card className="border-brand-100 bg-brand-50/50 p-4">
-            <h2 className="flex items-center gap-1.5 text-md font-semibold text-brand-800">
-              <HelpCircle className="h-3.5 w-3.5" />
-              Need Help?
-            </h2>
-            <p className="mt-1 text-xs leading-[16px] text-brand-700/80">
-              Check the brand guidelines or contact your brand manager for any questions.
-            </p>
-            <Button variant="outline" size="sm" block className="mt-2.5 bg-white" onClick={() => navigate('/app/feedback')}>
-              View my feedback
-            </Button>
+          <Card className="flex items-center justify-between gap-3 border-brand-100 bg-brand-50/50 px-4 py-3">
+            <p className="text-xs leading-[16px] text-brand-800">Questions? Your brand manager can help.</p>
+            <button
+              onClick={() => navigate('/app/feedback')}
+              className="shrink-0 text-xs font-semibold text-brand-600 transition-colors hover:text-brand-700"
+            >
+              Feedback
+            </button>
           </Card>
-
-          <div className="relative overflow-hidden rounded-xl border border-[#DCEBC8] bg-gradient-to-br from-[#EFF7E2] via-[#E6F2D4] to-[#D8EBC0] p-4">
-            <p className="text-lg font-semibold leading-[22px] tracking-[-0.01em] text-[#2C4A1E]">
-              One Brand.
-              <br />
-              One Voice.
-              <br />
-              Always.
-            </p>
-            <div className="mt-2 flex items-center gap-1.5">
-              <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[#2C4A1E]/10">
-                <Sparkles className="h-2 w-2 text-[#2C4A1E]/70" />
-              </span>
-              <span className="text-[9.5px] font-semibold uppercase tracking-[0.12em] text-[#2C4A1E]/60">PureGlow</span>
-            </div>
-            <div className="pointer-events-none absolute -bottom-6 -right-4 h-24 w-24 rounded-full bg-[#8FBF52]/25 blur-xl" />
-          </div>
 
           <Card className="p-4">
             <p className="text-2xs font-semibold uppercase tracking-[0.06em] text-muted">Your submissions</p>

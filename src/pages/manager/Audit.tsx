@@ -1,21 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import {
-  ArrowRight,
-  BarChart3,
-  CheckCircle2,
-  Clock3,
-  Download,
-  FileText,
-  Filter,
-  ListChecks,
-  RotateCcw,
-  ShieldCheck,
-  Sparkles,
-  XCircle,
-  Zap,
-  CalendarRange,
-} from 'lucide-react'
+import { CheckCircle2, Clock3, Download, FileText, Filter, ListChecks, ShieldCheck, XCircle } from 'lucide-react'
 import { useData } from '@/context/DataContext'
 import { api } from '@/services/api'
 import { PageHeader } from '@/components/layout/Shell'
@@ -24,7 +9,7 @@ import { Button } from '@/components/ui/Button'
 import { SearchInput, Select } from '@/components/ui/Field'
 import { DataTable, EmptyState, Pagination, type Column } from '@/components/ui/Table'
 import { Badge, type Tone } from '@/components/ui/Badge'
-import { Avatar, Donut, DonutLegend, Thumb } from '@/components/ui/Misc'
+import { Avatar } from '@/components/ui/Misc'
 import { ContentThumb } from '@/components/content/ContentThumb'
 import { useToast } from '@/components/ui/Toast'
 import { auditBreakdown, auditStats } from '@/lib/selectors'
@@ -116,15 +101,18 @@ export default function AuditHistory() {
     setPage(1)
   }
 
-  function exportCsv() {
-    window.open(api.exportAuditUrl('csv'), '_blank')
-    toast.success('Report exported', `${filtered.length} audit events written to CSV.`)
+  async function download(format: 'csv' | 'json') {
+    try {
+      await api.downloadAudit(format)
+      toast.success('Report exported', `Audit events written to ${format.toUpperCase()}.`)
+    } catch (err) {
+      // Never claim success we did not observe.
+      toast.error('Export failed', err instanceof Error ? err.message : 'Please try again.')
+    }
   }
 
-  function exportJson() {
-    window.open(api.exportAuditUrl('json'), '_blank')
-    toast.success('Report exported', `${filtered.length} audit events written to JSON.`)
-  }
+  const exportCsv = () => void download('csv')
+  const exportJson = () => void download('json')
 
   const columns: Column<AuditEvent>[] = [
     {
@@ -176,22 +164,27 @@ export default function AuditHistory() {
     {
       key: 'user',
       header: 'User',
-      width: '128px',
+      width: '118px',
       className: 'hidden lg:table-cell', headerClassName: 'hidden lg:table-cell',
       cell: (row) => {
         const actor = team.find((t) => t.id === row.userId)
         return (
           <div className="flex items-center gap-1.5">
             <Avatar initials={actor?.initials ?? '??'} tone={actor?.avatarTone} size="sm" />
-            <div className="min-w-0">
-              <p className="truncate text-xs font-medium leading-[15px] text-ink">{actor?.name ?? 'Unknown'}</p>
-              <p className="truncate text-2xs leading-[13px] text-muted-light">{actor?.title ?? '—'}</p>
-            </div>
+            <p className="min-w-0 truncate text-xs font-medium text-ink">{actor?.name ?? 'Unknown'}</p>
           </div>
         )
       },
     },
-    { key: 'details', header: 'Details', cell: (row) => <span className="line-clamp-2 text-2xs leading-[15px] text-muted">{row.details}</span> },
+    {
+      key: 'details',
+      header: 'Details',
+      cell: (row) => (
+        <span className="block truncate text-2xs text-muted" title={row.details}>
+          {row.details || '—'}
+        </span>
+      ),
+    },
     {
       key: 'status',
       header: 'Status',
@@ -243,8 +236,6 @@ export default function AuditHistory() {
     },
   ]
 
-  const actionChips = ['Approvals', 'Rejections', 'Exceptions', 'Revisions']
-
   return (
     <>
       <PageHeader
@@ -269,7 +260,7 @@ export default function AuditHistory() {
         />
       </div>
 
-      <div className="mt-4 grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_286px]">
+      <div className="mt-4">
         <Card className="min-w-0">
           <div className="flex flex-wrap items-center gap-2 border-b border-line p-3">
             <SearchInput value={query} onChange={(v) => { setQuery(v); setPage(1) }} placeholder="Search by content title, brand, user, or action…" className="min-w-[180px]" />
@@ -338,159 +329,6 @@ export default function AuditHistory() {
           )}
         </Card>
 
-        {/* Rail */}
-        <div className="space-y-4">
-          <Card className="p-4">
-            <h2 className="mb-2.5 flex items-center gap-1.5 text-md font-semibold text-ink">
-              <Filter className="h-3.5 w-3.5 text-brand-500" />
-              Filter by
-            </h2>
-
-            <label className="mb-1 block text-2xs font-semibold uppercase tracking-[0.06em] text-muted" htmlFor="rail-range">
-              Date Range
-            </label>
-            <Select id="rail-range" value={range} onChange={(e) => { setRange(e.target.value); setPage(1) }} className="text-xs">
-              {RANGES.map((r) => (
-                <option key={r}>{r}</option>
-              ))}
-            </Select>
-
-            <p className="mb-1.5 mt-3 text-2xs font-semibold uppercase tracking-[0.06em] text-muted">Action Type</p>
-            <div className="flex flex-wrap gap-1.5">
-              {actionChips.map((c) => (
-                <button
-                  key={c}
-                  onClick={() => {
-                    setAction(c === 'Approvals' ? 'Approved' : c === 'Rejections' ? 'Rejected' : c === 'Exceptions' ? 'Exception' : 'Revised')
-                    setPage(1)
-                  }}
-                  className={cn(
-                    'rounded-md px-2 py-1 text-2xs font-medium transition-colors',
-                    (c === 'Approvals' && action === 'Approved') ||
-                      (c === 'Rejections' && action === 'Rejected') ||
-                      (c === 'Exceptions' && action === 'Exception') ||
-                      (c === 'Revisions' && action === 'Revised')
-                      ? 'bg-brand-500 text-white'
-                      : 'bg-[#F3F7FD] text-ink-600 hover:bg-[#E9F1FC]',
-                  )}
-                >
-                  {c}
-                </button>
-              ))}
-            </div>
-
-            <p className="mb-1.5 mt-3 text-2xs font-semibold uppercase tracking-[0.06em] text-muted">Brand</p>
-            <Select value={brand} onChange={(e) => { setBrand(e.target.value); setPage(1) }} className="text-xs">
-              {['All Brands', 'PureGlow', 'WellnessLife'].map((b) => (
-                <option key={b}>{b}</option>
-              ))}
-            </Select>
-
-            <p className="mb-1.5 mt-3 text-2xs font-semibold uppercase tracking-[0.06em] text-muted">User</p>
-            <Select value={userId} onChange={(e) => { setUserId(e.target.value); setPage(1) }} className="text-xs">
-              <option>All Users</option>
-              {team.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.name}
-                </option>
-              ))}
-            </Select>
-
-            <div className="mt-3 flex gap-1.5">
-              <Button size="sm" block onClick={() => setPage(1)} icon={<Filter className="h-3 w-3" />}>
-                Apply Filters
-              </Button>
-              <Button size="sm" variant="outline" onClick={reset} aria-label="Reset filters" className="px-2">
-                <RotateCcw className="h-3 w-3" />
-              </Button>
-            </div>
-          </Card>
-
-          <Card className="p-4">
-            <h2 className="mb-3 flex items-center gap-1.5 text-md font-semibold text-ink">
-              <BarChart3 className="h-3.5 w-3.5 text-brand-500" />
-              Action Breakdown
-            </h2>
-            <div className="flex items-center gap-3">
-              <Donut
-                size={88}
-                thickness={10}
-                segments={[
-                  { value: stats.approvals, color: '#10B981', label: 'Approvals' },
-                  { value: stats.rejections, color: '#EF4444', label: 'Rejections' },
-                  { value: stats.exceptions, color: '#7C8F5E', label: 'Exceptions' },
-                  { value: stats.revisions, color: '#4E7A3D', label: 'Revisions' },
-                ]}
-                centerValue={stats.total}
-                centerLabel="Total"
-              />
-              <div className="min-w-0 flex-1">
-                <DonutLegend
-                  total={stats.total}
-                  segments={[
-                    { value: stats.approvals, color: '#10B981', label: 'Approvals' },
-                    { value: stats.rejections, color: '#EF4444', label: 'Rejections' },
-                    { value: stats.exceptions, color: '#7C8F5E', label: 'Exceptions' },
-                    { value: stats.revisions, color: '#4E7A3D', label: 'Revisions' },
-                  ]}
-                />
-              </div>
-            </div>
-          </Card>
-
-          <Card className="p-4">
-            <div className="mb-2 flex items-center justify-between">
-              <h2 className="flex items-center gap-1.5 text-md font-semibold text-ink">
-                <Zap className="h-3.5 w-3.5 text-warn-500" />
-                Recent Activity
-              </h2>
-              <button onClick={() => setRange('All time')} className="text-2xs font-medium text-brand-600 hover:text-brand-700">
-                View All
-              </button>
-            </div>
-            <ul className="space-y-2">
-              {audit.slice(0, 4).map((e) => (
-                <li key={e.id} className="flex items-start gap-2">
-                  <span
-                    className={cn(
-                      'mt-[4px] h-1.5 w-1.5 shrink-0 rounded-full',
-                      e.status === 'Approved' && 'bg-success-500',
-                      e.status === 'Rejected' && 'bg-danger-500',
-                      e.status === 'Exception' && 'bg-grape-500',
-                      e.status === 'Revised' && 'bg-brand-500',
-                      e.status === 'Recorded' && 'bg-[#8C8578]',
-                    )}
-                  />
-                  <div className="min-w-0">
-                    <p className="truncate text-2xs leading-[15px] text-ink">{e.entityTitle}</p>
-                    <p className="text-[9.5px] text-muted-light">{relative(e.at)}</p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </Card>
-
-          <Card className="border-brand-100 bg-brand-50/50 p-4">
-            <h2 className="flex items-center gap-1.5 text-md font-semibold text-brand-800">
-              <Sparkles className="h-3.5 w-3.5" />
-              Need a detailed report?
-            </h2>
-            <p className="mt-1 text-xs leading-[16px] text-brand-700/80">
-              Download the complete audit history for this workspace with filters and timestamps applied.
-            </p>
-            <Button size="sm" block className="mt-2.5" icon={<Download className="h-3 w-3" />} onClick={exportCsv} disabled={filtered.length === 0}>
-              Generate Report
-            </Button>
-            <p className="mt-1.5 flex items-center gap-1 text-[9.5px] text-brand-700/60">
-              <CalendarRange className="h-2.5 w-2.5" />
-              {filtered.length} rows · CSV
-            </p>
-          </Card>
-
-          <p className="px-1 text-2xs leading-[15px] text-muted-light">
-            Audit records are append-only. Editing or deleting a recorded event is not available to any role.
-          </p>
-        </div>
       </div>
     </>
   )

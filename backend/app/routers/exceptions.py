@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from .. import models
 from ..db import get_db
-from ..deps import get_current_user, require_manager
+from ..deps import get_current_user, require_manager, require_workspace
 from ..ids import new_id
 from ..services import exceptions as svc
 from ..services.audit import record
@@ -156,8 +156,7 @@ def decide_exception(
     manager: models.User = Depends(require_manager),
 ) -> dict:
     e = db.get(models.ExceptionRequest, id)
-    if not e:
-        raise HTTPException(status_code=404, detail="Exception not found")
+    require_workspace(e, manager, detail="Exception not found")
 
     if body.decision == "Approved" and svc.is_expired(e):
         raise HTTPException(status_code=409, detail="Expired exceptions cannot be approved.")
@@ -210,8 +209,7 @@ def revoke_exception(
     manager: models.User = Depends(require_manager),
 ) -> dict:
     e = db.get(models.ExceptionRequest, id)
-    if not e:
-        raise HTTPException(status_code=404, detail="Exception not found")
+    require_workspace(e, manager, detail="Exception not found")
 
     now = datetime.now(timezone.utc)
     e.status = "Revoked"
@@ -248,6 +246,17 @@ def revoke_exception(
         workspace=e.workspace or "PureGlow",
     )
     db.commit()
+
+    # A3 Sentinel: content that was only compliant because of this exception
+    # must be re-checked now that it is revoked.
+    try:
+        from ..services import sentinel as sentinel_svc
+
+        sentinel_svc.on_exception_revoked(
+            db, exception=e, actor_id=manager.id, workspace=e.workspace or "PureGlow"
+        )
+    except Exception:  # pragma: no cover - defensive
+        pass
     db.refresh(e)
     return svc.exception_to_dict(e)
 
@@ -259,8 +268,7 @@ def get_exception_history(
     user: models.User = Depends(get_current_user),
 ) -> list[dict]:
     e = db.get(models.ExceptionRequest, id)
-    if not e:
-        raise HTTPException(status_code=404, detail="Exception not found")
+    require_workspace(e, user, detail="Exception not found")
 
     rows = (
         db.query(models.ExceptionRulingHistory)

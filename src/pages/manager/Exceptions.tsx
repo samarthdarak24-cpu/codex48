@@ -5,8 +5,6 @@ import {
   CalendarClock,
   CheckCircle2,
   Clock3,
-  FileText,
-  HelpCircle,
   MoreHorizontal,
   Plus,
   ShieldAlert,
@@ -16,7 +14,7 @@ import {
   AlertTriangle,
 } from 'lucide-react'
 import { useData } from '@/context/DataContext'
-import { PageHeader, QuickAction, RailCard } from '@/components/layout/Shell'
+import { PageHeader, RailCard } from '@/components/layout/Shell'
 import { Card, MetricCard } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Field, Input, SearchInput, Select, Textarea } from '@/components/ui/Field'
@@ -25,7 +23,7 @@ import { ExceptionBadge, Badge } from '@/components/ui/Badge'
 import { Avatar, Donut, DonutLegend, Modal, Thumb } from '@/components/ui/Misc'
 import { ContentThumb } from '@/components/content/ContentThumb'
 import { useToast } from '@/components/ui/Toast'
-import { exceptionStats, expiringSoon } from '@/lib/selectors'
+import { EXCEPTION_EXPIRY_WINDOW_DAYS, exceptionStats, expiringSoon } from '@/lib/selectors'
 import { cn, daysUntil, fmtDate, fmtDateTime, relative } from '@/lib/utils'
 import { api } from '@/services/api'
 import type { ExceptionRequest, ExceptionRulingHistory } from '@/lib/types'
@@ -365,66 +363,54 @@ export default function ExceptionsPage() {
               <div className="mt-3 rounded-lg border border-warn-100 bg-warn-50 px-2.5 py-2">
                 <p className="flex items-center gap-1.5 text-2xs font-semibold text-warn-700">
                   <CalendarClock className="h-3 w-3" />
-                  {expiring.length} exception{expiring.length === 1 ? '' : 's'} expiring soon
+                  {expiring.length} exception{expiring.length === 1 ? '' : 's'} closing within{' '}
+                  {EXCEPTION_EXPIRY_WINDOW_DAYS} days
                 </p>
-                <p className="mt-0.5 text-[9.5px] leading-[13px] text-warn-700/80">
+                <p className="mt-0.5 text-[11px] leading-[15px] text-warn-700/80">
                   Earliest: {expiring[0].code} on {fmtDate(expiring[0].expiresAt)}
                 </p>
               </div>
             )}
           </Card>
 
-          <Card className="p-4">
-            <h2 className="mb-1.5 text-md font-semibold text-ink">Quick Actions</h2>
-            <div className="space-y-0.5">
-              <QuickAction icon={<Plus className="h-3 w-3" />} label="Request New Exception" description="Submit a new exception request" onClick={() => setCreateOpen(true)} />
-              <QuickAction icon={<FileText className="h-3 w-3" />} label="View Exception Templates" description="Use pre-approved templates" tone="success" onClick={() => setStatus('Approved')} />
-              <QuickAction icon={<CalendarClock className="h-3 w-3" />} label="Manage Expiry Dates" description="Review upcoming expiries" tone="warn" onClick={() => setStatus('Approved')} />
-            </div>
-          </Card>
-
-          <RailCard title="Recent Activity" icon={<Clock3 className="h-3.5 w-3.5" />} action={<span className="text-2xs text-muted">Latest</span>}>
-            <ul className="space-y-2">
-              {recentActivity.map((e) => {
-                const requester = team.find((t) => t.id === e.requestedById)
-                return (
-                  <li key={e.id} className="flex items-start gap-2">
-                    <span
-                      className={cn(
-                        'mt-[3px] h-1.5 w-1.5 shrink-0 rounded-full',
-                        e.status === 'Approved' && 'bg-success-500',
-                        e.status === 'Pending' && 'bg-warn-500',
-                        e.status === 'In Review' && 'bg-brand-500',
-                        e.status === 'Rejected' && 'bg-danger-500',
-                        (e.status === 'Expired' || e.status === 'Revoked') && 'bg-[#C9C1AF]',
-                      )}
-                    />
-                    <div className="min-w-0">
-                      <p className="text-xs leading-[15px] text-ink">
-                        {requester?.name ?? 'Someone'} · {e.contentTitle}
-                      </p>
-                      <p className="text-2xs text-muted-light">
-                        {e.status} · {relative(e.effectiveFrom)}
-                      </p>
-                    </div>
-                  </li>
-                )
-              })}
-            </ul>
+          <RailCard
+            title="Recent Activity"
+            icon={<Clock3 className="h-3.5 w-3.5" />}
+            action={<span className="text-2xs text-muted">Latest</span>}
+          >
+            {recentActivity.length === 0 ? (
+              <p className="px-1 text-xs text-muted">No exception activity yet.</p>
+            ) : (
+              <ul className="space-y-2">
+                {recentActivity.map((e) => {
+                  const requester = team.find((t) => t.id === e.requestedById)
+                  return (
+                    <li key={e.id} className="flex items-start gap-2">
+                      <span
+                        className={cn(
+                          'mt-[3px] h-1.5 w-1.5 shrink-0 rounded-full',
+                          e.status === 'Approved' && 'bg-success-500',
+                          e.status === 'Pending' && 'bg-warn-500',
+                          e.status === 'In Review' && 'bg-brand-500',
+                          e.status === 'Rejected' && 'bg-danger-500',
+                          (e.status === 'Expired' || e.status === 'Revoked') && 'bg-[#C9C1AF]',
+                        )}
+                      />
+                      <div className="min-w-0">
+                        <p className="truncate text-xs leading-[15px] text-ink">
+                          {requester?.name ?? 'Someone'} · {e.contentTitle}
+                        </p>
+                        <p className="text-2xs text-muted-light">
+                          {e.status} · {relative(e.effectiveFrom)}
+                        </p>
+                      </div>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
           </RailCard>
 
-          <Card className="border-brand-100 bg-brand-50/50 p-4">
-            <h2 className="flex items-center gap-1.5 text-md font-semibold text-brand-800">
-              <HelpCircle className="h-3.5 w-3.5" />
-              Need help?
-            </h2>
-            <p className="mt-1 text-xs leading-[16px] text-brand-700/80">
-              Check the exception guidelines or contact your brand manager.
-            </p>
-            <Button variant="outline" size="sm" block className="mt-2.5 bg-white" onClick={() => navigate('/manager/guidelines')}>
-              View Guidelines
-            </Button>
-          </Card>
         </div>
       </div>
 

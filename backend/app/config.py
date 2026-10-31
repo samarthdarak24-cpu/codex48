@@ -26,6 +26,35 @@ class Settings(BaseSettings):
     llm_base_url: str = ""
     llm_api_key: str = ""
     llm_model: str = "gpt-4o-mini"
+    llm_timeout_seconds: int = 20
+    llm_daily_call_limit: int = 500
+
+    # A2 Evidence Intelligence. Embeddings are optional: with no model
+    # available retrieval falls back to BM25 only, and the API says so.
+    embedding_model: str = ""
+    embedding_model_path: str = ""
+    # Local multilingual ONNX sentence encoder (preferred). Empty = use the
+    # bundled model under backend/models/ when it exists.
+    embedding_onnx_path: str = ""
+    embedding_tokenizer_path: str = ""
+    retrieval_top_k: int = 5
+    # Confidence below this becomes needs_human_review, never a violation.
+    ai_confidence_threshold: float = 0.6
+
+    # A1 VisualGuard.
+    ocr_langs: str = "eng"
+    tesseract_cmd: str = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+    max_upload_mb: int = 10
+    # Minimum confidence before a logo match is treated as a fact. Below this
+    # the verdict is 'unknown' -> Needs review, never a violation.
+    logo_match_threshold: float = 0.62
+
+    # A3 Sentinel.
+    sentinel_cron: str = "02:00"
+    sentinel_sla_days: int = 3
+    # The in-process APScheduler daily sweep. Set to 0 on every worker but one
+    # in a multi-worker deployment (the scan itself is idempotent either way).
+    sentinel_scheduler_enabled: bool = True
 
     # Optional official product-image source (guarded; not required).
     image_source_api_url: str = ""

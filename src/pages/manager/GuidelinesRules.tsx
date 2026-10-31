@@ -11,14 +11,13 @@ import {
   Plus,
   Quote,
   ShieldCheck,
-  Sparkles,
   Upload,
   Workflow,
   Layers,
   ArrowUpRight,
 } from 'lucide-react'
 import { useData } from '@/context/DataContext'
-import { PageHeader, QuickAction, RailCard } from '@/components/layout/Shell'
+import { PageHeader, RailCard } from '@/components/layout/Shell'
 import { Card, MetricCard, ViewAll } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Field, Input, SearchInput, Select, Textarea } from '@/components/ui/Field'
@@ -499,18 +498,6 @@ export default function GuidelinesRules() {
 
         {/* Rail */}
         <div className="space-y-4">
-          <Card className="p-4">
-            <h2 className="mb-1.5 flex items-center gap-1.5 text-md font-semibold text-ink">
-              <Sparkles className="h-3.5 w-3.5 text-brand-500" />
-              Quick Actions
-            </h2>
-            <div className="space-y-0.5">
-              <QuickAction icon={<Upload className="h-3 w-3" />} label="Upload Guideline Document" description="Add new brand guidelines or policy docs" onClick={() => setUploadOpen(true)} />
-              <QuickAction icon={<Plus className="h-3 w-3" />} label="Create New Rule" description="Define a new brand rule or restriction" tone="success" onClick={() => setRuleOpen(true)} />
-              <QuickAction icon={<CheckCircle2 className="h-3 w-3" />} label="Add Approved Claim" description="Register a verified claim statement" tone="warn" onClick={() => setClaimOpen(true)} />
-              <QuickAction icon={<Clock3 className="h-3 w-3" />} label="Manage Exceptions" description="Set temporary rule exceptions" tone="grape" onClick={() => navigate('/manager/exceptions')} />
-            </div>
-          </Card>
 
           <RailCard title="Rule Categories" icon={<Layers className="h-3.5 w-3.5" />} action={<ViewAll onClick={() => { setTab('rules'); setQuery('') }} label="View all" />}>
             <ul className="space-y-1.5">
@@ -538,9 +525,7 @@ export default function GuidelinesRules() {
           </RailCard>
 
           <RailCard title="Guideline Health" icon={<Workflow className="h-3.5 w-3.5" />}>
-            <p className="mb-2 text-[9.5px] leading-[13px] text-muted-light">
-              Most frequently overridden active rules this quarter — a signal that the rule may need clarifying.
-            </p>
+            <p className="mb-2 text-2xs leading-[15px] text-muted">Most overridden rules this quarter — candidates for clarification.</p>
             <ul className="space-y-2">
               {overridden.length === 0 && <li className="text-xs text-muted">No rules have been overridden this quarter.</li>}
               {overridden.map((r) => (

@@ -15,6 +15,9 @@ import GuidelinesRules from '@/pages/manager/GuidelinesRules'
 import ExceptionsPage from '@/pages/manager/Exceptions'
 import Sandbox from '@/pages/manager/Sandbox'
 import AuditHistory from '@/pages/manager/Audit'
+import SentinelPage from '@/pages/manager/Sentinel'
+import AiTrust from '@/pages/manager/Trust'
+import NotificationsPage from '@/pages/Notifications'
 
 function Splash() {
   return (
@@ -40,6 +43,16 @@ function RequireRole({ role, children }: { role: 'creator' | 'manager'; children
   return <>{children}</>
 }
 
+/** Shared screens (notifications) need a session but accept either role. */
+function RequireSession({ children }: { children: React.ReactNode }) {
+  const { status, user } = useAuth()
+  const location = useLocation()
+
+  if (status === 'loading') return <Splash />
+  if (status === 'anonymous' || !user) return <Navigate to="/login" replace state={{ from: location.pathname }} />
+  return <>{children}</>
+}
+
 export default function App() {
   const { status, user } = useAuth()
 
@@ -47,6 +60,17 @@ export default function App() {
     <Routes>
       <Route path="/" element={<HomePage />} />
       <Route path="/login" element={<LoginPage />} />
+
+      <Route
+        path="/notifications"
+        element={
+          <RequireSession>
+            <DashboardLayout />
+          </RequireSession>
+        }
+      >
+        <Route index element={<NotificationsPage />} />
+      </Route>
 
       <Route
         path="/app"
@@ -80,6 +104,8 @@ export default function App() {
         <Route path="guidelines" element={<GuidelinesRules />} />
         <Route path="exceptions" element={<ExceptionsPage />} />
         <Route path="sandbox" element={<Sandbox />} />
+        <Route path="sentinel" element={<SentinelPage />} />
+        <Route path="trust" element={<AiTrust />} />
         <Route path="audit" element={<AuditHistory />} />
       </Route>
 

@@ -1,0 +1,293 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[a4paper,margin=0.78in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{enumitem}
+\usepackage{longtable}
+\usepackage{hyperref}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{array}
+
+\definecolor{precedentgreen}{HTML}{2F6B45}
+\definecolor{lightgreen}{HTML}{EEF6F0}
+\definecolor{darkink}{HTML}{1E2933}
+\definecolor{muted}{HTML}{5B6670}
+\definecolor{warning}{HTML}{9A6700}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=precedentgreen,
+  urlcolor=precedentgreen,
+  citecolor=precedentgreen,
+  pdftitle={Precedent - Updated Project Report},
+  pdfauthor={We Code Coders}
+}
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{\textcolor{precedentgreen}{\textbf{Precedent}}}
+\rhead{\textcolor{muted}{Updated Project Report}}
+\cfoot{\textcolor{muted}{\thepage}}
+\setlength{\headheight}{14pt}
+
+\titleformat{\section}
+  {\Large\bfseries\color{precedentgreen}}
+  {\thesection}{0.6em}{}
+\titleformat{\subsection}
+  {\large\bfseries\color{darkink}}
+  {\thesubsection}{0.6em}{}
+
+\newcommand{\status}[1]{\textcolor{precedentgreen}{\textbf{#1}}}
+\newcommand{\limitation}[1]{\textcolor{warning}{\textbf{#1}}}
+\newcommand{\product}{\textit{Precedent}}
+
+\begin{document}
+
+\begin{titlepage}
+\thispagestyle{empty}
+\vspace*{1.0cm}
+\begin{center}
+  {\Huge\bfseries\color{precedentgreen} Precedent\par}
+  \vspace{0.25cm}
+  {\Large\color{darkink} A Smarter Way to Manage Brand Rules and Approvals\par}
+  \vspace{1.0cm}
+  \rule{0.78\textwidth}{1pt}
+  \vspace{0.65cm}
+
+  {\Large\bfseries Updated Project Report\par}
+  \vspace{0.35cm}
+  {\large Inkloom AI Brand Governance Challenge\par}
+  \vspace{1.2cm}
+
+  \begin{tabular}{rl}
+    \textbf{Team:} & We Code Coders\\
+    \textbf{Team leader:} & Samarth Manoj Darak\\
+    \textbf{Institution:} & Vishwakarma Institute of Pune\\
+    \textbf{Product:} & Precedent\\
+    \textbf{Report status:} & Final build / Round 2 completion\\
+  \end{tabular}
+
+  \vfill
+  \begin{minipage}{0.78\textwidth}
+  \centering
+  \colorbox{lightgreen}{\parbox{0.92\linewidth}{
+    \centering
+    \textbf{Product status:} Core creator-to-manager governance workflow
+    implemented, persisted in a database, and validated with automated tests.
+  }}
+  \end{minipage}
+\end{center}
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+\section{Executive summary}
+
+\product{} is an AI-assisted brand-governance and content-approval platform. It connects
+creative content to structured brand rules, stored evidence, human approvals, scoped
+exceptions, and a rule-change impact simulator.
+
+The current build is deliberately human-controlled. Deterministic rules are the source of
+truth. Optional AI helpers can suggest rules, semantic findings, explanations, and minimal
+copy edits, but they cannot activate policy or approve content. When no LLM credentials
+are configured, the application continues to work without fabricating AI output.
+
+The verified workflow is:
+\begin{enumerate}[leftmargin=*,itemsep=2pt]
+  \item A creator signs in and submits copy or content with asset facts.
+  \item The server evaluates the submission against active brand rules.
+  \item Findings show severity, explanation, suggested correction, and source evidence.
+  \item The creator can revise content, comment, or request a scoped exception.
+  \item A manager approves, requests changes, or rejects a specific version.
+  \item Managers can simulate proposed rule changes before activation.
+  \item Decisions, exceptions, revisions, and changes remain available in the audit trail.
+\end{enumerate}
+
+\section{Completed and working features}
+
+\begin{longtable}{p{0.32\textwidth}p{0.60\textwidth}}
+\toprule
+\textbf{Feature} & \textbf{Completed behaviour}\\
+\midrule
+\endhead
+Authentication and RBAC & JWT authentication, Argon2 password hashing, role-aware routes, and server-enforced creator/manager permissions.\\
+Guideline library & Manager upload of PDF, DOCX, and text-based guidelines; extraction of text and stored passages with page information.\\
+Structured rules & Draft rules, human confirmation, active rules, rule metadata, effective dates, scopes, priorities, and source references.\\
+Content review & Text and asset submissions evaluated by the deterministic server-side rule engine.\\
+Evidence-linked findings & Findings carry rule codes, explanations, source documents, source passages, and evidence verification state.\\
+Versioned approvals & Content versions, comments, manager decisions, and version-specific review history.\\
+Scoped exceptions & Exception reason, scope, effective date, expiry date, conditions, manager decision, history, and revocation.\\
+Expiry enforcement & Expired exceptions cannot be approved by the backend.\\
+Conflict detection & Deterministic detection of conflicts between active rules with explainable results.\\
+Rule Impact Sandbox & Proposed rule changes are replayed against stored submissions and reported as compliant, needs review, or non-compliant.\\
+Audit and health & Append-only audit history, filtering, guideline health metrics, expiring exceptions, and CSV/JSON export.\\
+Asset library & Brand/product asset upload, approval, attachment, and stored asset facts used in visual rule checks.\\
+Responsive UI & Shared React/Tailwind design system with loading, empty, error, success, and permission states across creator and manager screens.\\
+\bottomrule
+\end{longtable}
+
+\section{Technology and architecture}
+
+\subsection{Application stack}
+
+\begin{itemize}[leftmargin=*,itemsep=2pt]
+  \item \textbf{Frontend:} React 18, TypeScript, Vite, Tailwind CSS, React Router, and reusable UI components.
+  \item \textbf{Backend:} FastAPI, Pydantic, SQLAlchemy, and Python 3.12.
+  \item \textbf{Database:} SQLite for the reproducible demo; PostgreSQL-ready through \texttt{DATABASE\_URL} and Alembic.
+  \item \textbf{Authentication:} Argon2 password hashing and signed JWT tokens.
+  \item \textbf{Document extraction:} PyMuPDF for PDF files and \texttt{python-docx} for DOCX files.
+  \item \textbf{Optional AI:} OpenAI-compatible chat-completions endpoint with Pydantic-validated structured output.
+\end{itemize}
+
+\subsection{How the pieces fit together}
+
+The React application communicates with the FastAPI application through one typed API
+service layer. The frontend does not maintain a separate mock data store. Authenticated
+reads and writes go to the backend, and mutations are persisted before the UI refreshes.
+
+The backend separates routers, services, models, and the rule engine. Routers enforce
+authentication and manager-only operations. Services handle extraction, submissions,
+exceptions, simulations, assets, and audit records. SQLAlchemy models preserve the
+relationship between submissions, versions, findings, source passages, decisions, and
+exceptions.
+
+\subsection{The technically difficult part}
+
+The central technical challenge was converting natural-language brand guidance into
+reviewable, testable rules without allowing an AI model to invent policy. The implementation
+stores each rule with a code, subject, condition, action, scope, priority, source passage,
+and effective dates. The deterministic engine evaluates explicit conditions and returns
+\texttt{unknown} when the required asset fact is unavailable. This prevents missing
+information from becoming a false violation.
+
+Every finding is linked back to a stored guideline passage. Optional AI output is validated,
+restricted to known rule codes where applicable, and treated as assistance rather than
+authority. Exception decisions are also recorded as first-class, auditable objects instead
+of being left in an informal comment or chat.
+
+\section{Validation and current results}
+
+\begin{table}[h]
+\centering
+\begin{tabularx}{\textwidth}{>{\bfseries}p{0.36\textwidth}X}
+\toprule
+\textbf{Check} & \textbf{Result}\\
+\midrule
+Backend automated tests & \status{41 tests passed} using the Python 3.12 environment.\\
+Frontend typecheck and production build & \status{Passed} with \texttt{npm run build}.\\
+Authentication and RBAC & \status{Passed} for creator and manager flows.\\
+Exception expiry security & \status{Passed}; expired approval returns a conflict response.\\
+Evidence verification & \status{Passed}; findings resolve to stored source passages.\\
+Rule simulation & \status{Passed}; simulations evaluate stored submissions before activation.\\
+Browser workflow & \status{Passed in the project QA report}; creator submission to manager queue and audit flow completed with no console errors.\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{What changed from the original proposal}
+
+The core direction did not change: the product still focuses on evidence-backed review,
+human approvals, scoped exceptions, auditability, and pre-activation rule simulation.
+
+SQLite became the default demonstration database so judges can run the system without
+provisioning a separate database. PostgreSQL remains supported through configuration.
+The planned pgvector/embedding path was not implemented because the deterministic,
+evidence-linked workflow was more important to complete and validate in the available time.
+
+The build also added an asset library, claims management, exception revocation, audit
+export, workspace isolation, and server-side RBAC. OCR, advanced computer vision,
+multilingual support, publishing integrations, and post-publication monitoring were kept
+out of the current release rather than presenting partially working features as complete.
+
+\section{Known limitations}
+
+\begin{itemize}[leftmargin=*,itemsep=4pt]
+  \item \limitation{Live LLM assistance is optional and not configured in the demo environment.}
+        The deterministic engine remains fully usable without an API key.
+  \item \limitation{Embedding-based retrieval with pgvector is not implemented.}
+  \item \limitation{Full OCR and automatic visual understanding of uploaded posters are not implemented.}
+        Visual checks currently use recorded asset metadata.
+  \item \limitation{Notifications and post-publication monitoring are not implemented.}
+  \item \limitation{The pinned backend dependency set requires Python 3.12.}
+  \item The optional external image-source provider is not configured.
+\end{itemize}
+
+\section{Round 3: three major improvements}
+
+\subsection{1. Full visual and OCR compliance analysis}
+
+Add image processing and OCR so creators can upload posters and social creatives directly.
+The system will inspect visible text, logo placement, colours, typefaces, clear space,
+aspect ratio, and unreadable regions instead of relying primarily on manually entered
+asset metadata.
+
+\subsection{2. Evidence-grounded semantic AI review}
+
+Add embedding-based retrieval and enable the configured LLM workflow for long guideline
+documents and nuanced copy. Retrieved passages will be shown beside findings, and every
+AI citation will be checked against stored evidence. Deterministic violations, AI
+suggestions, and human-review cases will remain visibly distinct.
+
+\subsection{3. Post-publication Sentinel and change-impact notifications}
+
+Add a monitoring workflow for approved content and policy changes. When an approved claim,
+exception, or rule changes, the system will identify affected content, notify responsible
+users, and create a reassessment task. This extends governance beyond the initial approval.
+
+\section{Demonstration flow}
+
+\begin{enumerate}[leftmargin=*,itemsep=3pt]
+  \item Sign in as the content creator.
+  \item Submit sample copy such as ``100\% safe, boosts immunity, 20\% off''.
+  \item Open the findings and inspect rule codes, explanations, and source evidence.
+  \item Request an exception for a finding.
+  \item Sign in as the brand manager and open the review queue.
+  \item Approve, reject, or request changes for the exact submitted version.
+  \item Open Exceptions to show scoped decisions and expiry enforcement.
+  \item Open Rule Impact Sandbox to simulate a proposed policy change.
+  \item Open Audit History to verify the recorded workflow.
+\end{enumerate}
+
+\section{Reproducibility}
+
+\begin{verbatim}
+Frontend:
+  npm install
+  npm run dev
+
+Backend (Python 3.12):
+  cd backend
+  python -m venv .venv
+  .venv\Scripts\activate
+  pip install -r requirements.txt
+  python seed.py
+  uvicorn app.main:app --reload --port 8000
+
+Validation:
+  cd backend
+  pytest -q
+  cd ..
+  npm run build
+\end{verbatim}
+
+\section{Declaration}
+
+This product report describes the implementation in the repository at the time of
+submission. The demonstration uses fictional brand data. The team understands that
+production deployment for regulated or sensitive organisations would require additional
+security review, policy controls, privacy review, and specialist legal oversight.
+
+\vfill
+\begin{center}
+\textcolor{muted}{\small Prepared for the Inkloom AI Brand Governance Challenge}
+\end{center}
+
+\end{document}

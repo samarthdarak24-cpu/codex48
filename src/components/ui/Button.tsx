@@ -56,25 +56,3 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     </button>
   )
 })
-
-export function IconButton({
-  className,
-  label,
-  children,
-  ...props
-}: React.ButtonHTMLAttributes<HTMLButtonElement> & { label: string }) {
-  return (
-    <button
-      aria-label={label}
-      title={label}
-      className={cn(
-        'inline-flex h-7 w-7 items-center justify-center rounded-md text-muted transition-colors',
-        'hover:bg-[#F1F6FD] hover:text-ink focus-visible:bg-[#F1F6FD]',
-        className,
-      )}
-      {...props}
-    >
-      {children}
-    </button>
-  )
-}

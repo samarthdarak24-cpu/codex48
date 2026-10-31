@@ -134,13 +134,3 @@ export function MetricCard({
 /* ------------------------------------------------------------------ */
 /* Small helpers                                                       */
 /* ------------------------------------------------------------------ */
-
-export function SectionLabel({ children, className }: { children: React.ReactNode; className?: string }) {
-  return (
-    <h3 className={cn('text-2xs font-semibold uppercase tracking-[0.06em] text-muted', className)}>{children}</h3>
-  )
-}
-
-export function Divider({ className }: { className?: string }) {
-  return <div className={cn('h-px w-full bg-line', className)} />
-}

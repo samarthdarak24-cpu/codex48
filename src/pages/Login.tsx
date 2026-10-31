@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext'
 import { BrandMark } from '@/components/layout/Shell'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Field'
+import { authApi } from '@/services/api'
 import { cn } from '@/lib/utils'
 
 const DEMO_ACCOUNTS = [
@@ -53,7 +54,7 @@ export default function LoginPage() {
     setLoading(true)
     try {
       if (mode === 'reset') {
-        await new Promise((r) => setTimeout(r, 600))
+        await authApi.requestReset(email)
         setResetSent(true)
         return
       }
@@ -172,10 +173,11 @@ export default function LoginPage() {
                     <div className="flex items-start gap-2.5">
                       <CheckCircle2 className="mt-[1px] h-4 w-4 shrink-0 text-success-600" />
                       <div>
-                        <p className="text-base font-semibold text-success-700">Check your inbox</p>
+                        <p className="text-base font-semibold text-success-700">Request recorded</p>
                         <p className="mt-0.5 text-xs leading-[17px] text-success-700/80">
-                          If an account exists for <span className="font-medium">{email}</span>, a reset link is on its
-                          way. The link expires in 30 minutes.
+                          A workspace administrator will reset the password for{' '}
+                          <span className="font-medium">{email}</span> and hand it to you directly. This build sends no
+                          email.
                         </p>
                       </div>
                     </div>

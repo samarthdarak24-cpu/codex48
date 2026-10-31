@@ -17,22 +17,38 @@ from ..services.audit import record
 
 @dataclass
 class _AssetObj:
-    """Plain namespace exposing the attributes rule_engine expects."""
+    """Plain namespace exposing the attributes rule_engine expects.
+
+    The A1 VisualGuard fields are optional: when they are None the related
+    rules return 'unknown' (Needs review) instead of guessing.
+    """
 
     background_colour: Optional[str] = None
     clear_space_ratio: Optional[float] = None
     typeface: Optional[str] = None
     aspect_ratio: Optional[str] = None
     unreadable: bool = False
+    # A1 measured facts
+    logo_confidence: Optional[float] = None
+    logo_confident: bool = False
+    logo_count: int = 0
+    contrast_ratio: Optional[float] = None
+    aspect_value: Optional[float] = None
 
 
 def _iso(dt: Any) -> Optional[str]:
     return dt.isoformat() if dt else None
 
 
-def _asset_from_dict(asset: Optional[dict]) -> _AssetObj:
+def _asset_from_dict(asset: Optional[dict]) -> Optional[_AssetObj]:
+    """Adapt a request's asset facts. `None` means "no asset was submitted".
+
+    The distinction matters to the rule engine: no asset at all makes the
+    visual rules *not applicable*, whereas an asset whose facts could not be
+    measured is *unknown* and must surface as Needs review.
+    """
     if not asset:
-        return _AssetObj()
+        return None
     return _AssetObj(
         background_colour=asset.get("backgroundColour"),
         clear_space_ratio=asset.get("clearSpaceRatio"),
@@ -42,7 +58,10 @@ def _asset_from_dict(asset: Optional[dict]) -> _AssetObj:
     )
 
 
-def _asset_from_submission(s: models.Submission) -> _AssetObj:
+def _asset_from_submission(s: models.Submission) -> Optional[_AssetObj]:
+    """The stored facts for a submission, or `None` if it never carried an asset."""
+    if not (s.asset_id or s.asset_url or s.asset_name):
+        return None
     return _AssetObj(
         background_colour=s.asset_background_colour,
         clear_space_ratio=s.asset_clear_space_ratio,
@@ -146,6 +165,8 @@ def submission_to_dict(s: models.Submission) -> dict:
             "sourcePassage": f.source_passage,
             "evidenceVerified": f.evidence_verified,
             "suggestedFix": f.suggested_fix,
+            "region": getattr(f, "region", None),
+            "outcome": getattr(f, "outcome", "violation"),
             "status": f.status,
         }
         for f in s.findings
@@ -268,6 +289,7 @@ def _apply_findings(
                 source_passage=f.source_passage,
                 evidence_verified=bool(verified),
                 suggested_fix=f.suggested_fix,
+                outcome=getattr(f, "outcome", "violation"),
                 status="accepted_exception" if accepted else "open",
             )
         )
@@ -357,7 +379,15 @@ def create_submission(
     workspace: Optional[str] = "PureGlow",
 ) -> models.Submission:
     thumb = thumb or {"kind": "art", "palette": "lime", "glyph": "leaf"}
+    # Never store a blank preview when the body has text: tables and cards show
+    # the excerpt, and an empty one makes two submissions look identical.
+    if not (excerpt or "").strip() and (text or "").strip():
+        flat = " ".join(text.split())
+        excerpt = flat if len(flat) <= 160 else flat[:159].rstrip() + "…"
     asset_obj = _asset_from_dict(asset)
+    # Column writes need a concrete object even when no asset was submitted;
+    # the engine gets `asset_obj` (possibly None) so it can tell the two apart.
+    facts = asset_obj or _AssetObj()
 
     # Snapshot the attached brand/product image so the reference survives edits.
     attached = db.get(models.BrandAsset, asset_id) if asset_id else None
@@ -388,11 +418,11 @@ def create_submission(
         thumb_kind=thumb.get("kind", "art"),
         thumb_palette=thumb.get("palette", "lime"),
         thumb_glyph=thumb.get("glyph", "leaf"),
-        asset_background_colour=asset_obj.background_colour,
-        asset_clear_space_ratio=asset_obj.clear_space_ratio,
-        asset_typeface=asset_obj.typeface,
-        asset_aspect_ratio=asset_obj.aspect_ratio,
-        asset_unreadable=asset_obj.unreadable,
+        asset_background_colour=facts.background_colour,
+        asset_clear_space_ratio=facts.clear_space_ratio,
+        asset_typeface=facts.typeface,
+        asset_aspect_ratio=facts.aspect_ratio,
+        asset_unreadable=facts.unreadable,
         asset_id=asset_id if attached is not None else None,
         asset_name=asset_name,
         asset_url=asset_url,

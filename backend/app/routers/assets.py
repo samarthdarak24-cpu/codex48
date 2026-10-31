@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from ..config import settings
 from ..db import get_db
-from ..deps import get_current_user, require_manager
+from ..deps import get_current_user, require_manager, require_workspace
 from ..ids import new_id
 from .. import models
 from ..services import assets as svc
@@ -97,8 +97,7 @@ def approve_asset(
     current_user=Depends(require_manager),
 ):
     asset = db.get(models.BrandAsset, asset_id)
-    if not asset:
-        raise HTTPException(status_code=404, detail="Asset not found")
+    require_workspace(asset, current_user, detail="Asset not found")
     asset.status = "approved"
     record(
         db,
@@ -124,11 +123,16 @@ def get_asset_file(
     current_user=Depends(get_current_user),
 ):
     asset = db.get(models.BrandAsset, asset_id)
-    if not asset or not asset.file_path:
+    require_workspace(asset, current_user, detail="File not found")
+    if not asset.file_path or not os.path.exists(asset.file_path):
         raise HTTPException(status_code=404, detail="File not found")
-    if not os.path.exists(asset.file_path):
-        raise HTTPException(status_code=404, detail="File not found")
-    return FileResponse(asset.file_path)
+    # Force a download: never let the browser render an uploaded file inline
+    # on the app's own origin.
+    return FileResponse(
+        asset.file_path,
+        media_type="application/octet-stream",
+        filename=os.path.basename(asset.file_path),
+    )
 
 
 @router.post("/research")

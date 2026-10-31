@@ -156,8 +156,15 @@ export function exceptionStats(rows: ExceptionRequest[]) {
   }
 }
 
+/**
+ * Must match the backend's window so the page and the daily scan agree.
+ * See `backend/app/services/sentinel.py` -> `scan_expiring(days=30)` and
+ * `backend/app/services/scheduler.py` (02:00 UTC sweep, days=30).
+ */
+export const EXCEPTION_EXPIRY_WINDOW_DAYS = 30
+
 /** Approved exceptions whose window closes within `days`. */
-export function expiringSoon(rows: ExceptionRequest[], days = 45) {
+export function expiringSoon(rows: ExceptionRequest[], days = EXCEPTION_EXPIRY_WINDOW_DAYS) {
   return rows
     .filter((r) => r.status === 'Approved' && daysUntil(r.expiresAt) <= days)
     .sort((a, b) => daysUntil(a.expiresAt) - daysUntil(b.expiresAt))

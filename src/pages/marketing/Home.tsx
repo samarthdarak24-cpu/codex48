@@ -27,7 +27,6 @@ import {
   Lock,
   Minus,
   Plus,
-  Quote,
   Scale,
   ScrollText,
   ShieldAlert,
@@ -41,7 +40,6 @@ import { MarketingNav } from '@/components/marketing/MarketingNav'
 import { MarketingFooter } from '@/components/marketing/MarketingFooter'
 import { AssetCard, ASSETS } from '@/components/marketing/AssetArt'
 import { Reveal } from '@/components/marketing/Reveal'
-import { Avatar } from '@/components/ui/Misc'
 import { cn } from '@/lib/utils'
 
 /* ------------------------------------------------------------------ */
@@ -236,34 +234,41 @@ function Hero() {
 /* 2. Logo strip                                                       */
 /* ------------------------------------------------------------------ */
 
-const LOGOS = [
-  { name: 'PureGlow', className: 'text-[17px] font-extrabold tracking-[-0.03em]' },
-  { name: 'WellnessLife', className: 'font-display text-[19px] tracking-[-0.01em]' },
-  { name: 'NORTHWIND', className: 'text-[13px] font-semibold uppercase tracking-[0.24em]' },
-  { name: 'Meridian', className: 'text-[16px] font-light tracking-[0.14em]' },
-  { name: 'alto', className: 'text-[19px] font-black lowercase tracking-[-0.04em]' },
-  { name: 'Kestrel', className: 'font-display text-[18px] italic' },
+/**
+ * What the deterministic rule engine actually evaluates, taken from the
+ * seeded rule set (`backend/seed.py`). This strip deliberately does not
+ * show customer logos: this is an evaluation build and it has no customers
+ * to name.
+ */
+const CHECKED = [
+  'Approved typefaces',
+  'Logo clear space',
+  'Approved claims only',
+  'No medical claims',
+  'No fake scarcity',
+  'Paid partnership disclosure',
+  'Platform aspect ratios',
+  'Warm, plain-spoken tone',
+  'Verifiable discounts',
+  'Approved backgrounds',
 ]
 
-function LogoStrip() {
+function RuleStrip() {
   return (
-    <section className="border-b border-ink/[0.06] bg-white py-10 overflow-hidden">
+    <section className="overflow-hidden border-b border-ink/[0.06] bg-white py-9">
       <div className="mkt-container">
-        <Reveal className="flex flex-col items-center gap-6 lg:flex-row lg:justify-between">
+        <Reveal className="flex flex-col items-center gap-5 lg:flex-row lg:gap-10">
           <p className="shrink-0 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-light">
-            Trusted by brand teams at
+            Checked on every submission
           </p>
-          <div className="relative w-full max-w-[800px] overflow-hidden mkt-fade-x">
-            <div className="animate-marquee-track flex items-center gap-12 py-1">
-              {[...LOGOS, ...LOGOS].map((l, idx) => (
+          <div className="relative w-full overflow-hidden mkt-fade-x">
+            <div className="animate-marquee-track flex items-center gap-3 py-1">
+              {[...CHECKED, ...CHECKED].map((label, idx) => (
                 <span
-                  key={`${l.name}-${idx}`}
-                  className={cn(
-                    'shrink-0 text-ink/35 transition-all duration-300 hover:text-ink/80 hover:scale-105 cursor-pointer',
-                    l.className,
-                  )}
+                  key={`${label}-${idx}`}
+                  className="shrink-0 rounded-full border border-ink/[0.08] bg-[#FBFCFE] px-3.5 py-1.5 text-[12.5px] font-medium text-ink/55"
                 >
-                  {l.name}
+                  {label}
                 </span>
               ))}
             </div>
@@ -562,29 +567,49 @@ function BetterWay() {
   )
 }
 
-/* 7. Testimonial                                                      */
+/* 7. Why the verdict holds up                                       */
 /* ------------------------------------------------------------------ */
+
+const HONESTY = [
+  {
+    title: 'The engine decides, not the model',
+    body: 'Rules run in plain code. The AI layer never changes a pass or fail.',
+  },
+  {
+    title: 'Every quote is checked',
+    body: 'An answer without a real passage from your guide is rejected, not shown.',
+  },
+  {
+    title: 'Silence is not approval',
+    body: 'If a fact cannot be measured, the item says Needs review — never Pass.',
+  },
+]
 
 function Testimonial() {
   return (
-    <section id="customers" className="scroll-mt-24 bg-white pb-20 lg:pb-28">
+    <section className="bg-white pb-20 lg:pb-28">
       <div className="mkt-container grid items-stretch gap-4 lg:grid-cols-[1.15fr_0.85fr]">
-        <Reveal className="rounded-[26px] border border-ink/[0.07] bg-[#FBFCFE] p-7 sm:p-10 shadow-xs">
-          <Quote className="h-7 w-7 text-ink/15" />
-          <blockquote className="mt-5 max-w-[520px] font-display text-[26px] leading-[1.22] text-ink sm:text-[32px]">
-            “We stopped arguing about screenshots. Every review now points at the same paragraph in the same guide — and
-            the exception has an expiry date.”
-          </blockquote>
-          <div className="mt-7 flex items-center gap-3">
-            <Avatar initials="MC" tone="grape" size="lg" />
-            <div>
-              <p className="text-[13.5px] font-semibold text-ink">Maya Chen</p>
-              <p className="text-[12px] text-muted">Head of Brand · Northwind</p>
-            </div>
-          </div>
+        <Reveal className="rounded-[26px] border border-ink/[0.07] bg-[#FBFCFE] p-7 shadow-xs sm:p-9">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-light">
+            Why the verdict holds up
+          </p>
+          <ul className="mt-5 space-y-4">
+            {HONESTY.map((h) => (
+              <li key={h.title} className="flex gap-3">
+                <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-ink/30" />
+                <div className="min-w-0">
+                  <p className="text-[14px] font-semibold leading-snug text-ink">{h.title}</p>
+                  <p className="mt-0.5 text-[13px] leading-relaxed text-muted">{h.body}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
         </Reveal>
 
-        <Reveal delay={100} className="overflow-hidden rounded-[26px] shadow-lg ring-1 ring-ink/[0.07] transition-all duration-500 hover:shadow-2xl hover:scale-[1.01]">
+        <Reveal
+          delay={100}
+          className="overflow-hidden rounded-[26px] shadow-lg ring-1 ring-ink/[0.07] transition-all duration-500 hover:scale-[1.01] hover:shadow-2xl"
+        >
           <div className="h-full min-h-[280px]">
             <AssetCard variant={ASSETS[1]} size="lg" />
           </div>
@@ -1991,7 +2016,7 @@ export default function Home() {
       <MarketingNav />
       <main>
         <Hero />
-        <LogoStrip />
+        <RuleStrip />
         <Statement />
         <PlatformBand />
         <EvidenceSplit />

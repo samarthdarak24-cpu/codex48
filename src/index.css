@@ -20,7 +20,8 @@
 
   body {
     @apply bg-canvas text-ink font-sans;
-    font-size: 13.5px;
+    font-size: 14px;
+    line-height: 1.5;
     font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
   }
 

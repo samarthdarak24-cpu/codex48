@@ -27,6 +27,10 @@ __pycache__/
 *.db
 uploads/
 qa_uploads/
+scratch/
+.pytest_cache/
+.archive/
+*.onnx
 
 # Python virtual environments (created locally; never commit)
 .venv/

@@ -45,7 +45,7 @@ export default function MySubmissions() {
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
 
-  const [query, setQuery] = useState('')
+  const [query, setQuery] = useState(params.get('q') ?? '')
   const [type, setType] = useState('All Types')
   const [status, setStatus] = useState<string>(params.get('status') ?? 'All Statuses')
   const [sort, setSort] = useState('newest')
@@ -331,14 +331,14 @@ export default function MySubmissions() {
             </ul>
           </Card>
 
-          <Card className="border-brand-100 bg-brand-50/50 p-4">
-            <h2 className="flex items-center gap-1.5 text-md font-semibold text-brand-800">Need help?</h2>
-            <p className="mt-1 text-xs leading-[16px] text-brand-700/80">
-              Check the Brand Guidelines or contact your brand manager for any questions.
-            </p>
-            <Button variant="outline" block size="sm" className="mt-2.5 bg-white" onClick={() => navigate('/app/guidelines')}>
-              View Guidelines
-            </Button>
+          <Card className="flex items-center justify-between gap-3 border-brand-100 bg-brand-50/50 px-4 py-3">
+            <p className="text-xs leading-[16px] text-brand-800">Questions about a finding? Check the guidelines.</p>
+            <button
+              onClick={() => navigate('/app/guidelines')}
+              className="shrink-0 text-xs font-semibold text-brand-600 transition-colors hover:text-brand-700"
+            >
+              View
+            </button>
           </Card>
 
           <p className="flex items-start gap-1.5 px-1 text-2xs leading-[15px] text-muted-light">

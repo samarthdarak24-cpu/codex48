@@ -47,13 +47,13 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={api}>
       {children}
-      <div className="pointer-events-none fixed bottom-4 right-4 z-[60] flex w-[330px] flex-col gap-2">
+      <div className="pointer-events-none fixed bottom-4 right-4 z-[60] flex w-[330px] max-w-[calc(100vw-2rem)] flex-col gap-2">
         {toasts.map((t) => {
           const Icon = t.tone === 'success' ? CheckCircle2 : t.tone === 'error' ? AlertTriangle : Info
           return (
             <div
               key={t.id}
-              role="status"
+              role={t.tone === 'error' ? 'alert' : 'status'}
               className={cn(
                 'pointer-events-auto flex animate-slide-in items-start gap-2.5 rounded-xl border bg-white px-3.5 py-3 shadow-lift',
                 t.tone === 'success' && 'border-success-100',

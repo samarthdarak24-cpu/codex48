@@ -21,7 +21,7 @@ export function DataTable<T>({
   onRowClick,
   className,
   dense,
-  minWidth = '0px',
+  minWidth = '560px',
   selectedIds,
   onToggleRow,
   onToggleAll,
@@ -46,11 +46,14 @@ export function DataTable<T>({
 
   return (
     <div className={cn('w-full overflow-x-auto', className)}>
+      {/* `table-fixed` plus a real min-width means columns keep their
+          proportions and the wrapper scrolls, instead of every column
+          collapsing to a few pixels on a phone. */}
       <table className="w-full table-fixed border-collapse" style={{ minWidth }}>
         <thead>
           <tr className="border-y border-line bg-[#F8FAFE]">
             {selectable && (
-              <th className="w-8 px-2.5 py-2">
+              <th scope="col" className="w-8 px-2.5 py-2">
                 <input
                   type="checkbox"
                   aria-label="Select all rows"
@@ -283,10 +286,6 @@ function pageNumbers(current: number, total: number): (number | '…')[] {
 /* ------------------------------------------------------------------ */
 /* Row actions                                                         */
 /* ------------------------------------------------------------------ */
-
-export function RowActions({ children }: { children: React.ReactNode }) {
-  return <div className="flex items-center justify-end gap-1">{children}</div>
-}
 
 export function ViewButton({ onClick, label = 'View' }: { onClick?: () => void; label?: string }) {
   return (

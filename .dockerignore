@@ -1,0 +1,30 @@
+node_modules
+dist
+.git
+.gitignore
+*.md
+!README.md
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+.venv
+.venv*
+.pytest_cache
+.mypy_cache
+
+# Local state that must never ship in an image
+*.db
+*.db.bak-*
+backend/uploads
+backend/qa_uploads
+backend/qa_test.db
+backend/.env
+
+# Tooling / scratch
+scratch
+reports
+e2e-check.mjs
+qa_*.mjs
+vite.log

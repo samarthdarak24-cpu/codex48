@@ -1,8 +1,9 @@
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import {
+  AlertTriangle,
   ArrowLeft,
-  Bell,
+  ArrowRight,
   BookOpen,
   ChevronDown,
   ChevronRight,
@@ -15,8 +16,14 @@ import {
   LogOut,
   Menu,
   MessageSquare,
+  Radar,
+  ScanEye,
   Search,
   ShieldCheck,
+  Sparkles,
+  CheckCircle2,
+  Copy,
+  ExternalLink,
   Users,
   X,
 } from 'lucide-react'
@@ -24,8 +31,10 @@ import { cn } from '@/lib/utils'
 import { useAuth } from '@/context/AuthContext'
 import { useData } from '@/context/DataContext'
 import { exceptionStats, awaitingDecision } from '@/lib/selectors'
-import { Avatar } from '@/components/ui/Misc'
+import { Avatar, Modal } from '@/components/ui/Misc'
+import { Button } from '@/components/ui/Button'
 import { CountBubble } from '@/components/ui/Badge'
+import { NotificationBell } from '@/components/layout/NotificationBell'
 
 /* ------------------------------------------------------------------ */
 /* Brand                                                               */
@@ -101,6 +110,8 @@ function useNavItems(): { items: NavItem[]; footer: string } {
         { to: '/manager/guidelines', label: 'Guidelines & Rules', icon: BookOpen },
         { to: '/manager/exceptions', label: 'Exceptions', icon: Clock, badge: openExceptions, badgeTone: 'warn' },
         { to: '/manager/sandbox', label: 'Rule Impact Sandbox', icon: FlaskConical },
+        { to: '/manager/sentinel', label: 'Sentinel', icon: Radar },
+        { to: '/manager/trust', label: 'AI Trust', icon: ScanEye },
         { to: '/manager/audit', label: 'Audit History', icon: ShieldCheck },
       ],
     }
@@ -186,20 +197,39 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
 /* ------------------------------------------------------------------ */
 
 function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
-  const { user, logout } = useAuth()
+  const { user, login, logout } = useAuth()
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
-  const [notifOpen, setNotifOpen] = useState(false)
+  const [judgeOpen, setJudgeOpen] = useState(false)
+  const [copiedKey, setCopiedKey] = useState<string | null>(null)
   const [query, setQuery] = useState('')
 
   useEffect(() => {
     const close = () => {
       setMenuOpen(false)
-      setNotifOpen(false)
     }
     window.addEventListener('click', close)
     return () => window.removeEventListener('click', close)
   }, [])
+
+  const handleCopy = (text: string, key: string) => {
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(text)
+    }
+    setCopiedKey(key)
+    setTimeout(() => setCopiedKey(null), 2000)
+  }
+
+  const switchRole = async (targetRole: 'manager' | 'creator') => {
+    const email = targetRole === 'manager' ? 'david.kim@pureglow.co' : 'emily.carter@pureglow.co'
+    try {
+      await login(email, 'precedent')
+      setJudgeOpen(false)
+      navigate(targetRole === 'manager' ? '/manager/overview' : '/app/overview')
+    } catch {
+      navigate('/login')
+    }
+  }
 
   const placeholder =
     user?.role === 'manager' ? 'Search content, rules, or submissions…' : 'Search content, rules, or guidelines…'
@@ -218,6 +248,12 @@ function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
         className="relative hidden max-w-[330px] flex-1 sm:block"
         onSubmit={(e) => {
           e.preventDefault()
+          const q = query.trim()
+          if (!q) return
+          // The box searches the list the user can actually act on.
+          const target = user?.role === 'manager' ? '/manager/queue' : '/app/submissions'
+          navigate(`${target}?q=${encodeURIComponent(q)}`)
+          setQuery('')
         }}
       >
         <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-light" />
@@ -230,34 +266,18 @@ function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
         />
       </form>
 
-      <div className="ml-auto flex items-center gap-1.5">
-        <div className="relative">
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              setNotifOpen((v) => !v)
-              setMenuOpen(false)
-            }}
-            aria-label="Notifications"
-            className="relative inline-flex h-8 w-8 items-center justify-center rounded-lg text-ink-600 transition-colors hover:bg-[#F2F7FD]"
-          >
-            <Bell className="h-[17px] w-[17px]" strokeWidth={1.9} />
-            <span className="absolute right-[7px] top-[6px] h-[6px] w-[6px] rounded-full bg-[#F0453F] ring-2 ring-white" />
-          </button>
-          {notifOpen && (
-            <div
-              onClick={(e) => e.stopPropagation()}
-              className="absolute right-0 top-11 w-[290px] animate-pop-in rounded-xl border border-line bg-white p-1.5 shadow-lift"
-            >
-              <p className="px-2.5 py-1.5 text-2xs font-semibold uppercase tracking-[0.06em] text-muted">
-                Notifications
-              </p>
-              <div className="px-2.5 py-3 text-xs text-muted">
-                You are up to date. New review decisions, exception expiries and rule confirmations will appear here.
-              </div>
-            </div>
-          )}
-        </div>
+      <div className="ml-auto flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setJudgeOpen(true)}
+          className="inline-flex items-center gap-1.5 rounded-full border border-brand-200 bg-brand-50/90 px-3 py-1 text-xs font-bold text-brand-700 shadow-2xs transition-all hover:border-brand-300 hover:bg-brand-100"
+          title="Open Judge Guided Tour & Demo Evaluation Guide"
+        >
+          <Sparkles className="h-3.5 w-3.5 animate-pulse text-brand-600" />
+          <span className="hidden sm:inline">Judge Tour</span>
+        </button>
+
+        <NotificationBell />
 
         <div className="mx-1 h-6 w-px bg-line" />
 
@@ -266,7 +286,6 @@ function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
             onClick={(e) => {
               e.stopPropagation()
               setMenuOpen((v) => !v)
-              setNotifOpen(false)
             }}
             className="flex items-center gap-2 rounded-lg py-1 pl-1 pr-1.5 transition-colors hover:bg-[#F2F7FD]"
             aria-haspopup="menu"
@@ -327,6 +346,239 @@ function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
           )}
         </div>
       </div>
+
+      <Modal
+        open={judgeOpen}
+        onClose={() => setJudgeOpen(false)}
+        title="Precedent — Judge Evaluation Tour (Round 3)"
+        description="Step-by-step walkthrough covering A1 VisualGuard, A2 Evidence Intelligence, and A3 Sentinel."
+        width="max-w-2xl"
+        footer={
+          <div className="flex w-full items-center justify-between">
+            <span className="text-[11px] text-muted">Inkloom AI Brand Governance Challenge · Team samarth.darak24</span>
+            <Button variant="primary" size="sm" onClick={() => setJudgeOpen(false)}>
+              Close Guide
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-4 text-ink">
+          {/* 1-Click Role Switcher */}
+          <div className="rounded-xl border border-brand-200 bg-brand-50/60 p-3.5">
+            <div className="flex items-center justify-between pb-2 border-b border-brand-100">
+              <span className="text-xs font-bold text-brand-900 uppercase tracking-wider flex items-center gap-1.5">
+                <Users className="h-3.5 w-3.5 text-brand-700" />
+                1-Click Role Switcher
+              </span>
+              <span className="text-[10px] text-brand-700 font-mono">Password: precedent</span>
+            </div>
+            <div className="mt-2.5 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => switchRole('manager')}
+                className={cn(
+                  'flex items-center justify-between rounded-lg border p-2.5 text-left text-xs transition-all',
+                  user?.role === 'manager'
+                    ? 'border-brand-500 bg-white shadow-xs font-bold text-brand-900 ring-2 ring-brand-500/20'
+                    : 'border-brand-200/80 bg-white/70 hover:bg-white text-ink-700',
+                )}
+              >
+                <div>
+                  <p className="font-bold">David Kim (Manager)</p>
+                  <p className="text-[10.5px] text-muted">david.kim@pureglow.co</p>
+                </div>
+                {user?.role === 'manager' ? (
+                  <CheckCircle2 className="h-4 w-4 text-brand-600" />
+                ) : (
+                  <ArrowRight className="h-3.5 w-3.5 text-muted-light" />
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => switchRole('creator')}
+                className={cn(
+                  'flex items-center justify-between rounded-lg border p-2.5 text-left text-xs transition-all',
+                  user?.role === 'creator'
+                    ? 'border-brand-500 bg-white shadow-xs font-bold text-brand-900 ring-2 ring-brand-500/20'
+                    : 'border-brand-200/80 bg-white/70 hover:bg-white text-ink-700',
+                )}
+              >
+                <div>
+                  <p className="font-bold">Emily Carter (Creator)</p>
+                  <p className="text-[10.5px] text-muted">emily.carter@pureglow.co</p>
+                </div>
+                {user?.role === 'creator' ? (
+                  <CheckCircle2 className="h-4 w-4 text-brand-600" />
+                ) : (
+                  <ArrowRight className="h-3.5 w-3.5 text-muted-light" />
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* 4-Step Verification Walkthrough */}
+          <div className="space-y-2">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-muted">
+              4-Step Judge Evaluation Journey
+            </h4>
+
+            <div className="rounded-xl border border-line bg-canvas/30 p-3 space-y-2.5 text-xs">
+              <div className="flex items-start gap-2.5">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ink text-[10px] font-bold text-white">
+                  1
+                </span>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <p className="font-bold text-ink">A1 VisualGuard: Creative Poster Analysis</p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setJudgeOpen(false)
+                        navigate('/app/new')
+                      }}
+                      className="text-[11px] font-semibold text-brand-600 hover:text-brand-800 flex items-center gap-1"
+                    >
+                      Open /app/new <ExternalLink className="h-3 w-3" />
+                    </button>
+                  </div>
+                  <p className="text-muted mt-0.5 leading-relaxed text-[11px]">
+                    Switch to Creator. Select <strong>Poster</strong> channel, upload an ad creative (or click the sample asset). The backend executes Tesseract OCR text blocks with pixel bounding boxes, K-means background palette distance, logo template match, and WCAG AA contrast sampling.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-2.5 pt-2 border-t border-line/60">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ink text-[10px] font-bold text-white">
+                  2
+                </span>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <p className="font-bold text-ink">A2 Evidence Intelligence: Grounded Review</p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setJudgeOpen(false)
+                        navigate('/app/feedback/sub-14')
+                      }}
+                      className="text-[11px] font-semibold text-brand-600 hover:text-brand-800 flex items-center gap-1"
+                    >
+                      Open /app/feedback <ExternalLink className="h-3 w-3" />
+                    </button>
+                  </div>
+                  <p className="text-muted mt-0.5 leading-relaxed text-[11px]">
+                    Open a submission review. Inspect deterministic findings partitioned from AI suggestions. Notice the verified citation badge linked to exact stored guideline passages (e.g. Page 14 §3.2) and the 1-click minimal edit diff.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-2.5 pt-2 border-t border-line/60">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ink text-[10px] font-bold text-white">
+                  3
+                </span>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <p className="font-bold text-ink">Scoped Exceptions & Expiry Enforcement</p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setJudgeOpen(false)
+                        navigate('/manager/exceptions')
+                      }}
+                      className="text-[11px] font-semibold text-brand-600 hover:text-brand-800 flex items-center gap-1"
+                    >
+                      Open /manager/exceptions <ExternalLink className="h-3 w-3" />
+                    </button>
+                  </div>
+                  <p className="text-muted mt-0.5 leading-relaxed text-[11px]">
+                    Switch to Manager. View scoped exception rulings (campaign boundary, owner, and expiration date). Observe that attempting to approve an expired exception is strictly refused by the backend with HTTP 409 Conflict.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-2.5 pt-2 border-t border-line/60">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ink text-[10px] font-bold text-white">
+                  4
+                </span>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <p className="font-bold text-ink">A3 Sentinel & Rule Impact Sandbox</p>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setJudgeOpen(false)
+                          navigate('/manager/sandbox')
+                        }}
+                        className="text-[11px] font-semibold text-brand-600 hover:text-brand-800 flex items-center gap-1"
+                      >
+                        Sandbox <ExternalLink className="h-3 w-3" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setJudgeOpen(false)
+                          navigate('/manager/sentinel')
+                        }}
+                        className="text-[11px] font-semibold text-brand-600 hover:text-brand-800 flex items-center gap-1"
+                      >
+                        Sentinel <ExternalLink className="h-3 w-3" />
+                      </button>
+                    </div>
+                  </div>
+                  <p className="text-muted mt-0.5 leading-relaxed text-[11px]">
+                    Simulate proposed policy changes in the Sandbox to preview compliance blast radius over all stored assets. Sentinel continuously surveils published content and dispatches deduplicated reassessment tasks when policies change.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Copyable Test Fixtures */}
+          <div>
+            <h4 className="text-xs font-bold uppercase tracking-wider text-muted mb-2">
+              Ready-to-Copy Test Fixtures
+            </h4>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <div className="rounded-lg border border-line bg-white p-2.5 text-xs">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="font-semibold text-ink">Deterministic Violation:</span>
+                  <button
+                    type="button"
+                    onClick={() => handleCopy('100% safe, boosts immunity, 20% off', 'f1')}
+                    className="inline-flex items-center gap-1 text-[11px] font-medium text-brand-600 hover:text-brand-800"
+                  >
+                    {copiedKey === 'f1' ? <CheckCircle2 className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3" />}
+                    {copiedKey === 'f1' ? 'Copied' : 'Copy'}
+                  </button>
+                </div>
+                <p className="font-mono text-[11px] text-ink-600 bg-canvas/60 p-1.5 rounded">
+                  "100% safe, boosts immunity, 20% off"
+                </p>
+                <p className="text-[10px] text-muted mt-1">Triggers superlative, unapproved health claim, and discount limit rules.</p>
+              </div>
+
+              <div className="rounded-lg border border-line bg-white p-2.5 text-xs">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="font-semibold text-ink">Semantic Paraphrase:</span>
+                  <button
+                    type="button"
+                    onClick={() => handleCopy('Our blend keeps colds away all season', 'f2')}
+                    className="inline-flex items-center gap-1 text-[11px] font-medium text-brand-600 hover:text-brand-800"
+                  >
+                    {copiedKey === 'f2' ? <CheckCircle2 className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3" />}
+                    {copiedKey === 'f2' ? 'Copied' : 'Copy'}
+                  </button>
+                </div>
+                <p className="font-mono text-[11px] text-ink-600 bg-canvas/60 p-1.5 rounded">
+                  "Our blend keeps colds away all season"
+                </p>
+                <p className="text-[10px] text-muted mt-1">Semantic retrieval maps meaning to Rule CL-06 despite zero keyword match.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Modal>
     </header>
   )
 }
@@ -381,6 +633,7 @@ export function PageHeader({
 export function DashboardLayout() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const location = useLocation()
+  const { mutationError, clearMutationError } = useData()
 
   useEffect(() => {
     setMobileOpen(false)
@@ -411,25 +664,31 @@ export function DashboardLayout() {
 
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar onOpenMenu={() => setMobileOpen(true)} />
+        {mutationError && (
+          <div
+            role="alert"
+            className="mx-4 mt-3 flex flex-wrap items-start gap-x-3 gap-y-1.5 rounded-xl border border-danger-200 bg-danger-50 px-3 py-2.5 sm:mx-6"
+          >
+            <AlertTriangle className="mt-[2px] h-3.5 w-3.5 shrink-0 text-danger-600" />
+            <p className="min-w-0 flex-1 text-xs leading-[17px] text-danger-700">
+              <span className="font-semibold">That change was not saved.</span> {mutationError}
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={clearMutationError}
+                className="rounded-md px-2 py-1 text-2xs font-semibold text-danger-700 transition-colors hover:bg-danger-100"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        )}
         <main className="flex-1 px-4 py-5 sm:px-6 sm:py-6">
           <div className="mx-auto w-full max-w-[1180px] animate-fade-up">
             <Outlet />
           </div>
         </main>
       </div>
-    </div>
-  )
-}
-
-/* ------------------------------------------------------------------ */
-/* Right rail layout helper                                            */
-/* ------------------------------------------------------------------ */
-
-export function WithRail({ children, rail }: { children: React.ReactNode; rail: React.ReactNode }) {
-  return (
-    <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_296px]">
-      <div className="min-w-0 space-y-4">{children}</div>
-      <div className="space-y-4">{rail}</div>
     </div>
   )
 }
@@ -462,41 +721,5 @@ export function RailCard({
       </div>
       <div className="px-4 pb-3.5">{children}</div>
     </section>
-  )
-}
-
-export function QuickAction({
-  icon,
-  label,
-  description,
-  onClick,
-  tone = 'brand',
-}: {
-  icon: React.ReactNode
-  label: string
-  description?: string
-  onClick?: () => void
-  tone?: 'brand' | 'success' | 'warn' | 'grape'
-}) {
-  const tones = {
-    brand: 'bg-brand-50 text-brand-600',
-    success: 'bg-success-50 text-success-600',
-    warn: 'bg-warn-50 text-warn-600',
-    grape: 'bg-grape-50 text-grape-600',
-  }
-  return (
-    <button
-      onClick={onClick}
-      className="group flex w-full items-start gap-2.5 rounded-lg px-1 py-1.5 text-left transition-colors hover:bg-[#FAF7EF]"
-    >
-      <span className={cn('mt-[1px] flex h-6 w-6 shrink-0 items-center justify-center rounded-md', tones[tone])}>
-        {icon}
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-base font-medium leading-[18px] text-ink group-hover:text-brand-700">{label}</span>
-        {description && <span className="mt-0.5 block text-xs leading-[15px] text-muted">{description}</span>}
-      </span>
-      <ChevronRight className="mt-1 h-3.5 w-3.5 shrink-0 text-muted-light transition-transform group-hover:translate-x-0.5" />
-    </button>
   )
 }

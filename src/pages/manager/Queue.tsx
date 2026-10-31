@@ -1,23 +1,24 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
   AlertTriangle,
   CheckCircle2,
   ChevronDown,
   Clock3,
   FileText,
-  Filter,
   Quote,
-  RotateCcw,
   ShieldAlert,
+  ShieldCheck,
   SlidersHorizontal,
-  Sparkles,
   SquarePen,
   XCircle,
   ListChecks,
+  Send,
 } from 'lucide-react'
 import { useData } from '@/context/DataContext'
+import { api, ApiError } from '@/services/api'
 import { AttachedAsset } from '@/components/content/AttachedAsset'
+import { PosterCanvas, type PosterBox } from '@/components/visual/PosterCanvas'
 import { PageHeader } from '@/components/layout/Shell'
 import { Card, MetricCard } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -29,8 +30,8 @@ import { ContentThumb } from '@/components/content/ContentThumb'
 import { useToast } from '@/components/ui/Toast'
 import { FileIcon } from '@/pages/content/Overview'
 import { awaitingDecision, priorityOf, submissionsWithExceptions } from '@/lib/selectors'
-import { cn, fmtDateTime, relative } from '@/lib/utils'
-import type { Priority, Submission } from '@/lib/types'
+import { cn, fmtDate, fmtDateTime, relative } from '@/lib/utils'
+import type { Priority, Publication, Submission } from '@/lib/types'
 
 const PAGE_SIZE = 8
 
@@ -42,9 +43,11 @@ export default function ReviewQueue() {
   const { submissions, exceptions, team, decideSubmission, approveAsset, loading } = useData()
   const navigate = useNavigate()
   const { id } = useParams()
+  const [searchParams] = useSearchParams()
   const toast = useToast()
 
-  const [query, setQuery] = useState('')
+  // The topbar search box lands here as ?q=…, so the filter starts applied.
+  const [query, setQuery] = useState(searchParams.get('q') ?? '')
   const [type, setType] = useState<string>('All')
   const [status, setStatus] = useState<string>('All')
   const [priority, setPriority] = useState<string>('All')
@@ -67,16 +70,23 @@ export default function ReviewQueue() {
   }
   const [bulkOpen, setBulkOpen] = useState(false)
   const [openEvidence, setOpenEvidence] = useState<string[]>([])
+  const [publications, setPublications] = useState<Record<string, Publication>>({})
+  const [publishingId, setPublishingId] = useState<string | null>(null)
 
   useEffect(() => {
     if (id) setOpenId(id)
   }, [id])
 
   const queue = useMemo(() => awaitingDecision(submissions), [submissions])
+  // Approved versions stay visible here so they can be marked as published.
+  const reviewRows = useMemo(
+    () => [...queue, ...submissions.filter((s) => s.status === 'Approved')],
+    [queue, submissions],
+  )
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
-    const rows = queue.filter((s) => {
+    const rows = reviewRows.filter((s) => {
       const creator = team.find((t) => t.id === s.creatorId)
       const matchesQuery =
         !q ||
@@ -97,10 +107,60 @@ export default function ReviewQueue() {
       if (sort === 'oldest') return +new Date(a.createdAt) - +new Date(b.createdAt)
       return +new Date(b.createdAt) - +new Date(a.createdAt)
     })
-  }, [queue, query, type, status, priority, sort, team])
+  }, [reviewRows, query, type, status, priority, sort, team])
 
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
   const active = submissions.find((s) => s.id === openId) ?? null
+  const activePublication = active ? publications[active.id] : undefined
+
+  // A1: the reviewer sees the same poster overlay the creator sees, so a
+  // finding and the pixels that caused it are always side by side.
+  const [posterUrl, setPosterUrl] = useState<string | null>(null)
+  const [posterState, setPosterState] = useState<'idle' | 'loading' | 'ready' | 'none'>('idle')
+
+  useEffect(() => {
+    let cancelled = false
+    setPosterUrl(null)
+    setPosterState('idle')
+    if (!active || active.type !== 'Image') return
+
+    setPosterState('loading')
+    ;(async () => {
+      try {
+        const analysis = await api.analysisForSubmission(active.id)
+        if (cancelled) return
+        if (analysis.status !== 'complete') {
+          setPosterState('none')
+          return
+        }
+        const url = await api.fetchPosterBlobUrl(active.id)
+        if (cancelled) return
+        if (!url) {
+          setPosterState('none')
+          return
+        }
+        setPosterUrl(url)
+        setPosterState('ready')
+      } catch {
+        if (!cancelled) setPosterState('none')
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [active?.id, active?.type])
+
+  const posterBoxes: PosterBox[] = useMemo(() => {
+    if (!active) return []
+    return active.findings
+      .filter((f) => f.region)
+      .map((f) => ({
+        box: f.region!,
+        tone: f.outcome === 'needs_review' ? 'warn' : 'danger',
+        label: `${f.ruleCode} · ${f.ruleTitle}`,
+      }))
+  }, [active])
 
   function resetFilters() {
     setQuery('')
@@ -130,13 +190,41 @@ export default function ReviewQueue() {
   }
 
   function bulkApprove() {
-    const items = submissions.filter((s) => selectedIds.includes(s.id))
+    const items = submissions.filter((s) => selectedIds.includes(s.id) && s.status !== 'Approved')
+    if (items.length === 0) {
+      toast.info('Nothing to approve', 'The selected items are already approved. Publish them instead.')
+      setBulkOpen(false)
+      return
+    }
     setBusy(true)
     items.forEach((s) => decideSubmission(s.id, 'Approved', 'Bulk approved from the review queue.'))
     toast.success(`${items.length} submissions approved`, 'Each decision was recorded against its own version.')
     setBusy(false)
     setBulkOpen(false)
     setSelectedIds([])
+  }
+
+  async function markPublished(row: Submission) {
+    if (publications[row.id]) return
+    setPublishingId(row.id)
+    try {
+      const publication = await api.markPublished(row.id, row.channel)
+      setPublications((prev) => ({ ...prev, [row.id]: publication }))
+      toast.success(
+        'Marked as published',
+        `${row.title} is recorded as published to ${publication.channel}. Sentinel now watches it for rule changes.`,
+      )
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 409) {
+        toast.error('Only approved content can be published', err.message)
+      } else if (err instanceof ApiError && err.status === 403) {
+        toast.error('Not permitted', 'Your role does not have permission to publish content.')
+      } else {
+        toast.error('Could not mark as published', err instanceof Error ? err.message : 'Please try again.')
+      }
+    } finally {
+      setPublishingId(null)
+    }
   }
 
   const columns: Column<Submission>[] = [
@@ -204,21 +292,52 @@ export default function ReviewQueue() {
     {
       key: 'actions',
       header: 'Actions',
-      width: '78px',
+      width: '104px',
       align: 'right',
-      cell: (row) => (
-        <Button
-          size="sm"
-          variant="outline"
-          className="h-7 px-2.5 text-xs"
-          onClick={(e) => {
-            e.stopPropagation()
-            setOpenId(row.id)
-          }}
-        >
-          Review
-        </Button>
-      ),
+      cell: (row) => {
+        const publication = publications[row.id]
+        if (publication) {
+          return (
+            <div className="flex flex-col items-end gap-0.5">
+              <Badge tone="success" size="sm">
+                Published
+              </Badge>
+              {publication.publishedAt && (
+                <span className="text-[9px] text-muted-light">{fmtDate(publication.publishedAt)}</span>
+              )}
+            </div>
+          )
+        }
+        if (row.status === 'Approved') {
+          return (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 px-2.5 text-xs"
+              loading={publishingId === row.id}
+              onClick={(e) => {
+                e.stopPropagation()
+                void markPublished(row)
+              }}
+            >
+              Publish
+            </Button>
+          )
+        }
+        return (
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 px-2.5 text-xs"
+            onClick={(e) => {
+              e.stopPropagation()
+              setOpenId(row.id)
+            }}
+          >
+            Review
+          </Button>
+        )
+      },
     },
   ]
 
@@ -229,6 +348,16 @@ export default function ReviewQueue() {
         subtitle="Review submitted content, check for brand violations and take action."
         backTo="/manager/overview"
         backLabel="Back to Dashboard"
+        actions={
+          <Button
+            size="sm"
+            variant="outline"
+            icon={<ShieldAlert className="h-3 w-3" />}
+            onClick={() => navigate('/manager/exceptions')}
+          >
+            Request Exception
+          </Button>
+        }
       />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -238,150 +367,97 @@ export default function ReviewQueue() {
         <MetricCard label="With Exceptions" value={String(submissionsWithExceptions(submissions, exceptions)).padStart(2, '0')} sub="Requires special handling" icon={<ShieldAlert className="h-4 w-4" />} tone="purple" />
       </div>
 
-      <div className="mt-4 grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_272px]">
-        <Card className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2 border-b border-line p-3">
-            <SearchInput value={query} onChange={(v) => { setQuery(v); setPage(1) }} placeholder="Search by title, creator, or content ID…" className="min-w-[170px]" />
-            <Select value={type} onChange={(e) => { setType(e.target.value); setPage(1) }} className="h-[34px] w-auto min-w-[118px] py-0 text-xs">
-              {CONTENT_TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {t === 'All' ? 'All Content Types' : t}
-                </option>
-              ))}
-            </Select>
-            <Select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1) }} className="h-[34px] w-auto min-w-[110px] py-0 text-xs">
-              {STATUS_FILTERS.map((s) => (
-                <option key={s} value={s}>
-                  {s === 'All' ? 'All Statuses' : s}
-                </option>
-              ))}
-            </Select>
-            <button
-              onClick={resetFilters}
-              aria-label="Reset filters"
-              className="inline-flex h-[34px] w-[34px] items-center justify-center rounded-lg border border-line-strong bg-white text-ink-600 transition-colors hover:bg-[#F7FAFE]"
-            >
-              <SlidersHorizontal className="h-3.5 w-3.5" />
-            </button>
-          </div>
-
-          <DataTable
-            columns={columns}
-            rows={paged}
-            loading={loading}
-            getKey={(r) => r.id}
-            onRowClick={(r) => setOpenId(r.id)}
-            selectedIds={selectedIds}
-            onToggleRow={(rid) => setSelectedIds((prev) => (prev.includes(rid) ? prev.filter((x) => x !== rid) : [...prev, rid]))}
-            onToggleAll={(next) => setSelectedIds(next ? paged.map((r) => r.id) : [])}
-            empty={
-              <EmptyState
-                icon={<ListChecks className="h-5 w-5" />}
-                title={queue.length === 0 ? 'The queue is clear' : 'No items match these filters'}
-                description={
-                  queue.length === 0
-                    ? 'Every submitted version has a recorded decision. New submissions will land here.'
-                    : 'Reset the filters to see the full queue.'
-                }
-                action={
-                  queue.length > 0 ? (
-                    <Button size="sm" variant="outline" onClick={resetFilters}>
-                      Reset filters
-                    </Button>
-                  ) : undefined
-                }
-              />
-            }
-          />
-
-          {filtered.length > 0 && (
-            <div className="border-t border-line">
-              <Pagination page={page} pageSize={PAGE_SIZE} total={filtered.length} onPage={setPage} label="items" />
-            </div>
-          )}
-        </Card>
-
-        {/* Rail */}
-        <div className="space-y-4">
-          <Card className="p-4">
-            <h2 className="mb-2.5 flex items-center gap-1.5 text-md font-semibold text-ink">
-              <Filter className="h-3.5 w-3.5 text-brand-500" />
-              Filter & Sort
-            </h2>
-
-            <Field label="Sort by" htmlFor="sort">
-              <Select id="sort" value={sort} onChange={(e) => setSort(e.target.value)} className="text-xs">
-                <option value="newest">Newest First</option>
-                <option value="oldest">Oldest First</option>
-                <option value="priority">Priority</option>
-                <option value="issues">Most issues</option>
-              </Select>
-            </Field>
-
-            <ChipGroup label="Content Type" options={[...CONTENT_TYPES]} value={type} onChange={(v) => { setType(v); setPage(1) }} />
-            <ChipGroup label="Status" options={['All', 'Pending', 'In Review', 'Ready for Approval', 'Changes Requested']} value={status} onChange={(v) => { setStatus(v); setPage(1) }} />
-            <ChipGroup label="Priority" options={[...PRIORITIES]} value={priority} onChange={(v) => { setPriority(v); setPage(1) }} />
-
-            <button
-              onClick={resetFilters}
-              className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-brand-600 transition-colors hover:text-brand-700"
-            >
-              <RotateCcw className="h-3 w-3" />
-              Reset Filters
-            </button>
-          </Card>
-
-          <Card className="p-4">
-            <h2 className="mb-2.5 text-md font-semibold text-ink">Quick Stats</h2>
-            <ul className="space-y-2">
-              {[
-                { label: 'High Priority', value: priorityOf(queue, 'High'), tone: 'bg-danger-50 text-danger-600', icon: AlertTriangle },
-                { label: 'Pending Review', value: queue.length, tone: 'bg-warn-50 text-warn-600', icon: Clock3 },
-                { label: 'Ready for Approval', value: queue.filter((s) => s.issueCount === 0).length, tone: 'bg-success-50 text-success-600', icon: CheckCircle2 },
-                { label: 'With Exceptions', value: submissionsWithExceptions(submissions, exceptions), tone: 'bg-grape-50 text-grape-600', icon: ShieldAlert },
-              ].map((s) => (
-                <li key={s.label} className="flex items-center gap-2">
-                  <span className={cn('flex h-6 w-6 items-center justify-center rounded-md', s.tone)}>
-                    <s.icon className="h-3 w-3" />
-                  </span>
-                  <span className="min-w-0 flex-1 text-xs text-ink-600">{s.label}</span>
-                  <span className="text-sm font-semibold text-ink">{s.value}</span>
-                </li>
-              ))}
-            </ul>
-          </Card>
-
-          <Card className="p-4">
-            <h2 className="mb-2.5 flex items-center gap-1.5 text-md font-semibold text-ink">
-              <Sparkles className="h-3.5 w-3.5 text-brand-500" />
-              Actions
-            </h2>
-            <div className="space-y-1.5">
-              <Button
-                block
-                size="sm"
-                icon={<CheckCircle2 className="h-3 w-3" />}
-                disabled={selectedIds.length === 0}
-                onClick={() => setBulkOpen(true)}
-              >
-                Approve Selected {selectedIds.length > 0 && `(${selectedIds.length})`}
-              </Button>
-              <Button
-                block
-                size="sm"
-                variant="outline"
-                icon={<ShieldAlert className="h-3 w-3" />}
-                onClick={() => navigate('/manager/exceptions')}
-              >
-                Request Exception
-              </Button>
-            </div>
-            <p className="mt-2 text-[9.5px] leading-[13px] text-muted-light">
-              Bulk approval records a separate decision for each selected version.
-            </p>
-          </Card>
+      <Card className="mt-4 min-w-0">
+        <div className="flex flex-wrap items-center gap-2 border-b border-line p-3">
+          <SearchInput value={query} onChange={(v) => { setQuery(v); setPage(1) }} placeholder="Search by title, creator, or content ID…" className="min-w-[170px] flex-1" />
+          <Select aria-label="Filter by content type" value={type} onChange={(e) => { setType(e.target.value); setPage(1) }} className="h-[34px] w-auto min-w-[118px] py-0 text-xs">
+            {CONTENT_TYPES.map((t) => (
+              <option key={t} value={t}>
+                {t === 'All' ? 'All Content Types' : t}
+              </option>
+            ))}
+          </Select>
+          <Select aria-label="Filter by status" value={status} onChange={(e) => { setStatus(e.target.value); setPage(1) }} className="h-[34px] w-auto min-w-[110px] py-0 text-xs">
+            {STATUS_FILTERS.map((s) => (
+              <option key={s} value={s}>
+                {s === 'All' ? 'All Statuses' : s}
+              </option>
+            ))}
+          </Select>
+          <Select aria-label="Filter by priority" value={priority} onChange={(e) => { setPriority(e.target.value); setPage(1) }} className="h-[34px] w-auto min-w-[104px] py-0 text-xs">
+            {PRIORITIES.map((p) => (
+              <option key={p} value={p}>
+                {p === 'All' ? 'All Priorities' : `${p} Priority`}
+              </option>
+            ))}
+          </Select>
+          <Select aria-label="Sort by" value={sort} onChange={(e) => setSort(e.target.value)} className="h-[34px] w-auto min-w-[112px] py-0 text-xs">
+            <option value="newest">Newest First</option>
+            <option value="oldest">Oldest First</option>
+            <option value="priority">Priority</option>
+            <option value="issues">Most issues</option>
+          </Select>
+          <button
+            onClick={resetFilters}
+            aria-label="Reset filters"
+            title="Reset filters"
+            className="inline-flex h-[34px] w-[34px] items-center justify-center rounded-lg border border-line-strong bg-white text-ink-600 transition-colors hover:bg-[#F7FAFE]"
+          >
+            <SlidersHorizontal className="h-3.5 w-3.5" />
+          </button>
         </div>
-      </div>
+
+        {selectedIds.length > 0 && (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-line bg-brand-50/70 px-3 py-2">
+            <span className="text-xs font-semibold text-brand-700">{selectedIds.length} selected</span>
+            <Button size="sm" icon={<CheckCircle2 className="h-3 w-3" />} onClick={() => setBulkOpen(true)}>
+              Approve selected
+            </Button>
+            <button
+              onClick={() => setSelectedIds([])}
+              className="text-xs font-medium text-ink-500 transition-colors hover:text-ink-700"
+            >
+              Clear
+            </button>
+            <span className="ml-auto text-2xs text-muted">Each version is recorded as its own decision.</span>
+          </div>
+        )}
+
+        <DataTable
+          columns={columns}
+          rows={paged}
+          loading={loading}
+          getKey={(r) => r.id}
+          onRowClick={(r) => setOpenId(r.id)}
+          selectedIds={selectedIds}
+          onToggleRow={(rid) => setSelectedIds((prev) => (prev.includes(rid) ? prev.filter((x) => x !== rid) : [...prev, rid]))}
+          onToggleAll={(next) => setSelectedIds(next ? paged.map((r) => r.id) : [])}
+          empty={
+            <EmptyState
+              icon={<ListChecks className="h-5 w-5" />}
+              title={reviewRows.length === 0 ? 'The queue is clear' : 'No items match these filters'}
+              description={
+                reviewRows.length === 0
+                  ? 'Every submitted version has a recorded decision. New submissions will land here.'
+                  : 'Reset the filters to see the full queue.'
+              }
+              action={
+                reviewRows.length > 0 ? (
+                  <Button size="sm" variant="outline" onClick={resetFilters}>
+                    Reset filters
+                  </Button>
+                ) : undefined
+              }
+            />
+          }
+        />
+
+        {filtered.length > 0 && (
+          <div className="border-t border-line">
+            <Pagination page={page} pageSize={PAGE_SIZE} total={filtered.length} onPage={setPage} label="items" />
+          </div>
+        )}
+      </Card>
 
       {/* Review modal */}
       <Modal
@@ -391,26 +467,66 @@ export default function ReviewQueue() {
           navigate('/manager/queue')
         }}
         title={active ? `Review · ${active.title}` : ''}
-        description={active ? `Deciding on version ${active.version} · ${active.type} · ${active.channel}` : undefined}
+        description={
+          active
+            ? active.status === 'Approved'
+              ? `Approved · version ${active.version} · ${active.channel}`
+              : `Deciding on version ${active.version} · ${active.type} · ${active.channel}`
+            : undefined
+        }
         width="max-w-3xl"
         footer={
           active ? (
-            <div className="flex w-full flex-wrap items-center justify-between gap-2">
-              <span className="text-2xs text-muted">
-                Decision is saved against <span className="font-semibold text-ink">version {active.version}</span> only.
-              </span>
-              <div className="flex gap-2">
-                <Button size="sm" variant="outline" onClick={() => decide('Declined')} disabled={busy} icon={<XCircle className="h-3 w-3" />}>
-                  Decline
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => decide('Changes Requested')} disabled={busy} icon={<SquarePen className="h-3 w-3" />}>
-                  Request Changes
-                </Button>
-                <Button size="sm" onClick={() => decide('Approved')} disabled={busy} icon={<CheckCircle2 className="h-3 w-3" />}>
-                  Approve v{active.version}
-                </Button>
+            active.status === 'Approved' ? (
+              <div className="flex w-full flex-wrap items-center justify-between gap-2">
+                <span className="text-2xs text-muted">
+                  {activePublication
+                    ? `Published to ${activePublication.channel}${activePublication.publishedAt ? ` on ${fmtDate(activePublication.publishedAt)}` : ''}.`
+                    : 'Only approved content can be published. This version is approved.'}
+                </span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      setOpenId(null)
+                      navigate('/manager/queue')
+                    }}
+                  >
+                    Close
+                  </Button>
+                  {activePublication ? (
+                    <Badge tone="success">Published · {activePublication.channel}</Badge>
+                  ) : (
+                    <Button
+                      size="sm"
+                      loading={publishingId === active.id}
+                      icon={<Send className="h-3 w-3" />}
+                      onClick={() => void markPublished(active)}
+                    >
+                      Mark as published
+                    </Button>
+                  )}
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="flex w-full flex-wrap items-center justify-between gap-2">
+                <span className="text-2xs text-muted">
+                  Decision is saved against <span className="font-semibold text-ink">version {active.version}</span> only.
+                </span>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" onClick={() => decide('Declined')} disabled={busy} icon={<XCircle className="h-3 w-3" />}>
+                    Decline
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => decide('Changes Requested')} disabled={busy} icon={<SquarePen className="h-3 w-3" />}>
+                    Request Changes
+                  </Button>
+                  <Button size="sm" onClick={() => decide('Approved')} disabled={busy} icon={<CheckCircle2 className="h-3 w-3" />}>
+                    Approve v{active.version}
+                  </Button>
+                </div>
+              </div>
+            )
           ) : null
         }
       >
@@ -440,6 +556,16 @@ export default function ReviewQueue() {
                   )}
                 </div>
               )}
+
+              {posterState === 'ready' && posterUrl && (
+                <div>
+                  <p className="mb-1.5 text-2xs font-semibold uppercase tracking-[0.06em] text-muted">
+                    Poster regions ({posterBoxes.length})
+                  </p>
+                  <PosterCanvas imageUrl={posterUrl} boxes={posterBoxes} />
+                </div>
+              )}
+              {posterState === 'loading' && <Skeleton className="h-40 w-full rounded-lg" />}
 
               <div className="rounded-lg border border-line bg-[#FAF7EF] p-2.5">
                 <p className="mb-1 text-2xs font-semibold uppercase tracking-[0.06em] text-muted">Submitted copy</p>
@@ -527,12 +653,10 @@ export default function ReviewQueue() {
                 </dl>
               </div>
 
-              <div className="rounded-lg border border-brand-100 bg-brand-50/50 p-2.5">
-                <p className="text-[9.5px] leading-[13px] text-brand-700/80">
-                  Approving records your identity, the timestamp and version {active.version}. If the creator edits the
-                  content, a new version must be approved separately.
-                </p>
-              </div>
+              <p className="flex items-start gap-1.5 px-0.5 text-[11.5px] leading-[15px] text-muted">
+                <ShieldCheck className="mt-[1px] h-3 w-3 shrink-0 text-brand-500" />
+                Approval is recorded against v{active.version}. Edits create a new version needing its own approval.
+              </p>
             </div>
           </div>
         )}
@@ -557,7 +681,7 @@ export default function ReviewQueue() {
       >
         <ul className="max-h-56 space-y-1.5 overflow-y-auto">
           {submissions
-            .filter((s) => selectedIds.includes(s.id))
+            .filter((s) => selectedIds.includes(s.id) && s.status !== 'Approved')
             .map((s) => (
               <li key={s.id} className="flex items-center gap-2 rounded-lg border border-line px-2.5 py-1.5">
                 <Thumb spec={s.thumb} size={24} />
@@ -592,34 +716,3 @@ function Row({ label, value }: { label: string; value: string }) {
   )
 }
 
-function ChipGroup({
-  label,
-  options,
-  value,
-  onChange,
-}: {
-  label: string
-  options: string[]
-  value: string
-  onChange: (v: string) => void
-}) {
-  return (
-    <div className="mt-3">
-      <p className="mb-1.5 text-2xs font-semibold uppercase tracking-[0.06em] text-muted">{label}</p>
-      <div className="flex flex-wrap gap-1.5">
-        {options.map((o) => (
-          <button
-            key={o}
-            onClick={() => onChange(o)}
-            className={cn(
-              'rounded-md px-2 py-1 text-2xs font-medium transition-colors',
-              value === o ? 'bg-brand-500 text-white shadow-[0_1px_2px_rgba(15,33,56,.12)]' : 'bg-[#F3F7FD] text-ink-600 hover:bg-[#E9F1FC]',
-            )}
-          >
-            {o}
-          </button>
-        ))}
-      </div>
-    </div>
-  )
-}

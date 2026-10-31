@@ -214,6 +214,45 @@ def main() -> None:
                  source_doc_id=doc_colour.id, source_version="v1.0",
                  source_passage="Section 1.3 — Formats. Feed assets are produced at 4:5 or 1:1.",
                  source_page=4, overrides_this_quarter=0),
+            # --- A1 VisualGuard rules (measured by the poster pipeline) ---
+            dict(code="LOGO-001", title="Official logo must be present",
+                 summary="The approved wordmark must be detected on the asset. A low-confidence "
+                         "match goes to human review rather than being called a violation.",
+                 subject="Logo usage", condition='logo.match.confidence < approvedThreshold',
+                 action="Request changes — place the approved logo, or send for human review",
+                 scope="All brands · All channels", priority="High",
+                 source_doc_id=doc_colour.id, source_version="v1.0",
+                 source_passage="Section 2.2 — Logo integrity. Only the approved wordmark may appear. "
+                                "Do not redraw, recolour or substitute the mark.",
+                 source_page=17, overrides_this_quarter=2),
+            dict(code="COLOR-001", title="Background within approved palette",
+                 summary="The measured background must sit inside the approved palette tolerance.",
+                 subject="Brand colour", condition='background.distance > paletteTolerance',
+                 action="Request changes — use an approved background",
+                 scope="All brands · All channels", priority="Medium",
+                 source_doc_id=doc_colour.id, source_version="v1.0",
+                 source_passage="Section 1.2 — Brand Colours. Primary green (#7AB93B) and neutral "
+                                "sand (#F4EFE3) are the approved campaign backgrounds.",
+                 source_page=12, overrides_this_quarter=4),
+            dict(code="CONTRAST-001", title="Text meets WCAG AA contrast",
+                 summary="Measured text contrast must meet 4.5:1 (3:1 for large text). This is an "
+                         "automated check, not an accessibility certification.",
+                 subject="Readability", condition='text.contrast < wcag.minimum',
+                 action="Request changes — raise the contrast",
+                 scope="All brands · All channels", priority="Medium",
+                 source_doc_id=doc_colour.id, source_version="v1.0",
+                 source_passage="Section 3.1 — Legibility. Text must remain legible on the campaign "
+                                "background at the smallest published size.",
+                 source_page=20, overrides_this_quarter=1),
+            dict(code="FORMAT-001", title="Approved channel format",
+                 summary="The aspect ratio must be one of the approved channel formats.",
+                 subject="Layout", condition='asset.aspectRatio NOT IN approvedFormats',
+                 action="Request changes — re-export at an approved ratio",
+                 scope="All brands · All channels", priority="Low",
+                 source_doc_id=doc_colour.id, source_version="v1.0",
+                 source_passage="Section 1.3 — Formats. Assets are exported at 1:1, 4:5, 9:16, "
+                                "16:9, 3:2 or 2:3 depending on channel.",
+                 source_page=4, overrides_this_quarter=0),
             # --- needs_confirmation ---
             dict(code="BR-08", title="Seasonal accent palette (proposed)",
                  summary="Adds a seasonal 'Teal' accent for festival campaigns.",
@@ -273,25 +312,32 @@ def main() -> None:
         )
         os.makedirs(settings.uploads_dir, exist_ok=True)
         demo_assets_spec = [
-            ("summer", "Summer Vibes", "PureGlow", "approved", "Seasonal campaign key visual."),
-            ("festival", "Festival Special", "PureGlow", "approved", "Festival campaign banner."),
-            ("ingredients", "Better Together", "PureGlow", "approved", "Ingredient story visual."),
-            ("sensitive", "Sensitive Skin", "PureGlow", "approved", "Product hero for sensitive skin."),
-            ("awareness", "Brand Awareness", "PureGlow", "approved", "Brand awareness creative."),
-            ("holiday", "Holiday Gift Set", "PureGlow", "approved", "Festive gift set visual."),
-            ("wellness", "Wellness Life", "WellnessLife", "approved", "WellnessLife lifestyle visual."),
-            ("partner", "Partner Co-brand", "WellnessLife", "pending", "Influencer co-brand visual."),
+            ("summer", "Summer Vibes", "PureGlow", "approved", "Seasonal campaign key visual.", "Product Image", "jpg"),
+            ("festival", "Festival Special", "PureGlow", "approved", "Festival campaign banner.", "Product Image", "jpg"),
+            ("ingredients", "Better Together", "PureGlow", "approved", "Ingredient story visual.", "Product Image", "jpg"),
+            ("sensitive", "Sensitive Skin", "PureGlow", "approved", "Product hero for sensitive skin.", "Product Image", "jpg"),
+            ("awareness", "Brand Awareness", "PureGlow", "approved", "Brand awareness creative.", "Product Image", "jpg"),
+            ("holiday", "Holiday Gift Set", "PureGlow", "approved", "Festive gift set visual.", "Product Image", "jpg"),
+            ("wellness", "Wellness Life", "WellnessLife", "approved", "WellnessLife lifestyle visual.", "Product Image", "jpg"),
+            ("partner", "Partner Co-brand", "WellnessLife", "pending", "Influencer co-brand visual.", "Product Image", "jpg"),
+            # A1 VisualGuard demo assets. The wordmark is the template the poster
+            # analyser matches against; the poster is a deliberately imperfect
+            # creative that exercises the measured rules end to end.
+            ("logo_pureglow", "PureGlow Wordmark", "PureGlow", "approved",
+             "Approved wordmark used by VisualGuard logo matching.", "Brand logo", "png"),
+            ("poster_audit", "Sensitive Skin Launch Poster", "PureGlow", "approved",
+             "Poster creative used for the VisualGuard walkthrough.", "Product Image", "jpg"),
         ]
         demo_assets = {}
-        for key, name, abrand, astatus, anotes in demo_assets_spec:
-            src = os.path.join(public_assets, f"{key}.jpg")
+        for key, name, abrand, astatus, anotes, acategory, aext in demo_assets_spec:
+            src = os.path.join(public_assets, f"{key}.{aext}")
             if not os.path.exists(src):
                 continue
-            dst = os.path.join(settings.uploads_dir, f"demo_{key}.jpg")
+            dst = os.path.join(settings.uploads_dir, f"demo_{key}.{aext}")
             shutil.copyfile(src, dst)
             asset = models.BrandAsset(
                 id=new_id("asset"), workspace="PureGlow", name=name, brand=abrand,
-                category="Product Image", file_path=dst, source="upload",
+                category=acategory, file_path=dst, source="upload",
                 status=astatus, notes=anotes, uploaded_by_id=david.id,
             )
             db.add(asset)
@@ -391,6 +437,14 @@ def main() -> None:
              {"typeface": "Comic Sans"},
              "The autumn ritual: three steps, five minutes, every evening.",
              [], None),
+            # A1 VisualGuard demo: the facts for this one come from the poster
+            # pipeline (measured), not from the manual dict above.
+            (14, "Sensitive Skin Launch Poster", "Poster for the sensitive skin range.",
+             "Image", "Social Media", "PureGlow", "Pending",
+             ("art", "lime", "leaf"),
+             {},
+             "New poster for the sensitive skin range.",
+             [], None),
         ]
 
         active_rules = db.query(models.Rule).filter_by(status="active").all()
@@ -398,6 +452,7 @@ def main() -> None:
         demo_asset_for = {
             0: "summer", 1: "ingredients", 2: "wellness", 3: "partner",
             4: "sensitive", 5: "awareness", 6: "festival", 11: "holiday",
+            14: "poster_audit",
         }
         created_subs = []
         for (idx, title, excerpt, stype, channel, brand, status,
@@ -448,7 +503,9 @@ def main() -> None:
                     source_version=f.source_version, source_page=f.source_page,
                     source_passage=f.source_passage,
                     evidence_verified=f.evidence_verified,
-                    suggested_fix=f.suggested_fix, status="open",
+                    suggested_fix=f.suggested_fix,
+                    outcome=getattr(f, "outcome", "violation"),
+                    status="open",
                 ))
 
             sub.issue_count = len(findings)
@@ -470,6 +527,36 @@ def main() -> None:
                 ))
             created_subs.append(sub)
         db.commit()
+
+        # ------------------------------------------------------------------
+        # A1 VisualGuard: run the real poster analysis once, so the demo opens
+        # with measured facts instead of a pending spinner. If the imaging
+        # stack or Tesseract is unavailable this is skipped and the poster
+        # simply shows as pending — the app stays usable either way.
+        # ------------------------------------------------------------------
+        try:
+            from app.services.visual import pipeline as visual_pipeline
+
+            poster_asset = demo_assets.get("poster_audit")
+            poster_sub = next(
+                (s for s in created_subs if poster_asset and s.asset_id == poster_asset.id),
+                None,
+            )
+            if poster_asset is not None and poster_sub is not None:
+                analysis = visual_pipeline.create_analysis(
+                    db,
+                    file_path=poster_asset.file_path,
+                    workspace=poster_sub.workspace or "PureGlow",
+                    user_id=emily.id,
+                    asset_id=poster_asset.id,
+                    submission_id=poster_sub.id,
+                )
+                visual_pipeline.analyze_asset(db, analysis.id)
+                db.commit()
+                print(f"  A1 VisualGuard: analysis {analysis.status} for '{poster_sub.title}'")
+        except Exception as exc:  # never let a demo extra break the seed
+            db.rollback()
+            print(f"  A1 VisualGuard: skipped ({type(exc).__name__}: {exc})")
 
         # ------------------------------------------------------------------
         # Exceptions (~4: one Expired, one Approved, two Pending)
@@ -632,6 +719,68 @@ def main() -> None:
                 action=action, entity_title=title, entity_meta="", brand=brand,
                 user_id=uid, details="", status="Recorded", entity_kind=kind,
                 entity_id=eid or "", version=None, thumb=thumb,
+            ))
+        db.commit()
+
+        # ------------------------------------------------------------------
+        # A3 Sentinel demo scenario (fictional, deterministic)
+        # ------------------------------------------------------------------
+        # Scenario 6 from the Round 3 brief: an approved item that a later rule
+        # change affects. The publication record proves the version shipped; the
+        # task + notifications show what Sentinel raises. Real triggers create
+        # exactly the same rows through services/sentinel.py.
+        published_sub = created_subs[4]
+        published_version = (
+            db.query(models.ContentVersion)
+            .filter(models.ContentVersion.submission_id == published_sub.id)
+            .order_by(models.ContentVersion.version.desc())
+            .first()
+        )
+        db.add(models.Publication(
+            id=new_id("pub"),
+            workspace=published_sub.brand,
+            submission_id=published_sub.id,
+            submission_version_id=published_version.id if published_version else None,
+            channel="Instagram",
+            published_at=now() - timedelta(days=2),
+            published_by=david.id,
+            status="published",
+        ))
+        task = models.ReassessmentTask(
+            id=new_id("rt"),
+            workspace=published_sub.brand,
+            submission_id=published_sub.id,
+            submission_version_id=published_version.id if published_version else None,
+            trigger_type="rule_edited",
+            trigger_ref=rule_objs[1].id,
+            reason=(
+                f"{rule_objs[1].code} was tightened after this version was approved: "
+                "the prohibited-term list now covers wording used in the published copy."
+            ),
+            affected_rule_codes=[rule_objs[1].code],
+            assignee_id=emily.id,
+            status="open",
+            due_at=now() + timedelta(days=settings.sentinel_sla_days),
+            created_at=now() - timedelta(hours=6),
+        )
+        db.add(task)
+        for uid, title in (
+            (emily.id, f"Re-check needed: {published_sub.title}"),
+            (david.id, f"Sentinel raised a reassessment task for {published_sub.title}"),
+        ):
+            db.add(models.Notification(
+                id=new_id("nt"),
+                workspace=published_sub.brand,
+                user_id=uid,
+                type="sentinel_task",
+                title=title,
+                payload={
+                    "taskId": task.id,
+                    "submissionId": published_sub.id,
+                    "triggerType": "rule_edited",
+                    "ruleCode": rule_objs[1].code,
+                },
+                created_at=now() - timedelta(hours=6),
             ))
         db.commit()
 

@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from .. import ai, models
 from ..config import settings
 from ..db import get_db
-from ..deps import get_current_user, require_manager
+from ..deps import get_current_user, require_manager, require_workspace
 from ..ids import new_id
 from ..services import documents
 from ..services.audit import record
@@ -146,8 +146,7 @@ def update_guideline_status(
     if not new_status:
         raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail="status required")
     doc = db.get(models.GuidelineDoc, guideline_id)
-    if not doc:
-        raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail="Guideline not found")
+    require_workspace(doc, current_user, shared=True, detail="Guideline not found")
     doc.status = new_status
     record(
         db,
@@ -171,11 +170,14 @@ def get_guideline_file(
     current_user: models.User = Depends(get_current_user),
 ):
     doc = db.get(models.GuidelineDoc, guideline_id)
-    if not doc or not doc.file_path:
+    require_workspace(doc, current_user, shared=True, detail="File not found")
+    if not doc.file_path or not os.path.exists(doc.file_path):
         raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail="File not found")
-    if not os.path.exists(doc.file_path):
-        raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail="File not found")
-    return FileResponse(doc.file_path)
+    return FileResponse(
+        doc.file_path,
+        media_type="application/octet-stream",
+        filename=os.path.basename(doc.file_path),
+    )
 
 
 @router.get("/{guideline_id}/passages")
@@ -184,6 +186,8 @@ def get_guideline_passages(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    doc = db.get(models.GuidelineDoc, guideline_id)
+    require_workspace(doc, current_user, shared=True, detail="Guideline not found")
     passages = (
         db.query(models.GuidelinePassage)
         .filter(models.GuidelinePassage.doc_id == guideline_id)

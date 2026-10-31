@@ -52,7 +52,14 @@ export function Field({
 
 export const Input = forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement> & { invalid?: boolean }>(
   function Input({ className, invalid, ...props }, ref) {
-    return <input ref={ref} className={cn('field', invalid && 'field-error', className)} {...props} />
+    return (
+      <input
+        ref={ref}
+        aria-invalid={invalid || undefined}
+        className={cn('field', invalid && 'field-error', className)}
+        {...props}
+      />
+    )
   },
 )
 
@@ -60,7 +67,14 @@ export const Textarea = forwardRef<
   HTMLTextAreaElement,
   React.TextareaHTMLAttributes<HTMLTextAreaElement> & { invalid?: boolean }
 >(function Textarea({ className, invalid, ...props }, ref) {
-  return <textarea ref={ref} className={cn('field resize-none leading-[21px]', invalid && 'field-error', className)} {...props} />
+  return (
+    <textarea
+      ref={ref}
+      aria-invalid={invalid || undefined}
+      className={cn('field resize-none leading-[21px]', invalid && 'field-error', className)}
+      {...props}
+    />
+  )
 })
 
 export function Select({
@@ -72,6 +86,7 @@ export function Select({
   return (
     <div className="relative">
       <select
+        aria-invalid={invalid || undefined}
         className={cn('field appearance-none pr-8', invalid && 'field-error', className)}
         {...props}
       >

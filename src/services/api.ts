@@ -12,16 +12,26 @@
  */
 
 import type {
+  AiFinding,
+  AiTrustSummary,
+  AppNotification,
   ApprovedClaim,
+  AssetAnalysis,
   AuditEvent,
   Brand,
   BrandAsset,
   ContentType,
+  EvidenceCapabilities,
   ExceptionRequest,
   GuidelineDoc,
+  MonitoredPublication,
+  Publication,
+  ReassessmentTask,
+  RetrievedPassage,
   Rule,
   Simulation,
   Submission,
+  SystemHealth,
   User,
 } from '@/lib/types'
 
@@ -236,7 +246,29 @@ export const api = {
   getExceptionHistory: (id: string) => request<any[]>(`/exceptions/${id}/history`),
   simulations: () => request<Simulation[]>('/simulations'),
   audit: () => request<AuditEvent[]>('/audit'),
-  exportAuditUrl: (format: 'csv' | 'json' = 'csv') => `${API_BASE}/audit/export?format=${format}`,
+  /**
+   * Download the audit export.
+   *
+   * A plain `window.open` cannot attach the bearer token, so the endpoint
+   * would answer 401 and the UI would claim success anyway. Fetch it with the
+   * same auth path as every other call, then hand the browser a blob.
+   */
+  downloadAudit: async (format: 'csv' | 'json' = 'csv'): Promise<void> => {
+    const headers = new Headers()
+    if (session?.token) headers.set('Authorization', `Bearer ${session.token}`)
+    const res = await fetch(`${API_BASE}/audit/export?format=${format}`, { headers })
+    if (!res.ok) throw new ApiError(`Export failed (${res.status})`, res.status)
+
+    const blob = await res.blob()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `precedent-audit.${format === 'csv' ? 'csv' : 'json'}`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+  },
   team: () => request<User[]>('/team'),
 
   /* ---------------------------------------------------------------- */
@@ -386,6 +418,141 @@ export const api = {
       return null
     }
   },
+
+  /* ---------------------------------------------------------------- */
+  /* A1 VisualGuard                                                    */
+  /* ---------------------------------------------------------------- */
+
+  /**
+   * Upload a poster. Returns immediately with status "pending"; the analyser
+   * runs in the background, so poll `analysis(id)` until it leaves pending.
+   */
+  uploadPoster: (
+    file: File,
+    opts: { submissionId?: string; title?: string; channel?: string; brand?: string } = {},
+  ) => {
+    const form = new FormData()
+    form.append('file', file)
+    if (opts.submissionId) form.append('submission_id', opts.submissionId)
+    form.append('title', opts.title ?? file.name)
+    form.append('channel', opts.channel ?? 'Social Media')
+    form.append('brand', opts.brand ?? 'PureGlow')
+    return request<{ analysisId: string; submissionId: string; status: string }>(
+      '/analysis/upload',
+      { method: 'POST', body: form },
+    )
+  },
+
+  analysis: (id: string) => request<AssetAnalysis>(`/analysis/${id}`),
+
+  analysisForSubmission: (submissionId: string) =>
+    request<AssetAnalysis>(`/analysis/submission/${submissionId}`),
+
+  rerunAnalysis: (id: string) =>
+    request<{ analysisId: string; status: string }>(`/analysis/${id}/rerun`, { method: 'POST' }),
+
+  /** Object URL for the stored poster (the endpoint is token-protected). */
+  fetchPosterBlobUrl: async (submissionId: string): Promise<string | null> => {
+    try {
+      const res = await fetch(`${API_BASE}/analysis/${submissionId}/file`, {
+        headers: authHeaders(),
+      })
+      if (!res.ok) return null
+      const blob = await res.blob()
+      return URL.createObjectURL(blob)
+    } catch {
+      return null
+    }
+  },
+
+  /* ---------------------------------------------------------------- */
+  /* A2 Evidence Intelligence                                          */
+  /* ---------------------------------------------------------------- */
+
+  evidenceCapabilities: () => request<EvidenceCapabilities>('/evidence/capabilities'),
+
+  aiFindings: (submissionId: string) =>
+    request<AiFinding[]>(`/evidence/findings/${submissionId}`),
+
+  runSemanticReview: (submissionId: string, versionId?: string) =>
+    request<{ submissionId: string; count: number; findings: AiFinding[]; llmConfigured: boolean }>(
+      `/evidence/review/${submissionId}`,
+      { method: 'POST', body: JSON.stringify({ versionId: versionId ?? null }) },
+    ),
+
+  searchEvidence: (q: string, topK?: number) =>
+    request<{ query: string; results: RetrievedPassage[]; method: string }>(
+      `/evidence/search?q=${encodeURIComponent(q)}${topK ? `&topK=${topK}` : ''}`,
+    ),
+
+  syncEmbeddings: () =>
+    request<{ model: string | null; indexed: number; skipped: number }>(
+      '/evidence/sync-embeddings',
+      { method: 'POST' },
+    ),
+
+  aiTrust: (days = 30) => request<AiTrustSummary>(`/evidence/trust?days=${days}`),
+
+  /** Capability report for the trust panel: database, OCR, embeddings, LLM, scheduler. */
+  health: () => request<SystemHealth>('/health'),
+
+  /* ---------------------------------------------------------------- */
+  /* A3 Sentinel                                                       */
+  /* ---------------------------------------------------------------- */
+
+  markPublished: (submissionId: string, channel?: string, versionId?: string) =>
+    request<Publication>('/sentinel/publications', {
+      method: 'POST',
+      body: JSON.stringify({ submissionId, channel, versionId }),
+    }),
+
+  withdrawPublication: (publicationId: string) =>
+    request<{ id: string; status: string }>(`/sentinel/publications/${publicationId}`, {
+      method: 'DELETE',
+    }),
+
+  sentinelPublications: (status?: string, limit = 50) =>
+    request<MonitoredPublication[]>(
+      `/sentinel/publications?limit=${limit}${status ? `&status=${encodeURIComponent(status)}` : ''}`,
+    ),
+
+  sentinelTasks: (status?: string, mine = false) =>
+    request<ReassessmentTask[]>(
+      `/sentinel/tasks?${status ? `status=${encodeURIComponent(status)}&` : ''}mine=${mine}`,
+    ),
+
+  resolveTask: (taskId: string, resolution: string, note = '') =>
+    request<ReassessmentTask>(`/sentinel/tasks/${taskId}/resolve`, {
+      method: 'POST',
+      body: JSON.stringify({ resolution, note }),
+    }),
+
+  scanExpiring: (days = 30) =>
+    request<{ notified: number; items: unknown[] }>(`/sentinel/scan?days=${days}`, {
+      method: 'POST',
+    }),
+
+  notifications: (unreadOnly = false) =>
+    request<AppNotification[]>(`/sentinel/notifications?unreadOnly=${unreadOnly}`),
+
+  unreadCount: () =>
+    request<{ count: number }>('/sentinel/notifications/unread-count'),
+
+  markNotificationRead: (id: string) =>
+    request<AppNotification>(`/sentinel/notifications/${id}/read`, { method: 'POST' }),
+
+  markAllNotificationsRead: () =>
+    request<{ marked: number }>('/sentinel/notifications/read-all', { method: 'POST' }),
+
+  /* Rule edits that trigger Sentinel (blueprint 7.2) */
+  editRule: (id: string, patch: Partial<RuleInput> & { status?: string }) =>
+    request<Rule>(`/rules/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }),
+
+  deactivateRule: (id: string) =>
+    request<Rule>(`/rules/${id}/deactivate`, { method: 'POST' }),
+
+  withdrawClaim: (id: string) =>
+    request<ApprovedClaim>(`/claims/${id}/withdraw`, { method: 'POST' }),
 }
 
 export type Api = typeof api

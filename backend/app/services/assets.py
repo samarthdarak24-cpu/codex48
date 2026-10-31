@@ -9,12 +9,14 @@ import httpx
 from .. import models
 from ..config import settings
 
-ALLOWED_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".svg", ".gif"}
+# SVG is deliberately excluded. An uploaded SVG can carry <script>, and the
+# file endpoint serves bytes verbatim on the same origin as the app, where the
+# session token lives in sessionStorage. Raster formats cannot execute.
+ALLOWED_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
 ALLOWED_MIME_TYPES = {
     "image/png",
     "image/jpeg",
     "image/webp",
-    "image/svg+xml",
     "image/gif",
 }
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useId, useRef } from 'react'
 import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { AvatarTone, ThumbSpec } from '@/lib/types'
@@ -279,7 +279,10 @@ export function Tabs({
   className?: string
 }) {
   return (
-    <div className={cn('flex items-center gap-5 border-b border-line', className)} role="tablist">
+    <div
+      className={cn('flex items-center gap-5 overflow-x-auto border-b border-line [scrollbar-width:none]', className)}
+      role="tablist"
+    >
       {items.map((t) => {
         const isActive = t.key === active
         return (
@@ -289,7 +292,7 @@ export function Tabs({
             aria-selected={isActive}
             onClick={() => onChange(t.key)}
             className={cn(
-              'relative -mb-px flex items-center gap-1.5 pb-2.5 pt-1 text-base transition-colors',
+              'relative -mb-px flex shrink-0 items-center gap-1.5 whitespace-nowrap pb-2.5 pt-1 text-base transition-colors',
               isActive ? 'font-semibold text-brand-600' : 'font-medium text-muted hover:text-ink',
             )}
           >
@@ -320,16 +323,6 @@ export function Skeleton({ className }: { className?: string }) {
   return <div className={cn('shimmer rounded-md bg-[#EFF4FB]', className)} />
 }
 
-export function StatRowSkeleton({ count = 4 }: { count?: number }) {
-  return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-      {Array.from({ length: count }).map((_, i) => (
-        <Skeleton key={i} className="h-[104px] rounded-xl" />
-      ))}
-    </div>
-  )
-}
-
 /* ------------------------------------------------------------------ */
 /* Modal                                                               */
 /* ------------------------------------------------------------------ */
@@ -352,12 +345,42 @@ export function Modal({
   width?: string
 }) {
   const ref = useRef<HTMLDivElement>(null)
+  const descId = useId()
 
   useEffect(() => {
     if (!open) return
+    // Remember what had focus so it can be restored on close — otherwise the
+    // user is dropped back to <body> and loses their place in the page.
+    const opener = document.activeElement as HTMLElement | null
+
+    const focusables = () =>
+      Array.from(
+        ref.current?.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ) ?? [],
+      ).filter((el) => el.offsetParent !== null)
+
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') {
+        onClose()
+        return
+      }
+      // Keep Tab inside the dialog: focus must not walk into the page behind.
+      if (e.key !== 'Tab') return
+      const items = focusables()
+      if (items.length === 0) return
+      const first = items[0]
+      const last = items[items.length - 1]
+      const active = document.activeElement as HTMLElement | null
+      if (e.shiftKey && (active === first || active === ref.current)) {
+        e.preventDefault()
+        last.focus()
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault()
+        first.focus()
+      }
     }
+
     document.addEventListener('keydown', onKey)
     const prev = document.body.style.overflow
     document.body.style.overflow = 'hidden'
@@ -365,26 +388,37 @@ export function Modal({
     return () => {
       document.removeEventListener('keydown', onKey)
       document.body.style.overflow = prev
+      opener?.focus?.()
     }
   }, [open, onClose])
 
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 sm:items-center" role="dialog" aria-modal="true" aria-label={title}>
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 sm:items-center"
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+      aria-describedby={description ? descId : undefined}
+    >
       <div className="fixed inset-0 bg-[#23282A]/35 backdrop-blur-[2px] animate-fade-in" onClick={onClose} />
       <div
         ref={ref}
         tabIndex={-1}
         className={cn(
-          'relative my-auto w-full animate-pop-in rounded-2xl border border-line bg-white shadow-pop outline-none',
+          'relative my-auto flex max-h-[92dvh] w-full animate-pop-in flex-col rounded-2xl border border-line bg-white shadow-pop outline-none',
           width,
         )}
       >
-        <div className="flex items-start justify-between gap-4 border-b border-line px-5 py-3.5">
+        <div className="flex shrink-0 items-start justify-between gap-4 border-b border-line px-5 py-3.5">
           <div>
             <h2 className="text-lg font-semibold tracking-[-0.01em] text-ink">{title}</h2>
-            {description && <p className="mt-0.5 text-xs text-muted">{description}</p>}
+            {description && (
+              <p id={descId} className="mt-0.5 text-xs text-muted">
+                {description}
+              </p>
+            )}
           </div>
           <button
             onClick={onClose}
@@ -394,8 +428,12 @@ export function Modal({
             <X className="h-3.5 w-3.5" />
           </button>
         </div>
-        <div className="px-5 py-4">{children}</div>
-        {footer && <div className="flex items-center justify-end gap-2 border-t border-line px-5 py-3">{footer}</div>}
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">{children}</div>
+        {footer && (
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-line px-5 py-3">
+            {footer}
+          </div>
+        )}
       </div>
     </div>
   )

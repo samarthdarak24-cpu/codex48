@@ -15,6 +15,7 @@ from sqlalchemy import (
     JSON,
     String,
     Text,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -151,6 +152,11 @@ class Finding(Base):
     source_passage: Mapped[str] = mapped_column(Text, default="")
     evidence_verified: Mapped[bool] = mapped_column(Boolean, default=False)
     suggested_fix: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    # Image-pixel box this finding refers to (A1). Null for text-only findings.
+    region: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    # 'violation' (condition met with known facts) | 'needs_review' (a required
+    # fact was missing). Drives the three result groups in the UI.
+    outcome: Mapped[str] = mapped_column(String, default="violation", server_default="violation")
     status: Mapped[str] = mapped_column(String, default="open")
 
 
@@ -354,4 +360,208 @@ class BrandAsset(Base):
     height: Mapped[int | None] = mapped_column(Integer, nullable=True)
     notes: Mapped[str] = mapped_column(Text, default="")
     uploaded_by_id: Mapped[str] = mapped_column(String, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+# ---------------------------------------------------------------------------
+# Round 3 / A1 — VisualGuard (blueprint 3.4)
+# ---------------------------------------------------------------------------
+
+class AssetAnalysis(Base):
+    """One analysis run over one uploaded poster.
+
+    Boxes are stored in *image pixel* coordinates. The frontend scales them to
+    whatever size the image is displayed at, so they survive resize/mobile.
+    Every field here is produced by a deterministic analyser; nothing is
+    guessed by a model.
+    """
+
+    __tablename__ = "asset_analysis"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    workspace: Mapped[str] = mapped_column(String, default="PureGlow", server_default="PureGlow", nullable=True, index=True)
+    asset_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    submission_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    file_path: Mapped[str | None] = mapped_column(String, nullable=True)
+
+    # pending | processing | complete | failed
+    status: Mapped[str] = mapped_column(String, default="pending", index=True)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    width: Mapped[int] = mapped_column(Integer, default=0)
+    height: Mapped[int] = mapped_column(Integer, default=0)
+
+    ocr_text: Mapped[str] = mapped_column(Text, default="")
+    # [{"text": str, "box": {"x","y","w","h"}, "confidence": float}]
+    text_blocks: Mapped[list] = mapped_column(JSON, default=list)
+    # [{"hex": "#7AB93B", "ratio": 0.42}]
+    dominant_colors: Mapped[list] = mapped_column(JSON, default=list)
+    # [{"logoId": str, "name": str, "box": {...}, "confidence": float, "method": str}]
+    logo_matches: Mapped[list] = mapped_column(JSON, default=list)
+    layout_metrics: Mapped[dict] = mapped_column(JSON, default=dict)
+    # [{"check","region","value","threshold","status"}]
+    contrast_findings: Mapped[list] = mapped_column(JSON, default=list)
+    analyzer_versions: Mapped[dict] = mapped_column(JSON, default=dict)
+
+    unreadable: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_by_id: Mapped[str] = mapped_column(String, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+# ---------------------------------------------------------------------------
+# Round 3 / A2 — Evidence Intelligence (blueprint 3.4, 5.1)
+# ---------------------------------------------------------------------------
+
+class PassageEmbedding(Base):
+    """Vector for one guideline passage.
+
+    Stored as JSON so SQLite works with zero setup; on PostgreSQL the same
+    column can be migrated to pgvector without changing the service layer.
+    """
+
+    __tablename__ = "passage_embeddings"
+    __table_args__ = (UniqueConstraint("passage_id", "model_name", name="uq_passage_model"),)
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    workspace: Mapped[str] = mapped_column(String, default="PureGlow", server_default="PureGlow", nullable=True, index=True)
+    passage_id: Mapped[str] = mapped_column(
+        ForeignKey("guideline_passages.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    model_name: Mapped[str] = mapped_column(String, default="")
+    dim: Mapped[int] = mapped_column(Integer, default=0)
+    vector: Mapped[list] = mapped_column(JSON, default=list)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class AiFinding(Base):
+    """An AI *suggestion* attached to a submission version.
+
+    Never a verdict: `source_type` is one of ai_suggestion / needs_human_review
+    / rejected. A rejected citation is kept (not hidden) so the trust panel can
+    report it.
+    """
+
+    __tablename__ = "ai_findings"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    workspace: Mapped[str] = mapped_column(String, default="PureGlow", server_default="PureGlow", nullable=True, index=True)
+    submission_id: Mapped[str] = mapped_column(String, default="", index=True)
+    submission_version_id: Mapped[str | None] = mapped_column(
+        ForeignKey("content_versions.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    rule_code: Mapped[str | None] = mapped_column(String, nullable=True)
+    rule_title: Mapped[str] = mapped_column(String, default="")
+    passage_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    source_type: Mapped[str] = mapped_column(String, default="ai_suggestion", index=True)
+    confidence: Mapped[float] = mapped_column(Float, default=0.0)
+    similarity: Mapped[float] = mapped_column(Float, default=0.0)
+    rationale: Mapped[str] = mapped_column(Text, default="")
+    minimal_edit: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    quote: Mapped[str] = mapped_column(Text, default="")
+    citation_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    rejected_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    model: Mapped[str] = mapped_column(String, default="")
+    prompt_version: Mapped[str] = mapped_column(String, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class AiCallLog(Base):
+    """Every LLM call, including failures. Feeds the AI Trust Panel."""
+
+    __tablename__ = "ai_call_log"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    workspace: Mapped[str] = mapped_column(String, default="PureGlow", server_default="PureGlow", nullable=True, index=True)
+    purpose: Mapped[str] = mapped_column(String, default="", index=True)
+    model: Mapped[str] = mapped_column(String, default="")
+    prompt_version: Mapped[str] = mapped_column(String, default="")
+    latency_ms: Mapped[int] = mapped_column(Integer, default=0)
+    tokens_in: Mapped[int] = mapped_column(Integer, default=0)
+    tokens_out: Mapped[int] = mapped_column(Integer, default=0)
+    # success | timeout | error | skipped
+    status: Mapped[str] = mapped_column(String, default="success", index=True)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    citations_verified: Mapped[int] = mapped_column(Integer, default=0)
+    citations_rejected: Mapped[int] = mapped_column(Integer, default=0)
+    redaction_count: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+# ---------------------------------------------------------------------------
+# Round 3 / A3 — Sentinel (blueprint 3.4, 7.2)
+# ---------------------------------------------------------------------------
+
+class Publication(Base):
+    """A content version the team has actually shipped.
+
+    Sentinel only re-checks published/approved versions — not drafts nobody
+    ever released.
+    """
+
+    __tablename__ = "publications"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    workspace: Mapped[str] = mapped_column(String, default="PureGlow", server_default="PureGlow", nullable=True, index=True)
+    submission_id: Mapped[str] = mapped_column(String, default="", index=True)
+    submission_version_id: Mapped[str | None] = mapped_column(
+        ForeignKey("content_versions.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    channel: Mapped[str] = mapped_column(String, default="")
+    published_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    published_by: Mapped[str] = mapped_column(String, default="")
+    # published | withdrawn
+    status: Mapped[str] = mapped_column(String, default="published", index=True)
+
+
+class ReassessmentTask(Base):
+    """One item of work created when a change makes old content non-compliant.
+
+    The unique constraint is the dedupe rule from blueprint 7.2: a given
+    (version, trigger type, trigger ref) can only create a task once.
+    """
+
+    __tablename__ = "reassessment_tasks"
+    __table_args__ = (
+        UniqueConstraint(
+            "submission_version_id", "trigger_type", "trigger_ref",
+            name="uq_task_version_trigger",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    workspace: Mapped[str] = mapped_column(String, default="PureGlow", server_default="PureGlow", nullable=True, index=True)
+    submission_id: Mapped[str] = mapped_column(String, default="", index=True)
+    submission_version_id: Mapped[str | None] = mapped_column(
+        ForeignKey("content_versions.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    # rule_activated | rule_edited | rule_deactivated | exception_expired
+    # | exception_revoked | claim_withdrawn
+    trigger_type: Mapped[str] = mapped_column(String, default="", index=True)
+    trigger_ref: Mapped[str] = mapped_column(String, default="")
+    reason: Mapped[str] = mapped_column(Text, default="")
+    affected_rule_codes: Mapped[list] = mapped_column(JSON, default=list)
+    assignee_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    # open | resolved | dismissed
+    status: Mapped[str] = mapped_column(String, default="open", index=True)
+    due_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # re_approve | request_changes | withdraw
+    resolution: Mapped[str | None] = mapped_column(String, nullable=True)
+    resolution_note: Mapped[str] = mapped_column(Text, default="")
+    resolved_by_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class Notification(Base):
+    __tablename__ = "notifications"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    workspace: Mapped[str] = mapped_column(String, default="PureGlow", server_default="PureGlow", nullable=True, index=True)
+    user_id: Mapped[str] = mapped_column(String, default="", index=True)
+    # sentinel_task | exception_expiring | decision | system
+    type: Mapped[str] = mapped_column(String, default="system")
+    title: Mapped[str] = mapped_column(String, default="")
+    payload: Mapped[dict] = mapped_column(JSON, default=dict)
+    read_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)

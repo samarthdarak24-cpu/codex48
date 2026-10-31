@@ -9,7 +9,6 @@ import {
   Clock3,
   FilePlus2,
   ShieldCheck,
-  Sparkles,
   SquarePen,
 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
@@ -137,7 +136,7 @@ export default function CreatorOverview() {
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_268px]">
         <div className="min-w-0 space-y-4">
           {/* Metrics */}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {loading ? (
               <>
                 <Skeleton className="h-[104px] rounded-xl" />
@@ -291,20 +290,6 @@ export default function CreatorOverview() {
               </Card>
 
               {/* Quick actions */}
-              <Card className="p-4">
-                <h2 className="mb-2.5 flex items-center gap-1.5 text-md font-semibold text-ink">
-                  <Sparkles className="h-3.5 w-3.5 text-brand-500" />
-                  Quick actions
-                </h2>
-                <div className="space-y-1.5">
-                  <Button block icon={<FilePlus2 className="h-3.5 w-3.5" />} onClick={() => navigate('/app/new')}>
-                    New Content
-                  </Button>
-                  <Button block variant="outline" icon={<ShieldCheck className="h-3.5 w-3.5" />} onClick={() => navigate('/app/feedback')}>
-                    Check Content
-                  </Button>
-                </div>
-              </Card>
             </div>
           </div>
         </div>
@@ -368,16 +353,10 @@ export default function CreatorOverview() {
             )}
           </RailCard>
 
-          <Card className="border-brand-100 bg-brand-50/60 p-4">
-            <p className="flex items-center gap-1.5 text-xs font-semibold text-brand-700">
-              <ArrowUpRight className="h-3.5 w-3.5" />
-              Tip
-            </p>
-            <p className="mt-1 text-xs leading-[17px] text-brand-700/80">
-              Every finding links to the exact guideline passage it came from. Open a submission to see the source
-              evidence before you edit.
-            </p>
-          </Card>
+          <p className="flex items-start gap-1.5 px-1 text-2xs leading-[15px] text-muted">
+            <ArrowUpRight className="mt-[1px] h-3 w-3 shrink-0" />
+            Every finding links to the exact guideline passage behind it.
+          </p>
         </div>
       </div>
     </>
