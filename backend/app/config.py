@@ -10,7 +10,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore", protected_namespaces=())
 
     app_name: str = "Precedent"
     database_url: str = "sqlite:///./precedent.db"
@@ -42,8 +42,12 @@ class Settings(BaseSettings):
     ai_confidence_threshold: float = 0.6
 
     # A1 VisualGuard.
-    ocr_langs: str = "eng"
+    ocr_langs: str = "eng+hin+mar"
+    ocr_engine: str = "tesseract"
+    ocr_fallback_engine: str = "rapidocr"
     tesseract_cmd: str = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+    tessdata_prefix: str = ""
+    model_cache_dir: str = "./backend/models"
     max_upload_mb: int = 10
     # Minimum confidence before a logo match is treated as a fact. Below this
     # the verdict is 'unknown' -> Needs review, never a violation.

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   AlertTriangle,
   ArrowLeft,
@@ -17,6 +17,9 @@ import {
   ScanSearch,
   Send,
   ShieldAlert,
+  ShieldCheck,
+  Fingerprint,
+  ExternalLink,
   Sparkles,
   SquarePen,
   XCircle,
@@ -224,7 +227,12 @@ function FeedbackDetail({ id }: { id: string }) {
   const navigate = useNavigate()
   const toast = useToast()
 
-  const [tab, setTab] = useState<'findings' | 'comments' | 'history'>('findings')
+  const [tab, setTab] = useState<'findings' | 'comments' | 'history' | 'crew'>('findings')
+  const [crewTrace, setCrewTrace] = useState<any>(null)
+  const [crewLoading, setCrewLoading] = useState(false)
+  const [crewError, setCrewError] = useState<string | null>(null)
+  const [passportData, setPassportData] = useState<any>(null)
+  const [passportLoading, setPassportLoading] = useState(false)
   const [comment, setComment] = useState('')
   const [editOpen, setEditOpen] = useState(false)
   const [excOpen, setExcOpen] = useState(false)
@@ -269,6 +277,44 @@ function FeedbackDetail({ id }: { id: string }) {
     setExpanded([])
     setActiveRegion(null)
   }, [id])
+
+  useEffect(() => {
+    if (!selected) return
+    api.fetchCrewTrace(selected.id).then((t) => setCrewTrace(t)).catch(() => setCrewTrace(null))
+    if (selected.status === 'Approved') {
+      api.getPassport(selected.id).then((p) => setPassportData(p)).catch(() => setPassportData(null))
+    }
+  }, [selected?.id, selected?.status])
+
+  const handleRunCrew = async () => {
+    if (!selected) return
+    setCrewLoading(true)
+    setCrewError(null)
+    try {
+      const trace = await api.triggerCrewReview(selected.id)
+      setCrewTrace(trace)
+      toast.success('Review Crew workflow completed with audit trace.')
+    } catch (e: any) {
+      setCrewError(e?.message || 'Review crew execution failed')
+      toast.error(e?.message || 'Failed to execute Review Crew')
+    } finally {
+      setCrewLoading(false)
+    }
+  }
+
+  const handleGeneratePassport = async () => {
+    if (!selected) return
+    setPassportLoading(true)
+    try {
+      const p = await api.generatePassport(selected.id)
+      setPassportData(p)
+      toast.success('ProofPass Approval Passport issued!')
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to issue passport')
+    } finally {
+      setPassportLoading(false)
+    }
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -692,6 +738,7 @@ function FeedbackDetail({ id }: { id: string }) {
                 { key: 'findings', label: 'Findings', count: violations.length + needsReviewCount },
                 { key: 'comments', label: 'Comments', count: selected.comments.length },
                 { key: 'history', label: 'History', count: selected.versions.length },
+                { key: 'crew', label: 'Review Crew (AI)', count: crewTrace ? crewTrace.steps.length : undefined },
               ]}
               active={tab}
               onChange={(k) => setTab(k as typeof tab)}
@@ -811,10 +858,61 @@ function FeedbackDetail({ id }: { id: string }) {
                 </Group>
 
                 {selected.status === 'Approved' && (
-                  <p className="flex items-center gap-1.5 text-xs text-success-700">
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                    v{selected.version} is approved. Editing creates a new version that needs a fresh decision.
-                  </p>
+                  <div className="space-y-3">
+                    <p className="flex items-center gap-1.5 text-xs text-success-700">
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      v{selected.version} is approved. Editing creates a new version that needs a fresh decision.
+                    </p>
+
+                    <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <ShieldCheck className="h-4 w-4 text-emerald-600" />
+                          <span className="text-xs font-semibold text-emerald-800">
+                            ProofPass™ Approval Passport
+                          </span>
+                          <Badge tone="success">ACTIVE</Badge>
+                        </div>
+                        <Link
+                          to={`/verify/${selected.id}`}
+                          target="_blank"
+                          className="text-xs font-medium text-emerald-700 hover:text-emerald-800 flex items-center gap-1 transition"
+                        >
+                          Public Verify <ExternalLink className="h-3 w-3" />
+                        </Link>
+                      </div>
+                      <p className="text-2xs text-emerald-700">
+                        v{selected.version} is cryptographically anchored. Exact binary matching and perceptual pHash verify this version against unauthorized post-approval modifications.
+                      </p>
+                      {passportData ? (
+                        <div className="rounded-lg bg-white/80 border border-emerald-200 p-2.5 space-y-1.5 text-2xs">
+                          <div className="flex items-center justify-between font-mono text-[10px] text-ink-700">
+                            <span>SHA-256 Digest:</span>
+                            <span className="truncate max-w-[200px]" title={passportData.sha256}>
+                              {passportData.sha256}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between text-muted text-[10px]">
+                            <span>Valid Through:</span>
+                            <span>{new Date(passportData.valid_until || passportData.expires_at).toLocaleDateString()}</span>
+                          </div>
+                        </div>
+                      ) : (
+                        user?.role === 'manager' && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={handleGeneratePassport}
+                            disabled={passportLoading}
+                            className="w-full text-2xs"
+                          >
+                            <Fingerprint className="h-3 w-3 mr-1" />
+                            {passportLoading ? 'Issuing Passport…' : 'Generate ProofPass Certificate'}
+                          </Button>
+                        )
+                      )}
+                    </div>
+                  </div>
                 )}
               </div>
             )}
@@ -903,6 +1001,101 @@ function FeedbackDetail({ id }: { id: string }) {
                         </li>
                       ))}
                     </ol>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {tab === 'crew' && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-xs font-semibold uppercase tracking-[0.06em] text-ink">
+                      Review Crew · Multi-Agent Advisory System
+                    </h3>
+                    <p className="text-2xs text-muted">
+                      Bounded read-only agents: Intake, Visual, Retrieval, Evidence Verifier & Summary
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleRunCrew}
+                    disabled={crewLoading}
+                    className="text-xs"
+                  >
+                    <Bot className="h-3.5 w-3.5 mr-1 text-brand-600" />
+                    {crewLoading ? 'Running Crew…' : 'Run Review Crew'}
+                  </Button>
+                </div>
+
+                <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-2xs text-amber-800">
+                  <div className="flex items-center gap-1.5 font-medium">
+                    <Sparkles className="h-3.5 w-3.5 text-amber-600" />
+                    Non-negotiable architectural rule:
+                  </div>
+                  <p className="mt-1 text-amber-700">
+                    Advisory trace only. Deterministic rule engine and Human Brand Manager retain sole approval, rejection, exception, and policy authority.
+                  </p>
+                </div>
+
+                {crewError && (
+                  <div className="rounded-lg border border-danger-200 bg-danger-50 p-3 text-xs text-danger-700">
+                    {crewError}
+                  </div>
+                )}
+
+                {!crewTrace && !crewLoading && (
+                  <EmptyState
+                    title="No agent trace recorded yet"
+                    description="Run Review Crew to execute the 5-agent bounded sequential workflow."
+                    compact
+                  />
+                )}
+
+                {crewLoading && (
+                  <div className="space-y-2 p-4 text-center">
+                    <div className="inline-block animate-spin rounded-full h-5 w-5 border-2 border-brand-500 border-t-transparent" />
+                    <p className="text-xs text-muted">Orchestrating agents with typed tool boundaries…</p>
+                  </div>
+                )}
+
+                {crewTrace && !crewLoading && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between text-2xs text-muted border-b border-line pb-2">
+                      <span>Status: <strong className="text-success-700 uppercase">{crewTrace.orchestrator_status}</strong></span>
+                      <span>Steps: {crewTrace.steps_executed} / {crewTrace.max_steps_allowed}</span>
+                      <span>Duration: {crewTrace.total_duration_ms}ms</span>
+                    </div>
+
+                    <ol className="space-y-2.5">
+                      {crewTrace.steps.map((s: any) => (
+                        <li key={s.step_number} className="rounded-lg border border-line bg-white p-3 space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand-50 text-[10px] font-bold text-brand-700 border border-brand-200">
+                                {s.step_number}
+                              </span>
+                              <span className="text-xs font-semibold text-ink">{s.agent_name}</span>
+                              <Badge tone={s.status === 'completed' ? 'success' : 'neutral'} size="sm">
+                                {s.status}
+                              </Badge>
+                            </div>
+                            <span className="text-2xs text-muted font-mono">{s.duration_ms}ms</span>
+                          </div>
+                          <p className="text-2xs text-muted-light">Tool: <code className="bg-canvas px-1 py-0.5 rounded text-ink-600">{s.tool_called}</code></p>
+                          <p className="text-xs text-ink-700">{s.output_summary}</p>
+                        </li>
+                      ))}
+                    </ol>
+
+                    {crewTrace.summary && (
+                      <div className="rounded-lg border border-line bg-canvas p-3 space-y-1.5 mt-3">
+                        <p className="text-2xs font-semibold uppercase tracking-[0.06em] text-muted">Summary Agent Draft</p>
+                        <p className="text-xs text-ink-700">{crewTrace.summary.overview}</p>
+                        <p className="text-2xs text-muted italic">"{crewTrace.summary.recommendation_draft}"</p>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

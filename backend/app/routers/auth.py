@@ -109,3 +109,94 @@ def request_reset(body: dict, db: Session = Depends(get_db)) -> dict:
 @router.get("/me")
 def me(user: models.User = Depends(get_current_user)) -> dict:
     return auth.get_user_out(user)
+
+
+@router.get("/me/export")
+def export_user_data(
+    user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    """N18 User privacy and data controls: export personal submissions, comments, and audit records."""
+    # 1. User profile
+    profile = auth.get_user_out(user)
+
+    # 2. Submissions created by this user
+    subs = db.query(models.Submission).filter(models.Submission.creator_id == user.id).all()
+    submissions_data = [
+        {
+            "id": s.id,
+            "code": s.code,
+            "title": s.title,
+            "type": s.type,
+            "channel": s.channel,
+            "brand": s.brand,
+            "status": s.status,
+            "version": s.version,
+            "createdAt": s.created_at.isoformat() if s.created_at else None,
+            "updatedAt": s.updated_at.isoformat() if s.updated_at else None,
+        }
+        for s in subs
+    ]
+
+    # 3. Comments made by this user
+    comments = db.query(models.Comment).filter(models.Comment.author_id == user.id).all()
+    comments_data = [
+        {
+            "id": c.id,
+            "submissionId": c.submission_id,
+            "body": c.body,
+            "createdAt": c.created_at.isoformat() if c.created_at else None,
+        }
+        for c in comments
+    ]
+
+    # 4. Audit events involving this user
+    audits = db.query(models.AuditEvent).filter(models.AuditEvent.user_id == user.id).all()
+    audit_data = [
+        {
+            "id": a.id,
+            "action": a.action,
+            "entityTitle": a.entity_title,
+            "at": a.at.isoformat() if a.at else None,
+            "details": a.details,
+        }
+        for a in audits
+    ]
+
+    # 5. Notifications for this user
+    notifications = db.query(models.Notification).filter(models.Notification.user_id == user.id).all()
+    notifications_data = [
+        {
+            "id": n.id,
+            "type": n.type,
+            "title": n.title,
+            "readAt": n.read_at.isoformat() if n.read_at else None,
+            "createdAt": n.created_at.isoformat() if n.created_at else None,
+        }
+        for n in notifications
+    ]
+
+    record(
+        db,
+        action="UserDataExported",
+        entity_title=f"GDPR/DPDP export for {user.name}",
+        entity_meta=user.email,
+        brand=user.workspace or "PureGlow",
+        user_id=user.id,
+        details=f"User {user.email} downloaded complete personal data export package.",
+        entity_kind="privacy",
+        entity_id=user.id,
+        workspace=user.workspace or "PureGlow",
+    )
+    db.commit()
+
+    return {
+        "exportFormat": "Precedent GDPR/DPDP Compliant Data Package v1.0",
+        "exportedAt": models.utcnow().isoformat(),
+        "user": profile,
+        "submissions": submissions_data,
+        "comments": comments_data,
+        "notifications": notifications_data,
+        "auditLogCount": len(audit_data),
+        "auditLogs": audit_data,
+    }

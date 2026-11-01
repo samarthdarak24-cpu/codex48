@@ -18,32 +18,35 @@ Everything below was run in this working copy. Commands are copy-pasteable.
 ## 1. Backend — `pytest`
 
 ```bash
-cd backend
-./.venv312/Scripts/python.exe -m pytest -q
+$env:PYTHONPATH="backend"; python -m pytest backend/tests -q
 ```
 
 ```
-108 passed, 77 warnings in 54.32s
+138 passed, 114 warnings in 159.95s
 ```
 
 Per file:
 
 | File | Tests | Covers |
 |---|---:|---|
-| `test_a1_visualguard.py` | 26 | OCR extraction, palette/KMeans, layout geometry, logo three-way verdicts, contrast thresholds, pipeline failure handling, overlay coordinates |
+| `test_a1_visualguard.py` | 29 | OCR extraction, Devanagari Hindi/Marathi traineddata, RapidOCR fallback, palette/KMeans, layout geometry, logo three-way verdicts, contrast thresholds, pipeline failure handling, overlay coordinates |
 | `test_a2_evidence.py` | 24 | Chunking, BM25 ranking, RRF fusion, every citation rejection reason, no-LLM degradation, trust aggregation, workspace scoping |
 | `test_a3_sentinel.py` | 17 | Trigger fan-out, dedupe, draft exclusion, workspace isolation, resolution idempotency, expiry-scan idempotency, **monitored-publication list** |
+| `test_hardening.py` | 13 | Reliability edge cases: oversize uploads, decompression bombs, prompt injections, boundary values |
 | `test_comprehensive_governance.py` | 11 | End-to-end governance flows across the domain |
 | `test_rule_engine.py` | 8 | Deterministic outcomes per rule code, `unknown` handling |
 | `test_workspace_isolation.py` | 6 | Cross-workspace leakage: team, claims, guidelines, rules, exceptions |
+| `test_second_batch_innovations.py` | 6 | Approved Snippets (N10) and False-Positive Feedback (N11) workflows |
+| `test_crew.py` | 4 | Review Crew bounded multi-agent system (PydanticAI), sequential 5-agent trace, read-only tools, cross-user isolation, citation forgery rejection |
 | `test_auth.py` | 4 | Login, bad password, token validation, `/me` |
+| `test_proofpass.py` | 4 | Cryptographic SHA-256 digests, ImageHash perceptual pHash near-match, revocation, manager RBAC |
 | `test_exceptions.py` | 3 | Request → decide → expiry enforcement |
 | `test_submissions.py` | 3 | Create + findings, stale-version decision rejected, audit on approve |
 | `test_rbac.py` | 2 | Creator blocked from manager routes |
 | `test_regression_contract.py` | 2 | Response-shape contract |
 | `test_conflicts.py` | 1 | Rule conflict detection |
 | `test_simulation.py` | 1 | Simulation totals and per-asset impact |
-| **Total** | **108** | |
+| **Total** | **138** | |
 
 Warnings are all third-party deprecations (`jose` `utcnow()`, `passlib`
 `argon2.__version__`, `starlette` `BlockingPortal`). None originate in

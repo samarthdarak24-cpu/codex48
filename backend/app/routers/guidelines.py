@@ -195,3 +195,26 @@ def get_guideline_passages(
         .all()
     )
     return [documents.passage_to_dict(p) for p in passages]
+
+
+@router.post("/{guideline_id}/index")
+def index_guideline_passages(
+    guideline_id: str,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(require_manager),
+):
+    """Idempotently index passages for this guideline doc into passage embeddings."""
+    from ..services import evidence as ev_svc
+
+    doc = db.get(models.GuidelineDoc, guideline_id)
+    require_workspace(doc, current_user, shared=True, detail="Guideline not found")
+    ws = getattr(current_user, "workspace", "PureGlow")
+    res = ev_svc.sync_embeddings(db, ws)
+    return {
+        "guidelineId": guideline_id,
+        "name": doc.name,
+        "version": doc.version,
+        "indexed": res.get("computed", 0),
+        "total": res.get("total", 0),
+        "status": "ready",
+    }

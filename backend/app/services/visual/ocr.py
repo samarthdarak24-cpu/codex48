@@ -39,6 +39,12 @@ except Exception:  # pragma: no cover
     pytesseract = None  # type: ignore[assignment]
     Output = None  # type: ignore[assignment]
 
+try:
+    from rapidocr_onnxruntime import RapidOCR
+    _rapid_engine = RapidOCR()
+except Exception:  # pragma: no cover
+    _rapid_engine = None  # type: ignore[assignment]
+
 # Page-segmentation modes worth trying for marketing creatives.
 #   6  = single uniform block of text
 #   11 = sparse text, no ordering assumed
@@ -46,10 +52,23 @@ except Exception:  # pragma: no cover
 _PSM_MODES = (6, 11, 12)
 
 
+def _setup_tessdata_prefix():
+    """Ensure TESSDATA_PREFIX points to the local or configured language pack directory."""
+    prefix = getattr(settings, "tessdata_prefix", "") or os.environ.get("TESSDATA_PREFIX", "")
+    if not prefix or not os.path.exists(prefix):
+        # Look for backend/tessdata relative to this file
+        local_tess = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "tessdata"))
+        if os.path.exists(local_tess):
+            prefix = local_tess
+    if prefix and os.path.exists(prefix):
+        os.environ["TESSDATA_PREFIX"] = prefix
+
+
 def _tesseract_ready() -> tuple[bool, str]:
     """Return (ready, reason). Never raises."""
     if pytesseract is None:
         return False, "pytesseract is not installed"
+    _setup_tessdata_prefix()
     cmd = settings.tesseract_cmd
     if cmd and os.path.exists(cmd):
         pytesseract.pytesseract.tesseract_cmd = cmd
@@ -59,6 +78,75 @@ def _tesseract_ready() -> tuple[bool, str]:
             return False, "tesseract binary not found"
         pytesseract.pytesseract.tesseract_cmd = found
     return True, ""
+
+
+def _rapidocr_ready() -> tuple[bool, str]:
+    """Return (ready, reason) for RapidOCR ONNX fallback engine."""
+    if _rapid_engine is None:
+        return False, "rapidocr-onnxruntime is not installed or initialized"
+    return True, ""
+
+
+def _read_with_rapidocr(image_path: str) -> dict[str, Any]:
+    """Execute RapidOCR ONNX inference and return standard visual findings blocks."""
+    ready, reason = _rapidocr_ready()
+    if not ready:
+        return {
+            "ok": False,
+            "text": "",
+            "blocks": [],
+            "meanConfidence": 0.0,
+            "engine": {"name": "rapidocr", "version": "", "langs": [], "fallback": True},
+            "error": reason,
+        }
+    try:
+        results, _ = _rapid_engine(image_path)
+    except Exception as exc:
+        return {
+            "ok": False,
+            "text": "",
+            "blocks": [],
+            "meanConfidence": 0.0,
+            "engine": {"name": "rapidocr", "version": "1.4.4", "langs": [], "fallback": True},
+            "error": f"rapidocr failed: {type(exc).__name__}",
+        }
+
+    blocks: list[dict[str, Any]] = []
+    if results:
+        for item in results:
+            pts, txt, conf = item
+            xs = [p[0] for p in pts]
+            ys = [p[1] for p in pts]
+            x0, y0 = min(xs), min(ys)
+            x1, y1 = max(xs), max(ys)
+            clean_txt = (txt or "").strip()
+            if clean_txt:
+                blocks.append({
+                    "text": clean_txt,
+                    "box": {
+                        "x": int(round(x0)),
+                        "y": int(round(y0)),
+                        "w": int(round(x1 - x0)),
+                        "h": int(round(y1 - y0)),
+                    },
+                    "confidence": round(float(conf), 4),
+                })
+    blocks.sort(key=lambda b: (b["box"]["y"], b["box"]["x"]))
+    text = "\n".join(b["text"] for b in blocks)
+    mean_conf = sum(b["confidence"] for b in blocks) / len(blocks) if blocks else 0.0
+    return {
+        "ok": bool(blocks),
+        "text": text,
+        "blocks": blocks,
+        "meanConfidence": round(mean_conf, 4),
+        "engine": {
+            "name": "rapidocr",
+            "version": "1.4.4",
+            "langs": ["eng", "hin", "mar"],
+            "fallback": True,
+        },
+        "error": None if blocks else "no readable text found",
+    }
 
 
 def _resolve_langs(requested: str) -> tuple[str, list[str]]:
@@ -175,8 +263,13 @@ def read_text(image_path: str) -> dict[str, Any]:
         "error": None,
     }
 
+    if getattr(settings, "ocr_engine", "tesseract") == "rapidocr":
+        return _read_with_rapidocr(image_path)
+
     ready, reason = _tesseract_ready()
     if not ready:
+        if _rapidocr_ready()[0]:
+            return _read_with_rapidocr(image_path)
         empty["error"] = reason
         return empty
     if Image is None:
@@ -222,6 +315,10 @@ def read_text(image_path: str) -> dict[str, Any]:
             best, best_psm, best_score = blocks, psm, score
 
     if not best:
+        if _rapidocr_ready()[0]:
+            rapid_res = _read_with_rapidocr(image_path)
+            if rapid_res["ok"]:
+                return rapid_res
         empty["error"] = last_error or "no readable text found"
         return empty
 

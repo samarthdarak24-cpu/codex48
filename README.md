@@ -40,7 +40,11 @@ Round 3 adds three improvements: **A1 VisualGuard** (poster OCR, colour, logo an
 | AI-assisted rule suggestions | ✅ Configurable LLM; degrades gracefully when no key |
 | Brand / product image library | ✅ Upload, approve, optional external-source adapter |
 | Single-image Docker deploy (API + SPA on one origin) | ✅ `Dockerfile` + `docker-compose.yml` |
-| Backend tests | ✅ **108 pytest tests passing** |
+| Backend tests | ✅ **138 pytest tests passing** (100% pass rate) |
+| **ProofPass** — approval passport certificate (F1 stretch innovation) | ✅ Cryptographic SHA-256 digests + ImageHash perceptual pHash near-match, signed JWT, public /verify page |
+| **Review Crew** — bounded multi-agent advisory system (PydanticAI) | ✅ 5 read-only agents (Intake, Visual, Retrieval, Evidence Verifier, Summary), 10-step orchestrator, persisted audit trace |
+| **Reliability** — structured errors + X-Request-ID, rich /health & /health/models report | ✅ Every failure returns {code, message, details, request_id}; no stack traces leak |
+| **A1 OCR & Vision** — Tesseract (eng, hin, mar traineddata) + RapidOCR ONNX fallback | ✅ Tesseract binary configured, local Devanagari traineddata verified, RapidOCR ONNX fallback |
 | Browser e2e | ✅ Login (both roles) → submit → findings → evidence → queue → audit, 0 console errors |
 | **Reliability** — structured errors + `X-Request-ID`, rich `/health` capability report | ✅ Every failure returns `{code, message, details, request_id}`; no stack traces leak |
 | **A2 runtime** — real local ONNX encoder (`multilingual-e5-small`) | ✅ `onnxruntime` + `tokenizers`; BM25-only fallback when the model is absent, and `/health` says which |

@@ -565,3 +565,97 @@ class Notification(Base):
     payload: Mapped[dict] = mapped_column(JSON, default=dict)
     read_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+# ---------------------------------------------------------------------------
+# Second Batch Innovations (N10 Approved Snippets, N11 False-Positive Feedback)
+# ---------------------------------------------------------------------------
+
+class ApprovedSnippet(Base):
+    """N10 Approved Snippets library: pre-vetted brand copy, claims, disclosures."""
+
+    __tablename__ = "approved_snippets"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    workspace: Mapped[str] = mapped_column(String, default="PureGlow", server_default="PureGlow", nullable=True, index=True)
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    category: Mapped[str] = mapped_column(String, default="Claim")  # Claim | Disclaimer | Promotion | Legal
+    rule_codes: Mapped[list] = mapped_column(JSON, default=list)
+    claim_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    valid_from: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    valid_until: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # active | expired | retired
+    status: Mapped[str] = mapped_column(String, default="active", index=True)
+    created_by: Mapped[str] = mapped_column(String, default="David Kim")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class FindingFeedback(Base):
+    """N11 False-Positive feedback loop: creator disputes or clarifications on findings."""
+
+    __tablename__ = "finding_feedback"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    workspace: Mapped[str] = mapped_column(String, default="PureGlow", server_default="PureGlow", nullable=True, index=True)
+    finding_id: Mapped[str] = mapped_column(
+        ForeignKey("findings.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    submission_id: Mapped[str] = mapped_column(String, default="", index=True)
+    rule_code: Mapped[str] = mapped_column(String, default="")
+    user_id: Mapped[str] = mapped_column(String, nullable=False)
+    user_name: Mapped[str] = mapped_column(String, default="")
+    # not_a_violation | rule_unclear | exception_applies | other
+    reason: Mapped[str] = mapped_column(String, default="not_a_violation")
+    notes: Mapped[str] = mapped_column(Text, default="")
+    # submitted | under_review | converted_to_test | dismissed
+    status: Mapped[str] = mapped_column(String, default="submitted")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+# ---------------------------------------------------------------------------
+# ProofPass — Approval Passport Stretch Innovation (ImageHash & SHA-256)
+# ---------------------------------------------------------------------------
+
+class ApprovalPassport(Base):
+    """ProofPass approval passport: cryptographic SHA-256 + perceptual pHash certificate."""
+
+    __tablename__ = "approval_passports"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    workspace: Mapped[str] = mapped_column(String, default="PureGlow", server_default="PureGlow", nullable=True, index=True)
+    submission_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    version_id: Mapped[str] = mapped_column(String, nullable=False)
+    version_number: Mapped[int] = mapped_column(Integer, default=1)
+    brand: Mapped[str] = mapped_column(String, default="PureGlow")
+    title: Mapped[str] = mapped_column(String, default="")
+    sha256: Mapped[str] = mapped_column(String, nullable=False)
+    phash: Mapped[str] = mapped_column(String, default="")
+    dhash: Mapped[str] = mapped_column(String, default="")
+    token: Mapped[str] = mapped_column(Text, nullable=False)
+    approved_by: Mapped[str] = mapped_column(String, default="")
+    # active | revoked | expired
+    status: Mapped[str] = mapped_column(String, default="active", index=True)
+    revocation_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+
+
+# ---------------------------------------------------------------------------
+# Review Crew  Bounded Advisory Multi-Agent System (PydanticAI)
+# ---------------------------------------------------------------------------
+
+class AgentTraceRecord(Base):
+    """Persisted audit trace of Review Crew bounded multi-agent executions."""
+
+    __tablename__ = "agent_traces"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    workspace: Mapped[str] = mapped_column(String, default="PureGlow", server_default="PureGlow", nullable=True, index=True)
+    submission_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    version_num: Mapped[int] = mapped_column(Integer, default=1)
+    orchestrator_status: Mapped[str] = mapped_column(String, default="completed", index=True)
+    steps_json: Mapped[str] = mapped_column(Text, default="[]")
+    summary_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    total_duration_ms: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+

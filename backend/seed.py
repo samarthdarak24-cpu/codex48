@@ -785,6 +785,91 @@ def main() -> None:
         db.commit()
 
         # ------------------------------------------------------------------
+        # N10 Approved Snippets & N11 Finding Feedback
+        # ------------------------------------------------------------------
+        snippets_data = [
+            models.ApprovedSnippet(
+                id=new_id('snp'),
+                workspace='PureGlow',
+                text='100% Recyclable Glass & FSC-Certified Outer Carton (Packaging §4.2)',
+                category='Claim',
+                rule_codes=['CL-03', 'CL-04'],
+                valid_from=now() - timedelta(days=10),
+                valid_until=now() + timedelta(days=90),
+                status='active',
+                created_by=david.name,
+                created_at=now() - timedelta(days=10),
+            ),
+            models.ApprovedSnippet(
+                id=new_id('snp'),
+                workspace='PureGlow',
+                text='Dermatologically Tested under ISO-22716 Clinical Safety Protocol (Study PG-2026-B)',
+                category='Claim',
+                rule_codes=['CL-02', 'CL-03'],
+                valid_from=now() - timedelta(days=20),
+                valid_until=now() + timedelta(days=180),
+                status='active',
+                created_by=david.name,
+                created_at=now() - timedelta(days=20),
+            ),
+            models.ApprovedSnippet(
+                id=new_id('snp'),
+                workspace='PureGlow',
+                text='Paid partnership with PureGlow. Terms & Conditions apply.',
+                category='Disclaimer',
+                rule_codes=['PA-05'],
+                valid_from=now() - timedelta(days=30),
+                valid_until=now() + timedelta(days=365),
+                status='active',
+                created_by=david.name,
+                created_at=now() - timedelta(days=30),
+            ),
+            models.ApprovedSnippet(
+                id=new_id('snp'),
+                workspace='PureGlow',
+                text='Festive Glow Special · 20% off with promo code GLOW20 · Valid until Nov 14, 2026',
+                category='Promotion',
+                rule_codes=['MK-02', 'PRICE-001'],
+                valid_from=now() - timedelta(days=2),
+                valid_until=now() + timedelta(days=12),
+                status='active',
+                created_by=david.name,
+                created_at=now() - timedelta(days=2),
+            ),
+            models.ApprovedSnippet(
+                id=new_id('snp'),
+                workspace='PureGlow',
+                text='Cruelty-Free International Leaping Bunny Certification (Audit Batch #91)',
+                category='Legal',
+                rule_codes=['CL-03'],
+                valid_from=now() - timedelta(days=85),
+                valid_until=now() + timedelta(days=5),
+                status='active',
+                created_by=david.name,
+                created_at=now() - timedelta(days=85),
+            ),
+        ]
+        db.add_all(snippets_data)
+
+        sample_finding = db.query(models.Finding).filter(models.Finding.rule_code == 'CL-03').first()
+        if sample_finding:
+            fb = models.FindingFeedback(
+                id=new_id('fbk'),
+                workspace='PureGlow',
+                finding_id=sample_finding.id,
+                submission_id=sample_finding.submission_id,
+                rule_code=sample_finding.rule_code,
+                user_id=emily.id,
+                user_name=emily.name,
+                reason='exception_applies',
+                notes='This phrasing matches the Diwali seasonal campaign exception approved by David Kim.',
+                status='submitted',
+                created_at=now() - timedelta(hours=3),
+            )
+            db.add(fb)
+        db.commit()
+
+        # ------------------------------------------------------------------
         # Summary
         # ------------------------------------------------------------------
         print(

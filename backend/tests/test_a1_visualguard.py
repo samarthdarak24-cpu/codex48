@@ -5,8 +5,9 @@ the demo assets on disk. The point of these tests is the *honesty* of the
 analysers: a measurement that could not be made must come back as "unknown",
 never as a pass, and a corrupt upload must never raise into the request path.
 """
+import os
 import pytest
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 
 from app.rule_engine import (
     APPROVED_BACKGROUNDS,
@@ -571,3 +572,68 @@ def test_evaluate_background_never_guesses_from_an_unreadable_asset():
     assert evaluate_background(_facts(unreadable=True), APPROVED_BACKGROUNDS).verdict == "unknown"
     assert evaluate_background(_facts(), APPROVED_BACKGROUNDS).verdict == "unknown"
     assert evaluate_background(None, APPROVED_BACKGROUNDS).verdict == "unknown"
+
+
+# ---------------------------------------------------------------------------
+# Multilingual (Hindi/Marathi) and RapidOCR Fallback Tests
+# ---------------------------------------------------------------------------
+
+def test_ocr_hindi_devanagari_traineddata_fixture(tmp_path):
+    """Real fixture test using downloaded hin.traineddata."""
+    img_path = str(tmp_path / "hindi_creative.png")
+    img = Image.new("RGB", (800, 250), color="white")
+    draw = ImageDraw.Draw(img)
+    font_path = r"C:\Windows\Fonts\Nirmala.ttc"
+    if os.path.exists(font_path):
+        font = ImageFont.truetype(font_path, 44)
+    else:
+        font = ImageFont.load_default()
+    draw.text((60, 90), "शुद्ध प्राकृतिक चमक", fill="black", font=font)
+    img.save(img_path)
+
+    res = ocr.read_text(img_path)
+    assert res["ok"] is True
+    assert len(res["blocks"]) > 0
+    # Confirms engine detected Devanagari text
+    assert any("चमक" in b["text"] or "प्राकृतिक" in b["text"] or "शुद्ध" in b["text"] for b in res["blocks"])
+    assert "hin" in res["engine"]["langs"]
+
+
+def test_ocr_marathi_devanagari_traineddata_fixture(tmp_path):
+    """Real fixture test using downloaded mar.traineddata."""
+    img_path = str(tmp_path / "marathi_creative.png")
+    img = Image.new("RGB", (900, 250), color="white")
+    draw = ImageDraw.Draw(img)
+    font_path = r"C:\Windows\Fonts\Nirmala.ttc"
+    if os.path.exists(font_path):
+        font = ImageFont.truetype(font_path, 44)
+    else:
+        font = ImageFont.load_default()
+    draw.text((60, 90), "नैसर्गिक सौंदर्य आणि त्वचा काळजी", fill="black", font=font)
+    img.save(img_path)
+
+    res = ocr.read_text(img_path)
+    assert res["ok"] is True
+    assert len(res["blocks"]) > 0
+    assert any("सौंदर्य" in b["text"] or "नैसर्गिक" in b["text"] or "काळजी" in b["text"] for b in res["blocks"])
+    assert "mar" in res["engine"]["langs"]
+
+
+def test_rapidocr_fallback_produces_valid_boxes(tmp_path, monkeypatch):
+    """RapidOCR ONNX engine fallback produces pixel bounding boxes and confidence."""
+    img_path = str(tmp_path / "rapid_sample.png")
+    img = Image.new("RGB", (600, 180), color="white")
+    draw = ImageDraw.Draw(img)
+    draw.text((40, 60), "PureGlow Herbal Essence", fill="black")
+    img.save(img_path)
+
+    monkeypatch.setattr(ocr.settings, "ocr_engine", "rapidocr")
+    res = ocr.read_text(img_path)
+
+    assert res["ok"] is True
+    assert len(res["blocks"]) >= 1
+    box = res["blocks"][0]["box"]
+    assert "x" in box and "y" in box and "w" in box and "h" in box
+    assert box["w"] > 0 and box["h"] > 0
+    assert res["engine"]["name"] == "rapidocr"
+    assert res["engine"]["fallback"] is True

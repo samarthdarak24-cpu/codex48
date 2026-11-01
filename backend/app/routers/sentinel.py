@@ -116,6 +116,46 @@ def tasks(
     )
 
 
+@router.get("/tasks/{task_id}")
+def get_task(
+    task_id: str,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    task_row = db.get(models.ReassessmentTask, task_id)
+    require_workspace(task_row, current_user, detail="Task not found")
+    return svc.task_to_dict(task_row)
+
+
+@router.get("/impact-preview")
+def impact_preview(
+    trigger_ref: str = "",
+    trigger_type: str = "rule_edited",
+    db: Session = Depends(get_db),
+    current_user=Depends(require_manager),
+):
+    """Preview affected published items and blast radius before activating policy changes."""
+    ws = _ws(current_user)
+    pubs = svc.list_publications(db, workspace=ws, status="active", limit=100)
+    sample_affected = []
+    for pub in pubs:
+        sample_affected.append({
+            "publicationId": pub.get("id"),
+            "submissionId": pub.get("submissionId"),
+            "title": pub.get("title"),
+            "channel": pub.get("channel"),
+            "version": pub.get("version"),
+            "impactAssessment": "needs_reassessment",
+        })
+    return {
+        "triggerRef": trigger_ref,
+        "triggerType": trigger_type,
+        "totalPublishedChecked": len(pubs),
+        "blastRadiusCount": len(sample_affected),
+        "sampleAffected": sample_affected[:5],
+    }
+
+
 class ResolveBody(BaseModel):
     resolution: str
     note: str = ""

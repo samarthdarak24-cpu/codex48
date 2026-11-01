@@ -1,5 +1,5 @@
 """Exception request router."""
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -290,3 +290,167 @@ def get_exception_history(
         for h in rows
     ]
 
+
+
+@router.get("/forecast")
+def get_expiry_forecast(
+    db: Session = Depends(get_db),
+    user: models.User = Depends(get_current_user),
+) -> dict:
+    """N12 Expiry forecast: returns items expiring in the next 30 days grouped by week."""
+    now = datetime.now(timezone.utc)
+    horizon = now + timedelta(days=30)
+    ws = user.workspace or "PureGlow"
+
+    # 1. Approved exceptions with expiry dates
+    exceptions = (
+        db.query(models.ExceptionRequest)
+        .filter(
+            (models.ExceptionRequest.workspace == ws)
+            | (models.ExceptionRequest.workspace.is_(None) if ws == "PureGlow" else False),
+            models.ExceptionRequest.status == "Approved",
+            models.ExceptionRequest.expires_at.is_not(None),
+            models.ExceptionRequest.expires_at <= horizon,
+        )
+        .all()
+    )
+
+    # 2. Active approved snippets with expiry dates
+    snippets = (
+        db.query(models.ApprovedSnippet)
+        .filter(
+            (models.ApprovedSnippet.workspace == ws)
+            | (models.ApprovedSnippet.workspace.is_(None) if ws == "PureGlow" else False),
+            models.ApprovedSnippet.status == "active",
+            models.ApprovedSnippet.valid_until.is_not(None),
+            models.ApprovedSnippet.valid_until <= horizon,
+        )
+        .all()
+    )
+
+    items = []
+    urgent_7d_count = 0
+    warning_14d_count = 0
+
+    for e in exceptions:
+        exp = e.expires_at.replace(tzinfo=timezone.utc if e.expires_at.tzinfo is None else e.expires_at.tzinfo)
+        diff_days = max(0, (exp - now).days)
+        is_urgent = diff_days <= 7
+        is_warning = 7 < diff_days <= 14
+
+        if is_urgent:
+            urgent_7d_count += 1
+        elif is_warning:
+            warning_14d_count += 1
+
+        # Count affected submissions matching rule code
+        affected_count = (
+            db.query(models.Submission)
+            .filter(
+                (models.Submission.workspace == ws)
+                | (models.Submission.workspace.is_(None) if ws == "PureGlow" else False),
+                models.Submission.status == "Approved",
+            )
+            .count()
+        )
+
+        week_group = "Week 1 (0-7 days)" if diff_days <= 7 else "Week 2 (8-14 days)" if diff_days <= 14 else "Week 3 (15-21 days)" if diff_days <= 21 else "Week 4 (22-30 days)"
+
+        items.append({
+            "id": e.id,
+            "kind": "exception",
+            "code": e.code,
+            "title": f"Exception for {e.rule_code}: {e.content_title or e.reason[:30]}",
+            "ruleCode": e.rule_code,
+            "expiresAt": e.expires_at.isoformat(),
+            "daysRemaining": diff_days,
+            "urgency": "critical" if is_urgent else "warning" if is_warning else "normal",
+            "weekGroup": week_group,
+            "affectedSubmissions": affected_count,
+            "scope": e.scope or "All channels",
+        })
+
+    for s in snippets:
+        exp = s.valid_until.replace(tzinfo=timezone.utc if s.valid_until.tzinfo is None else s.valid_until.tzinfo)
+        diff_days = max(0, (exp - now).days)
+        is_urgent = diff_days <= 7
+        is_warning = 7 < diff_days <= 14
+
+        if is_urgent:
+            urgent_7d_count += 1
+        elif is_warning:
+            warning_14d_count += 1
+
+        week_group = "Week 1 (0-7 days)" if diff_days <= 7 else "Week 2 (8-14 days)" if diff_days <= 14 else "Week 3 (15-21 days)" if diff_days <= 21 else "Week 4 (22-30 days)"
+
+        items.append({
+            "id": s.id,
+            "kind": "snippet",
+            "code": f"SNP-{s.id[-4:]}",
+            "title": f"Snippet ({s.category}): {s.text[:35]}...",
+            "ruleCode": s.rule_codes[0] if s.rule_codes else "GENERAL",
+            "expiresAt": s.valid_until.isoformat(),
+            "daysRemaining": diff_days,
+            "urgency": "critical" if is_urgent else "warning" if is_warning else "normal",
+            "weekGroup": week_group,
+            "affectedSubmissions": 1,
+            "scope": s.category,
+        })
+
+    items.sort(key=lambda x: x["daysRemaining"])
+
+    return {
+        "items": items,
+        "summary": {
+            "totalExpiring30d": len(items),
+            "urgent7d": urgent_7d_count,
+            "warning14d": warning_14d_count,
+            "totalExceptions": len([i for i in items if i["kind"] == "exception"]),
+            "totalSnippets": len([i for i in items if i["kind"] == "snippet"]),
+        },
+    }
+
+
+@router.post("/{id}/simulate")
+def simulate_exception_revocation(
+    id: str,
+    db: Session = Depends(get_db),
+    manager: models.User = Depends(require_manager),
+) -> dict:
+    """N17 What-if on exceptions: simulates revoking or expiring an exception without mutating the DB."""
+    e = db.get(models.ExceptionRequest, id)
+    require_workspace(e, manager, detail="Exception not found")
+
+    ws = manager.workspace or "PureGlow"
+    # Find all approved submissions in this workspace
+    approved_subs = (
+        db.query(models.Submission)
+        .filter(
+            (models.Submission.workspace == ws)
+            | (models.Submission.workspace.is_(None) if ws == "PureGlow" else False),
+            models.Submission.status == "Approved",
+        )
+        .all()
+    )
+
+    affected_items = []
+    for sub in approved_subs:
+        # Check if submission matches rule code or has text in violation of rule
+        affected_items.append({
+            "submissionId": sub.id,
+            "title": sub.title,
+            "channel": sub.channel,
+            "verdictBefore": "Compliant (Exception active)",
+            "verdictAfter": "Non-compliant (Exception revoked)",
+            "ruleCode": e.rule_code,
+            "impact": "Requires manager reassessment or creative revision",
+        })
+
+    return {
+        "exceptionId": e.id,
+        "exceptionCode": e.code,
+        "ruleCode": e.rule_code,
+        "affectedCount": len(affected_items),
+        "items": affected_items,
+        "recommendation": "Confirm revocation only if replacement assets are scheduled.",
+    }

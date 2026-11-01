@@ -18,6 +18,7 @@ import AuditHistory from '@/pages/manager/Audit'
 import SentinelPage from '@/pages/manager/Sentinel'
 import AiTrust from '@/pages/manager/Trust'
 import NotificationsPage from '@/pages/Notifications'
+import ProofPassVerify from '@/pages/ProofPassVerify'
 
 function Splash() {
   return (
@@ -60,6 +61,8 @@ export default function App() {
     <Routes>
       <Route path="/" element={<HomePage />} />
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/verify" element={<ProofPassVerify />} />
+      <Route path="/verify/:id" element={<ProofPassVerify />} />
 
       <Route
         path="/notifications"

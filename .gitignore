@@ -38,3 +38,8 @@ scratch/
 
 # Captured review screenshots
 .shots
+
+# Downloaded models & traineddata caches
+backend/tessdata/
+model_cache/
+prompt_extracted.*

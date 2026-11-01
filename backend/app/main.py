@@ -12,7 +12,7 @@ import os
 import tempfile
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -27,12 +27,16 @@ from app.routers import (
     audit,
     auth,
     claims,
+    crew,
     evidence,
     exceptions,
+    feedback,
     guidelines,
+    proofpass,
     rules,
     sentinel,
     simulations,
+    snippets,
     submissions,
     team,
 )
@@ -98,8 +102,27 @@ def _ocr_status() -> dict:
     try:
         from app.services.visual import ocr as ocr_mod
 
-        ready, detail = ocr_mod._tesseract_ready()  # noqa: SLF001 - status probe
-        return {"ok": bool(ready), "engine": "tesseract", "detail": detail}
+        tess_ready, tess_detail = ocr_mod._tesseract_ready()  # noqa: SLF001 - status probe
+        rapid_ready, rapid_detail = ocr_mod._rapidocr_ready()
+        langs, used_langs = ocr_mod._resolve_langs(settings.ocr_langs)
+        return {
+            "ok": bool(tess_ready or rapid_ready),
+            "engine": settings.ocr_engine,
+            "fallback_engine": settings.ocr_fallback_engine,
+            "tesseract": {
+                "ready": bool(tess_ready),
+                "detail": tess_detail,
+                "cmd": settings.tesseract_cmd,
+                "tessdata_prefix": os.environ.get("TESSDATA_PREFIX", ""),
+            },
+            "rapidocr": {
+                "ready": bool(rapid_ready),
+                "detail": rapid_detail,
+                "version": "1.4.4" if rapid_ready else None,
+            },
+            "languages": used_langs,
+            "hindi_marathi_ready": "hin" in used_langs and "mar" in used_langs,
+        }
     except Exception as exc:
         return {"ok": False, "engine": "tesseract", "detail": str(exc)[:200]}
 
@@ -150,6 +173,53 @@ def health() -> dict:
     }
 
 
+@app.get("/health/models")
+def health_models() -> dict:
+    """Show real model readiness, versions, OCR languages, embeddings, and LLM configuration."""
+    import importlib.util
+
+    ocr = _ocr_status()
+    embeddings = _embeddings_status()
+    llm = _llm_status()
+    imagehash_available = importlib.util.find_spec("imagehash") is not None
+    return {
+        "status": "ok" if (ocr["ok"] and embeddings["ok"]) else "degraded",
+        "ocr": ocr,
+        "embeddings": {
+            **embeddings,
+            "cache_dir": settings.model_cache_dir,
+            "model_name": embeddings.get("model") or "multilingual-e5-small",
+            "dimension": 384,
+            "device": "cpu",
+        },
+        "llm": llm,
+        "perceptual_hash": {"ready": imagehash_available, "engine": "ImageHash"},
+        "retrieval": "hybrid_bm25_vector" if embeddings["ok"] else "bm25_only",
+    }
+
+
+@app.get("/ai/status")
+def ai_status() -> dict:
+    """A2 AI Status & Trust Panel summary."""
+    from app.services import evidence as ev_svc
+
+    db = SessionLocal()
+    try:
+        summary = ev_svc.ai_trust_summary(db, "PureGlow", days=30)
+        return {
+            "ok": True,
+            "capabilities": {
+                "llmConfigured": bool(settings.llm_api_key and settings.llm_base_url),
+                "model": settings.llm_model,
+                "embeddingModel": ev_svc._embedding_model_name() or "multilingual-e5-small",
+                "promptVersion": ev_svc.PROMPT_VERSION,
+            },
+            "trust": summary,
+        }
+    finally:
+        db.close()
+
+
 for _router in (
     auth.router,
     team.router,
@@ -164,8 +234,26 @@ for _router in (
     analysis.router,
     evidence.router,
     sentinel.router,
+    snippets.router,
+    feedback.router,
+    proofpass.router,
+    crew.router,
 ):
     app.include_router(_router)
+
+# Direct top-level alias routers matching exact prompt contracts
+_publications_alias = APIRouter(prefix="/publications", tags=["publications"])
+_publications_alias.add_api_route("", sentinel.mark_published, methods=["POST"])
+_publications_alias.add_api_route("", sentinel.publications, methods=["GET"])
+_publications_alias.add_api_route("/{publication_id}", sentinel.withdraw, methods=["DELETE"])
+app.include_router(_publications_alias)
+
+_notifications_alias = APIRouter(prefix="/notifications", tags=["notifications"])
+_notifications_alias.add_api_route("", sentinel.notifications, methods=["GET"])
+_notifications_alias.add_api_route("/unread-count", sentinel.unread, methods=["GET"])
+_notifications_alias.add_api_route("/{notification_id}/read", sentinel.mark_read, methods=["POST"])
+_notifications_alias.add_api_route("/read-all", sentinel.mark_all_read, methods=["POST"])
+app.include_router(_notifications_alias)
 
 
 # ---------------------------------------------------------------------------

@@ -553,6 +553,87 @@ export const api = {
 
   withdrawClaim: (id: string) =>
     request<ApprovedClaim>(`/claims/${id}/withdraw`, { method: 'POST' }),
+
+  /* Second Batch Innovations (N10-N18)                               */
+  /* ---------------------------------------------------------------- */
+  listSnippets: (category?: string) =>
+    request<any[]>(category ? `/snippets?category=${encodeURIComponent(category)}` : '/snippets'),
+
+  createSnippet: (data: { text: string; category?: string; rule_codes?: string[]; valid_until?: string }) =>
+    request<any>('/snippets', { method: 'POST', body: JSON.stringify(data) }),
+
+  submitFindingFeedback: (findingId: string, reason: string, notes: string) =>
+    request<any>(`/submissions/findings/${findingId}/feedback`, {
+      method: 'POST',
+      body: JSON.stringify({ reason, notes }),
+    }),
+
+  feedbackReports: () =>
+    request<any[]>('/feedback/reports'),
+
+  expiryForecast: () =>
+    request<{ items: any[]; summary: any }>('/exceptions/forecast'),
+
+  simulateException: (id: string) =>
+    request<any>(`/exceptions/${id}/simulate`, { method: 'POST' }),
+
+  explainFinding: (findingId: string, lang = 'en') =>
+    request<any>(`/submissions/findings/${findingId}/explain?lang=${lang}`),
+
+  exportUserData: () =>
+    request<any>('/auth/me/export'),
+
+  /* ProofPass (Stretch Innovation F1)                                */
+  /* ---------------------------------------------------------------- */
+  generatePassport: (submissionId: string, versionId?: string) =>
+    request<any>('/passport/generate', {
+      method: 'POST',
+      body: JSON.stringify({ submissionId, versionId }),
+    }),
+
+  getPassport: (passportId: string) =>
+    request<any>(`/passport/${encodeURIComponent(passportId)}`),
+
+  verifyPassport: (passportIdOrToken: string) => {
+    const fd = new FormData()
+    fd.append('passportIdOrToken', passportIdOrToken)
+    return request<any>('/passport/verify', {
+      method: 'POST',
+      body: fd,
+    })
+  },
+
+  revokePassport: (passportId: string, reason: string) =>
+    request<any>(`/passport/${encodeURIComponent(passportId)}/revoke`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    }),
+
+  /* Model & System Health                                            */
+  modelsHealth: () =>
+    request<any>('/health/models'),
+
+  applySuggestion: (suggestionId: string) =>
+    request<any>(`/submissions/suggestions/${encodeURIComponent(suggestionId)}/apply`, {
+      method: 'POST',
+    }),
+
+  suggestFindingEdits: (findingId: string) =>
+    request<any>(`/submissions/findings/${encodeURIComponent(findingId)}/suggest-edits`, {
+      method: 'POST',
+    }),
+
+  impactPreview: (triggerRef: string, triggerType = 'rule_edited') =>
+    request<any>(`/sentinel/impact-preview?trigger_ref=${encodeURIComponent(triggerRef)}&trigger_type=${encodeURIComponent(triggerType)}`),
+
+  /* Review Crew Multi-Agent Bounded Trace                           */
+  triggerCrewReview: (submissionId: string) =>
+    request<any>(`/submissions/${encodeURIComponent(submissionId)}/crew-review`, {
+      method: 'POST',
+    }),
+
+  fetchCrewTrace: (submissionId: string) =>
+    request<any>(`/submissions/${encodeURIComponent(submissionId)}/crew-trace`),
 }
 
 export type Api = typeof api

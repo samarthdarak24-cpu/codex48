@@ -1,7 +1,7 @@
 """Brand / Product Image Assets router."""
 import os
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -142,3 +142,93 @@ def research_assets(
     current_user=Depends(get_current_user),
 ):
     return svc.research_external(body.query, body.brand)
+
+
+@router.get("/{asset_id}/analysis")
+def get_asset_analysis(
+    asset_id: str,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    from ..services.visual import pipeline as visual
+
+    a = db.get(models.AssetAnalysis, asset_id)
+    if a is None:
+        a = (
+            db.query(models.AssetAnalysis)
+            .filter(
+                (models.AssetAnalysis.submission_id == asset_id)
+                | (models.AssetAnalysis.file_path.contains(asset_id))
+            )
+            .order_by(models.AssetAnalysis.created_at.desc())
+            .first()
+        )
+    if a is None:
+        raise HTTPException(404, "Asset analysis not found")
+    require_workspace(a, current_user, detail="Analysis not found")
+    return visual.analysis_to_dict(a)
+
+
+@router.post("/{asset_id}/reanalyze")
+def reanalyze_asset(
+    asset_id: str,
+    background: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    from ..services.visual import pipeline as visual
+
+    a = db.get(models.AssetAnalysis, asset_id)
+    if a is None:
+        a = (
+            db.query(models.AssetAnalysis)
+            .filter(models.AssetAnalysis.submission_id == asset_id)
+            .order_by(models.AssetAnalysis.created_at.desc())
+            .first()
+        )
+    if a is None:
+        ba = db.get(models.BrandAsset, asset_id)
+        if ba and ba.file_path and os.path.exists(ba.file_path):
+            ws = getattr(current_user, "workspace", "PureGlow") or "PureGlow"
+            a = visual.create_analysis(db, file_path=ba.file_path, workspace=ws, user_id=current_user.id)
+    if a is None:
+        raise HTTPException(404, "Asset not found for re-analysis")
+    require_workspace(a, current_user, detail="Analysis not found")
+    a.status = "pending"
+    a.error = None
+    db.commit()
+    background.add_task(visual.analyze_asset_detached, a.id)
+    return {"analysisId": a.id, "status": "pending"}
+
+
+@router.get("/{asset_id}/visual-findings")
+def get_visual_findings(
+    asset_id: str,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    from ..services.visual import pipeline as visual
+
+    a = db.get(models.AssetAnalysis, asset_id)
+    if a is None:
+        a = (
+            db.query(models.AssetAnalysis)
+            .filter(models.AssetAnalysis.submission_id == asset_id)
+            .order_by(models.AssetAnalysis.created_at.desc())
+            .first()
+        )
+    if a is None:
+        raise HTTPException(404, "Asset analysis not found")
+    require_workspace(a, current_user, detail="Analysis not found")
+    data = visual.analysis_to_dict(a)
+    return {
+        "analysisId": a.id,
+        "submissionId": a.submission_id,
+        "status": a.status,
+        "textBlocks": data.get("textBlocks", []),
+        "dominantColors": data.get("dominantColors", []),
+        "logoMatches": data.get("logoMatches", []),
+        "contrastFindings": data.get("contrastFindings", []),
+        "layoutMetrics": data.get("layoutMetrics", {}),
+        "engine": data.get("engine", {}),
+    }
