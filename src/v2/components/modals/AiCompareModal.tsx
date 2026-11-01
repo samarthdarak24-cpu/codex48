@@ -11,7 +11,7 @@ import {
 import { useApp } from '../../context/AppContext';
 
 export const AiCompareModal: React.FC = () => {
-  const { isCompareOpen, setIsCompareOpen, selectedSubmission, submissions, addToast } = useApp();
+  const { isCompareOpen, setIsCompareOpen, selectedSubmission, submissions, addToast, updateSubmissionStatus } = useApp();
   const [sliderPos, setSliderPos] = useState(50);
   const [viewMode, setViewMode] = useState<'split' | 'side-by-side'>('side-by-side');
 
@@ -195,7 +195,7 @@ export const AiCompareModal: React.FC = () => {
         {/* Footer */}
         <div className="flex items-center justify-between px-6 py-4 bg-white border-t border-line">
           <div className="text-xs text-muted">
-            Automated alignment performed by VisualGuard OCR v3.4
+            {failedFindings.length} flagged issue{failedFindings.length === 1 ? '' : 's'} detected by automated brand-rule checks
           </div>
           <div className="flex items-center gap-3">
             <button
@@ -205,14 +205,19 @@ export const AiCompareModal: React.FC = () => {
               Close
             </button>
             <button
-              onClick={() => {
-                addToast('Version 1.1 revision approved and set as production master', 'success');
-                setIsCompareOpen(false);
+              onClick={async () => {
+                try {
+                  updateSubmissionStatus(current.id, 'Approved', 'Approved via AI visual diff review');
+                  addToast(`${current.title} marked as Approved`, 'success');
+                  setIsCompareOpen(false);
+                } catch {
+                  addToast('Could not update submission status.', 'error');
+                }
               }}
               className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-bold cursor-pointer flex items-center gap-1.5"
             >
               <CheckCircle2 className="w-4 h-4" />
-              <span>Approve Revision</span>
+              <span>Approve Submission</span>
             </button>
           </div>
         </div>
