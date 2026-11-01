@@ -263,8 +263,19 @@ _notifications_alias.add_api_route("/{notification_id}/read", sentinel.mark_read
 _notifications_alias.add_api_route("/read-all", sentinel.mark_all_read, methods=["POST"])
 app.include_router(_notifications_alias)
 
-# ProofPass alias route matching blueprint prompt
-app.include_router(proofpass.router, prefix="/proofpass")
+# ProofPass alias router matching blueprint prompt
+_proofpass_alias = APIRouter(prefix="/proofpass", tags=["proofpass"])
+for route in proofpass.router.routes:
+    rel_path = getattr(route, "path", "").replace("/passport", "") or "/"
+    _proofpass_alias.add_api_route(
+        rel_path,
+        route.endpoint,
+        methods=route.methods,
+        response_model=getattr(route, "response_model", None),
+        status_code=getattr(route, "status_code", None),
+        tags=route.tags,
+    )
+app.include_router(_proofpass_alias)
 
 
 # ---------------------------------------------------------------------------

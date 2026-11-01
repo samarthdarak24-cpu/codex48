@@ -11,7 +11,7 @@ from ..deps import get_current_user, require_manager
 from .. import models
 from ..services import proofpass as svc
 
-router = APIRouter(tags=["proofpass"])
+router = APIRouter(prefix="/passport", tags=["proofpass"])
 
 
 class GeneratePassportBody(BaseModel):
