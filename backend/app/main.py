@@ -9,8 +9,14 @@ In the Docker image the built frontend is copied to `../dist` and mounted at
 """
 import logging
 import os
+import sys
 import tempfile
 from contextlib import asynccontextmanager
+
+# Ensure backend directory is in sys.path whether executed from root or backend
+_backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _backend_dir not in sys.path:
+    sys.path.insert(0, _backend_dir)
 
 from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -256,6 +262,9 @@ _notifications_alias.add_api_route("/unread-count", sentinel.unread, methods=["G
 _notifications_alias.add_api_route("/{notification_id}/read", sentinel.mark_read, methods=["POST"])
 _notifications_alias.add_api_route("/read-all", sentinel.mark_all_read, methods=["POST"])
 app.include_router(_notifications_alias)
+
+# ProofPass alias route matching blueprint prompt
+app.include_router(proofpass.router, prefix="/proofpass")
 
 
 # ---------------------------------------------------------------------------

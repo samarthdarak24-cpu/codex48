@@ -11,7 +11,7 @@ from ..deps import get_current_user, require_manager
 from .. import models
 from ..services import proofpass as svc
 
-router = APIRouter(prefix="/passport", tags=["proofpass"])
+router = APIRouter(tags=["proofpass"])
 
 
 class GeneratePassportBody(BaseModel):
@@ -117,6 +117,15 @@ def get_passport(
         "createdAt": passport.created_at.isoformat() if passport.created_at else None,
         "expiresAt": passport.expires_at.isoformat() if passport.expires_at else None,
     }
+
+
+@router.get("/verify/{passportIdOrToken}")
+def verify_passport_get(
+    passportIdOrToken: str,
+    db: Session = Depends(get_db),
+):
+    """Public verification GET endpoint: checks certificate authenticity."""
+    return svc.verify_passport(db, passportIdOrToken, probe_bytes=None)
 
 
 @router.post("/verify")

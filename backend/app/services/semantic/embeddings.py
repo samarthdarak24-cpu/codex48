@@ -142,6 +142,17 @@ class OnnxEncoder:
         self._dim = int(unit.shape[1])
         return unit.tolist()
 
+    def encode_query(self, query: str) -> list[float]:
+        """Encode a single query string using asymmetric query prefix."""
+        res = self.encode([query], kind="query")
+        return res[0] if res else []
+
+    def encode_passage(self, passage: str) -> list[float]:
+        """Encode a single passage text using asymmetric passage prefix."""
+        res = self.encode([passage], kind="passage")
+        return res[0] if res else []
+
+
 
 _ENCODERS: dict[tuple[str, str], Optional[OnnxEncoder]] = {}
 

@@ -37,6 +37,8 @@ export interface Submission {
   id: string;
   title: string;
   campaign: string;
+  brand?: string;
+  text?: string;
   creator: {
     name: string;
     avatar: string;
@@ -141,6 +143,10 @@ export interface SentinelAlert {
   contentType?: string;
   recommendedAction?: string;
   description?: string;
+  contentId?: string;
+  contentTitle?: string;
+  submissionId?: string;
+  submissionTitle?: string;
 }
 
 export interface Asset {

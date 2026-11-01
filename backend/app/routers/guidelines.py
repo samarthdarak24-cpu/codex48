@@ -15,6 +15,49 @@ from ..services.audit import record
 
 router = APIRouter(prefix="/guidelines", tags=["guidelines"])
 
+def _generate_guideline_pdf(doc, db: Session) -> str:
+    import re
+    import fitz
+    upload_dir = os.path.abspath(os.path.join(settings.uploads_dir, "guidelines"))
+    os.makedirs(upload_dir, exist_ok=True)
+    clean_name = re.sub(r'[^a-zA-Z0-9_\-\.]', '_', doc.name or doc.id)
+    pdf_path = os.path.join(upload_dir, f"{clean_name}.pdf")
+
+    pdf = fitz.open()
+    page = pdf.new_page(width=595, height=842)
+    y = 50
+    page.insert_text((50, y), f"{doc.name} (v{doc.version or '1.0'})", fontsize=15, fontname="helv", color=(0.1, 0.1, 0.2))
+    y += 24
+    page.insert_text((50, y), f"Category: {doc.category} | Workspace: {doc.workspace or 'Global'}", fontsize=10, fontname="helv", color=(0.4, 0.4, 0.4))
+    y += 18
+    page.draw_line((50, y), (545, y), color=(0.7, 0.7, 0.7), width=1)
+    y += 24
+
+    passages = (
+        db.query(models.GuidelinePassage)
+        .filter(models.GuidelinePassage.doc_id == doc.id)
+        .order_by(models.GuidelinePassage.page_number, models.GuidelinePassage.paragraph_number)
+        .all()
+    )
+    for p in passages:
+        if y > 760:
+            page = pdf.new_page(width=595, height=842)
+            y = 50
+        if p.heading:
+            page.insert_text((50, y), str(p.heading), fontsize=11, fontname="helv", color=(0.2, 0.2, 0.3))
+            y += 16
+        txt = (p.passage_text or "").strip()
+        rect = fitz.Rect(50, y, 545, min(y + 100, 800))
+        page.insert_textbox(rect, txt, fontsize=9, fontname="helv", color=(0.1, 0.1, 0.1))
+        y += max(35, min(110, len(txt) // 3 + 20))
+
+    pdf.save(pdf_path)
+    pdf.close()
+    doc.file_path = pdf_path
+    db.commit()
+    return pdf_path
+
+
 
 @router.get("", dependencies=[Depends(get_current_user)])
 def list_guidelines(
@@ -172,7 +215,10 @@ def get_guideline_file(
     doc = db.get(models.GuidelineDoc, guideline_id)
     require_workspace(doc, current_user, shared=True, detail="File not found")
     if not doc.file_path or not os.path.exists(doc.file_path):
-        raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail="File not found")
+        try:
+            doc.file_path = _generate_guideline_pdf(doc, db)
+        except Exception:
+            raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail="File not found")
     return FileResponse(
         doc.file_path,
         media_type="application/octet-stream",

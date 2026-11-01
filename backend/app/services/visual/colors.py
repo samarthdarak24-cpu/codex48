@@ -169,3 +169,42 @@ def colour_distance(hex_a: str, hex_b: str) -> float:
     except Exception:
         return 999.0
     return sum((x - y) ** 2 for x, y in zip(a, b)) ** 0.5
+
+
+def extract_palette(image_or_path: Any, k: int = 6) -> list[dict[str, Any]]:
+    """Extract dominant color palette from a file path, PIL Image, or numpy array."""
+    if isinstance(image_or_path, str):
+        return dominant_colors(image_or_path, k)
+    
+    import tempfile
+    # Handle PIL image
+    if hasattr(image_or_path, "save"):
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
+            image_or_path.save(tmp.name)
+            tmp_path = tmp.name
+        try:
+            return dominant_colors(tmp_path, k)
+        finally:
+            try:
+                os.remove(tmp_path)
+            except Exception:
+                pass
+    
+    # Handle numpy ndarray
+    try:
+        import cv2
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
+            cv2.imwrite(tmp.name, image_or_path)
+            tmp_path = tmp.name
+        try:
+            return dominant_colors(tmp_path, k)
+        finally:
+            try:
+                os.remove(tmp_path)
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+    return []
+

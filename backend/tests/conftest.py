@@ -5,8 +5,14 @@ IMPORTANT: the DATABASE_URL (and UPLOADS_DIR) environment variables must be set
 `settings.database_url` at import time. We therefore set them at the very top of
 this module, before importing the application package.
 """
-import os
-import tempfile
+import os
+import sys
+import tempfile
+
+_backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _backend_dir not in sys.path:
+    sys.path.insert(0, _backend_dir)
+
 
 # --- configure environment BEFORE importing the app -------------------------
 _tmp_db = tempfile.NamedTemporaryFile(suffix=".db", delete=False)

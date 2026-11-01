@@ -143,3 +143,7 @@ def status() -> dict:
         "last_run": _last_run,
         "last_error": _last_error,
     }
+
+
+# Public alias for health and auditing
+get_scheduler_status = status

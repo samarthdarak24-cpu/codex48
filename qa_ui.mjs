@@ -27,7 +27,7 @@ async function login(page, email) {
   await page.fill('#email', email)
   await page.fill('#password', 'precedent')
   await page.click('button[type="submit"]')
-  await page.waitForURL(/\/(app|manager)\/overview/, { timeout: 25000 })
+  await page.waitForURL(/\/(app|manager|creator)\/(overview|dashboard)/, { timeout: 25000 })
 }
 
 async function shot(page, route, label, { full = true, wait = 600 } = {}) {
@@ -43,7 +43,7 @@ async function shot(page, route, label, { full = true, wait = 600 } = {}) {
       height: document.documentElement.scrollHeight,
     }))
     await page.screenshot({ path: `${OUT}/${label}.png`, fullPage: full })
-    console.log(label.padEnd(30), 'text', String(info.textLen).padStart(5), 'overflow', info.overflow, errors.length ? 'ERR ' + errors[0] : '')
+    console.log(label.padEnd(30), 'text', String(info.textLen).padStart(5), 'overflow', info.overflow, errors.length ? 'ERR ' + errors[0] : '[OK]')
   } catch (e) {
     console.log(label.padEnd(30), 'FAILED', e.message)
   } finally {
@@ -55,19 +55,16 @@ if (which === 'creator' || which === 'all') {
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } })
   const page = await ctx.newPage()
   await login(page, 'emily.carter@pureglow.co')
-  await shot(page, '/app/overview', 'creator-overview')
-  await shot(page, '/app/new', 'creator-new')
-  await shot(page, '/app/submissions', 'creator-submissions')
-  await shot(page, '/app/guidelines', 'creator-guidelines')
-  await shot(page, '/app/feedback', 'creator-feedback-list')
-  const subs = await page.evaluate(async () => {
-    const t = JSON.parse(sessionStorage.getItem('precedent.session') || '{}').token
-    const r = await fetch('http://127.0.0.1:8000/submissions', { headers: { Authorization: 'Bearer ' + t } })
-    return r.ok ? await r.json() : []
-  })
-  const target = (subs || []).find((s) => (s.issueCount || 0) > 0) || (subs || [])[0]
-  if (target) await shot(page, `/app/feedback/${target.id}`, 'creator-feedback-detail')
-  await shot(page, '/notifications', 'creator-notifications')
+  await shot(page, '/creator/dashboard', 'creator-dashboard')
+  await shot(page, '/creator/new', 'creator-new')
+  await shot(page, '/creator/submissions', 'creator-submissions')
+  await shot(page, '/creator/guidelines', 'creator-guidelines')
+  await shot(page, '/creator/review', 'creator-review')
+  await shot(page, '/creator/approved', 'creator-approved')
+  await shot(page, '/creator/sentinel-tasks', 'creator-sentinel-tasks')
+  await shot(page, '/creator/exceptions', 'creator-exceptions')
+  await shot(page, '/creator/profile', 'creator-profile')
+  await shot(page, '/creator/notifications', 'creator-notifications')
   await ctx.close()
 }
 
@@ -77,12 +74,16 @@ if (which === 'manager' || which === 'all') {
   await login(page, 'david.kim@pureglow.co')
   await shot(page, '/manager/overview', 'manager-overview')
   await shot(page, '/manager/queue', 'manager-queue')
+  await shot(page, '/manager/submissions', 'manager-submissions')
   await shot(page, '/manager/guidelines', 'manager-guidelines')
+  await shot(page, '/manager/rules', 'manager-rules')
   await shot(page, '/manager/exceptions', 'manager-exceptions')
   await shot(page, '/manager/sandbox', 'manager-sandbox')
   await shot(page, '/manager/sentinel', 'manager-sentinel')
-  await shot(page, '/manager/trust', 'manager-trust')
+  await shot(page, '/manager/assets', 'manager-assets')
+  await shot(page, '/manager/health', 'manager-health')
   await shot(page, '/manager/audit', 'manager-audit')
+  await shot(page, '/manager/notifications', 'manager-notifications')
   await ctx.close()
 }
 
@@ -90,15 +91,10 @@ if (which === 'mobile' || which === 'all') {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } })
   const page = await ctx.newPage()
   await login(page, 'emily.carter@pureglow.co')
-  const subs = await page.evaluate(async () => {
-    const t = JSON.parse(sessionStorage.getItem('precedent.session') || '{}').token
-    const r = await fetch('http://127.0.0.1:8000/submissions', { headers: { Authorization: 'Bearer ' + t } })
-    return r.ok ? await r.json() : []
-  })
-  const target = (subs || []).find((s) => (s.issueCount || 0) > 0) || (subs || [])[0]
-  if (target) await shot(page, `/app/feedback/${target.id}`, 'mobile-feedback-detail', { full: true })
-  await shot(page, '/app/new', 'mobile-new')
+  await shot(page, '/creator/dashboard', 'mobile-dashboard', { full: true })
+  await shot(page, '/creator/new', 'mobile-new')
   await ctx.close()
 }
 
 await browser.close()
+console.log('UI REVIEW HARNESS COMPLETE!')

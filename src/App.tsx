@@ -121,9 +121,11 @@ export default function App() {
         <Route path="dashboard" element={<CreatorDashboardView />} />
         <Route path="new-content" element={<NewContentView />} />
         <Route path="submissions" element={<MySubmissionsView />} />
+        <Route path="my-submissions" element={<MySubmissionsView />} />
         <Route path="ai-review" element={<AIReviewView />} />
         <Route path="guidelines" element={<CreatorGuidelinesView />} />
         <Route path="exceptions" element={<CreatorExceptionRequestsView />} />
+        <Route path="exception-requests" element={<CreatorExceptionRequestsView />} />
         <Route path="tasks" element={<CreatorSentinelTasksView />} />
         <Route path="sentinel-tasks" element={<CreatorSentinelTasksView />} />
         <Route path="notifications" element={<NotificationsView />} />

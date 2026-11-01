@@ -273,7 +273,7 @@ def tool_validate_citation(db: Session, rule_id: str, passage_id: str) -> Citati
         rule_id=rule_id,
         passage_id=passage_id,
         valid=True,
-        reason=f"Verified rule {rule.code or rule_id} and passage {passage.section or passage_id}.",
+        reason=f"Verified rule {rule.code or rule_id} and passage {getattr(passage, 'heading', '') or passage_id}.",
     )
 
 
@@ -300,7 +300,12 @@ def run_review_crew(
     steps: List[AgentTraceStep] = []
     step_num = 1
 
-    # Fetch submission
+    # Fetch submission (resolve if version_id passed)
+    if submission_id and submission_id.startswith("v_"):
+        ver_row = db.query(models.ContentVersion).filter(models.ContentVersion.id == submission_id).first()
+        if ver_row:
+            submission_id = ver_row.submission_id
+
     sub = db.query(models.Submission).filter(models.Submission.id == submission_id).first()
     if not sub:
         raise ValueError(f"Submission {submission_id} not found")

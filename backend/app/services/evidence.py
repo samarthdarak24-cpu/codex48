@@ -500,7 +500,11 @@ def _rule_code_for(db: Session, workspace: str, passages: list[dict]) -> dict[st
 
 
 def hybrid_retrieve(
-    db: Session, query: str, workspace: str, top_k: Optional[int] = None
+    db: Session,
+    query: str,
+    workspace: str = "",
+    top_k: Optional[int] = None,
+    limit: Optional[int] = None,
 ) -> list[dict]:
     """Retrieve guideline passages for `query` with BM25 + vector RRF.
 
@@ -511,7 +515,8 @@ def hybrid_retrieve(
 
     Only passages visible to `workspace` are considered.
     """
-    k = top_k if isinstance(top_k, int) and top_k > 0 else settings.retrieval_top_k
+    effective_k = limit if (limit is not None and top_k is None) else top_k
+    k = effective_k if isinstance(effective_k, int) and effective_k > 0 else settings.retrieval_top_k
     k = max(1, min(int(k), 50))
 
     query_tokens = tokenize(query or "")

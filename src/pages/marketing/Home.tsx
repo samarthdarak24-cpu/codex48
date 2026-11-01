@@ -783,6 +783,9 @@ function WorkGrid() {
 /* ------------------------------------------------------------------ */
 
 function AudienceCards() {
+  const [exceptionGranted, setExceptionGranted] = useState(false)
+  const [ruleCited, setRuleCited] = useState(false)
+  const [fixApplied, setFixApplied] = useState(false)
   return (
     <section className="bg-white pb-20 lg:pb-24">
       <div className="mkt-container grid gap-6 lg:grid-cols-2">
@@ -832,11 +835,22 @@ function AudienceCards() {
                   </div>
                   <p className="text-[11px] text-muted mt-0.5 truncate">Submitted by Emily Carter · Background #F5A97F</p>
                   <div className="mt-2.5 flex items-center gap-2">
-                    <button type="button" className="inline-flex items-center gap-1 rounded-md bg-purple-600 px-2.5 py-1 text-[10.5px] font-bold text-white shadow-2xs hover:bg-purple-700 transition-colors">
-                      <Sparkles className="h-3 w-3" /> Grant Scoped Exception
+                    <button
+                      type="button"
+                      onClick={() => setExceptionGranted((prev) => !prev)}
+                      className={cn(
+                        "inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-[10.5px] font-bold text-white shadow-2xs transition-colors cursor-pointer",
+                        exceptionGranted ? "bg-emerald-600 hover:bg-emerald-700" : "bg-purple-600 hover:bg-purple-700"
+                      )}
+                    >
+                      <Sparkles className="h-3 w-3" /> {exceptionGranted ? "✓ Exception Granted (90d)" : "Grant Scoped Exception"}
                     </button>
-                    <button type="button" className="inline-flex items-center gap-1 rounded-md bg-white border border-ink/15 px-2 py-1 text-[10.5px] font-semibold text-ink-700 hover:bg-ink/[0.02]">
-                      <FileSearch className="h-3 w-3 text-muted" /> Cite Rule
+                    <button
+                      type="button"
+                      onClick={() => setRuleCited((prev) => !prev)}
+                      className="inline-flex items-center gap-1 rounded-md bg-white border border-ink/15 px-2 py-1 text-[10.5px] font-semibold text-ink-700 hover:bg-ink/[0.04] transition-colors cursor-pointer"
+                    >
+                      <FileSearch className="h-3 w-3 text-muted" /> {ruleCited ? "BR-01 §3 Cited" : "Cite Rule"}
                     </button>
                   </div>
                 </div>
@@ -918,8 +932,15 @@ function AudienceCards() {
                   <p className="text-emerald-950 font-medium">
                     + “clinically tested hydration that visibly softens fine lines”
                   </p>
-                  <button type="button" className="mt-2 inline-flex items-center gap-1 rounded bg-emerald-600 text-white font-bold text-[10px] px-2 py-0.5 shadow-2xs hover:bg-emerald-700">
-                    <Check className="h-2.5 w-2.5" /> Apply Minimal Fix to Draft
+                  <button
+                    type="button"
+                    onClick={() => setFixApplied((prev) => !prev)}
+                    className={cn(
+                      "mt-2 inline-flex items-center gap-1 rounded font-bold text-[10px] px-2 py-0.5 shadow-2xs transition-colors cursor-pointer",
+                      fixApplied ? "bg-emerald-700 text-white" : "bg-emerald-600 hover:bg-emerald-700 text-white"
+                    )}
+                  >
+                    <Check className="h-2.5 w-2.5" /> {fixApplied ? "Fix Applied to Version 2.2" : "Apply Minimal Fix to Draft"}
                   </button>
                 </div>
               </div>

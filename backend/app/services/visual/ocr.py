@@ -352,3 +352,10 @@ def read_text(image_path: str) -> dict[str, Any]:
         },
         "error": None,
     }
+
+
+# Public aliases for technology auditing & external callers
+run_ocr = read_text
+tesseract_ready = _tesseract_ready
+rapidocr_ready = _rapidocr_ready
+

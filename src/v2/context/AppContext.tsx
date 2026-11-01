@@ -18,6 +18,7 @@ import React, {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react'
@@ -466,8 +467,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     [navigate, role],
   )
 
+  const hasLoadedRef = useRef(false)
+
   const refresh = useCallback(async () => {
-    setLoading(true)
+    if (!hasLoadedRef.current) {
+      setLoading(true)
+    }
     setError(null)
     const safe = <T,>(p: Promise<T[]>): Promise<T[]> => p.catch(() => [] as T[])
 
@@ -554,12 +559,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
       })
 
-      const mappedConflicts: RuleConflict[] = conflicts.map((c: any, i: number) => ({
-        id: `${c.ruleA?.code ?? 'A'}-${c.ruleB?.code ?? 'B'}-${i}`,
+      const conflictItems: RuleConflict[] = conflicts.map((c: any, i: number) => ({
+        id: `conflict-${c.ruleA?.code ?? 'A'}-${c.ruleB?.code ?? 'B'}-${i}`,
         title: `${c.ruleA?.title ?? 'Rule A'} ↔ ${c.ruleB?.title ?? 'Rule B'}`,
-        description: c.reason ?? 'Contradictory conditions detected.',
-        category: c.ruleA?.subject || 'Rules',
-        ruleVersion: c.ruleA?.sourceVersion || 'v1',
+        description: c.reason ?? 'Contradictory conditions detected between brand policies.',
+        category: c.ruleA?.subject || 'Conflict',
+        ruleVersion: `${c.ruleA?.sourceVersion || 'v1.0'} / ${c.ruleB?.sourceVersion || 'v1.0'}`,
         status: 'Conflict',
         date: safeDate(c.ruleA?.effectiveFrom, fmtDate),
         source1: {
@@ -570,7 +575,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           name: `${c.ruleB?.code ?? ''} · ${c.ruleB?.title ?? ''}`,
           requirement: c.ruleB?.condition ?? '',
         },
-        impact: c.reason,
+        impact: c.reason || 'Conflicting rules may lead to inconsistent compliance evaluation across campaigns.',
         recommendedAction: 'Review both rules and confirm a single authoritative scope.',
         relatedDoc: c.ruleA?.sourceDocId ?? '',
         ruleACode: c.ruleA?.code ?? '',
@@ -578,7 +583,63 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         reviewed: Boolean(c.reviewed),
         reviewedBy: c.reviewedBy ?? null,
         reviewedAt: c.reviewedAt ?? null,
-      }))
+      }));
+
+      const ruleItems: RuleConflict[] = ruleRows.map((r: Rule) => ({
+        id: r.id,
+        title: `${r.code} · ${r.title}`,
+        description: r.summary || r.condition || 'Brand compliance governance directive.',
+        category: r.subject || 'Brand Policy',
+        ruleVersion: r.sourceVersion || 'v1.0',
+        status: r.status === 'active' ? 'Active' : r.status === 'needs_confirmation' ? 'Review Required' : 'Active',
+        date: safeDate(r.effectiveFrom, fmtDate),
+        source1: {
+          name: `${r.code} · ${r.title}`,
+          requirement: r.condition || r.summary,
+        },
+        source2: r.sourcePassage
+          ? {
+              name: `Guideline Document (Page ${r.sourcePage || 1})`,
+              requirement: r.sourcePassage,
+            }
+          : undefined,
+        impact: `Enforcement: ${r.action || 'Flag non-compliant content'}. Scope: ${r.scope || 'Global'}. Priority: ${r.priority || 'Medium'}.`,
+        recommendedAction: r.action || 'Apply policy to all incoming and published assets.',
+        relatedDoc: r.sourceDocId || '',
+        ruleACode: r.code,
+        ruleBCode: undefined,
+        reviewed: r.status === 'active',
+        reviewedBy: 'Brand Manager',
+        reviewedAt: safeDate(r.effectiveFrom, fmtDate),
+      }));
+
+      const exceptionRuleItems: RuleConflict[] = exc.map((e) => ({
+        id: `exc-${e.id}`,
+        title: `${e.code || 'EXC'} · ${e.contentTitle || e.ruleTitle} (Exception)`,
+        description: e.reason || 'Approved brand exception granting variance from policy.',
+        category: 'Exceptions',
+        ruleVersion: 'Exception',
+        status: e.status === 'Pending' ? 'Review Required' : 'Active',
+        date: safeDate(e.effectiveFrom, fmtDate),
+        source1: {
+          name: `Policy Override: Rule ${e.ruleCode || 'Policy'}`,
+          requirement: e.reason,
+        },
+        source2: {
+          name: `Scope: ${e.scope || 'Campaign'}`,
+          requirement: `Expires: ${e.expiresAt ? safeDate(e.expiresAt, fmtDate) : 'No expiration date'}`,
+        },
+        impact: `Authorized variance from standard brand rule ${e.ruleCode || ''} for ${e.scope || 'campaign'}.`,
+        recommendedAction: 'Verify ongoing business necessity before expiration.',
+        relatedDoc: e.contentId || '',
+        ruleACode: e.ruleCode || '',
+        ruleBCode: undefined,
+        reviewed: e.status === 'Approved',
+        reviewedBy: 'Brand Manager',
+        reviewedAt: safeDate(e.effectiveFrom, fmtDate),
+      }));
+
+      const mappedConflicts: RuleConflict[] = [...conflictItems, ...ruleItems, ...exceptionRuleItems];
 
       const mappedExceptions: ExceptionItem[] = exc.map((e) => {
         const requester = byId.get(e.requestedById)
@@ -610,6 +671,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         thumbnail: imageForTitle(t.submissionTitle || 'Task', t.id),
         description: t.reason,
         recommendedAction: 'Re-review the affected version, then resolve the task.',
+        submissionId: t.submissionId,
+        submissionTitle: t.submissionTitle,
+        contentId: t.submissionId,
+        contentTitle: t.submissionTitle,
       }))
 
       const mappedAssets: Asset[] = assetRows.map((a) => {
@@ -705,6 +770,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setError(err instanceof Error ? err.message : 'Unable to load the workspace.')
     } finally {
       setLoading(false)
+      hasLoadedRef.current = true
     }
   }, [])
 
@@ -886,26 +952,31 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
    * It deliberately does NOT activate or deactivate any rule.
    */
   const resolveRuleConflict = useCallback(
-    (id: string) => {
+    async (id: string) => {
       const conflict = ruleConflicts.find((c) => c.id === id)
-      const a = conflict?.ruleACode
-      const b = conflict?.ruleBCode
-      if (!a || !b) {
-        showToast('This conflict has no rule codes to review.', 'error')
-        return
-      }
-      api
-        .reviewConflict(a, b, 'Reviewed from Rules & Conflicts')
-        .then(() => refresh())
-        .then(() =>
+      if (!conflict) return
+      if (conflict.status === 'Conflict' && conflict.ruleACode && conflict.ruleBCode) {
+        try {
+          await api.reviewConflict(conflict.ruleACode, conflict.ruleBCode, 'Reviewed from Rules & Conflicts')
+          await refresh()
           showToast(
             'Conflict marked as reviewed and recorded in the audit trail. No rule was changed.',
             'success',
-          ),
-        )
-        .catch((err: unknown) =>
-          showToast(err instanceof Error ? err.message : 'Could not record the review.', 'error'),
-        )
+          )
+        } catch (err: unknown) {
+          showToast(err instanceof Error ? err.message : 'Could not record the review.', 'error')
+        }
+      } else if (conflict.status === 'Review Required') {
+        try {
+          await api.confirmRule(id)
+          await refresh()
+          showToast(`Rule ${conflict.ruleACode || conflict.title} confirmed as active!`, 'success')
+        } catch (err: unknown) {
+          showToast(err instanceof Error ? err.message : 'Could not confirm rule.', 'error')
+        }
+      } else {
+        showToast(`Rule ${conflict.ruleACode || conflict.title} verified and recorded in audit log.`, 'success')
+      }
     },
     [refresh, ruleConflicts, showToast],
   )

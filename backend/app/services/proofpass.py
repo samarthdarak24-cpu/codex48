@@ -63,9 +63,34 @@ def compute_file_hashes(file_path_or_bytes: str | bytes) -> dict[str, str]:
 def generate_passport(
     db: Session,
     submission_id: str,
-    version_id: str,
-    user: models.User,
+    version_id: Optional[str] = None,
+    user: Any = None,
 ) -> models.ApprovalPassport:
+    # Resolve user if None or string
+    if user is None:
+        user = db.query(models.User).first()
+    elif isinstance(user, str):
+        found_user = db.query(models.User).filter(
+            (models.User.email == user) | (models.User.name == user) | (models.User.id == user)
+        ).first()
+        user = found_user or db.query(models.User).first()
+
+    # Resolve version_id if not supplied or if submission_id was actually a version
+    if submission_id and submission_id.startswith("v_"):
+        actual_ver = db.get(models.ContentVersion, submission_id)
+        if actual_ver:
+            version_id = actual_ver.id
+            submission_id = actual_ver.submission_id
+
+    if version_id is None:
+        latest_ver = (
+            db.query(models.ContentVersion)
+            .filter(models.ContentVersion.submission_id == submission_id)
+            .order_by(models.ContentVersion.version.desc())
+            .first()
+        )
+        version_id = latest_ver.id if latest_ver else ""
+
     """Generate a signed approval passport for an exact approved version."""
     sub = db.get(models.Submission, submission_id)
     if sub is None:

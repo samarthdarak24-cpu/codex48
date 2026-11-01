@@ -6,6 +6,7 @@ persisted execution traces.
 
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from .. import models
@@ -14,6 +15,27 @@ from ..deps import get_current_user
 from ..services.crew import CrewReviewTrace, get_latest_crew_trace, run_review_crew
 
 router = APIRouter(prefix="", tags=["review-crew"])
+
+
+class CrewReviewRequest(BaseModel):
+    submission_id: Optional[str] = None
+    submissionId: Optional[str] = None
+
+
+@router.post("/crew/review", response_model=CrewReviewTrace)
+def trigger_crew_review_direct(
+    body: CrewReviewRequest,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(get_current_user),
+):
+    """Direct alias endpoint for running Review Crew by submission_id."""
+    sub_id = body.submission_id or body.submissionId
+    if not sub_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="submission_id or submissionId is required",
+        )
+    return trigger_crew_review(sub_id=sub_id, db=db, user=user)
 
 
 @router.get("/crew/summary")

@@ -208,8 +208,10 @@ export default function CreatorGuidelines() {
                       View
                     </Button>
                     <button
+                      type="button"
+                      onClick={() => setPreview(doc)}
                       aria-label="More options"
-                      className="inline-flex h-7 w-6 items-center justify-center rounded-md text-muted transition-colors hover:bg-[#F1F6FD] hover:text-ink"
+                      className="inline-flex h-7 w-6 items-center justify-center rounded-md text-muted transition-colors hover:bg-[#F1F6FD] hover:text-ink cursor-pointer"
                     >
                       <MoreHorizontal className="h-3.5 w-3.5" />
                     </button>

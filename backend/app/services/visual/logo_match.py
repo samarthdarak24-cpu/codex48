@@ -146,3 +146,8 @@ def match_logos(
 
     candidates.sort(key=lambda c: c["confidence"], reverse=True)
     return candidates[:max_matches]
+
+
+# Public alias
+match_logo = match_logos
+

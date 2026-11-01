@@ -206,3 +206,68 @@ def worst_contrast(findings: list[dict[str, Any]]) -> float | None:
     """Lowest measured ratio, or None when nothing could be measured."""
     vals = [f["value"] for f in findings or [] if isinstance(f.get("value"), (int, float))]
     return min(vals) if vals else None
+
+
+def evaluate_contrast(
+    image_or_path: Any,
+    text_blocks: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Evaluate WCAG contrast for an image or text blocks.
+    
+    Returns standard summary: {"status": "pass" | "fail" | "unknown", "worst_ratio": float, "findings": list}
+    """
+    if isinstance(image_or_path, str):
+        path = image_or_path
+        cleanup = False
+    else:
+        import tempfile
+        cleanup = True
+        if hasattr(image_or_path, "save"):
+            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
+                image_or_path.save(tmp.name)
+                path = tmp.name
+        else:
+            import cv2
+            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
+                cv2.imwrite(tmp.name, image_or_path)
+                path = tmp.name
+
+    try:
+        blocks = text_blocks or []
+        if not blocks:
+            # If no blocks provided, check overall image luminance contrast
+            try:
+                with Image.open(path) as img:
+                    rgb = img.convert("RGB")
+                    # Sample corners vs center
+                    w, h = rgb.size
+                    px = rgb.load()
+                    bg = px[0, 0]
+                    fg = px[w // 2, h // 2]
+                    ratio = contrast_ratio(fg, bg)
+                    status = "pass" if ratio >= 4.5 else "fail"
+                    return {
+                        "status": status,
+                        "ratio": round(ratio, 2),
+                        "findings": [],
+                    }
+            except Exception:
+                return {"status": "unknown", "ratio": 1.0, "findings": []}
+
+        findings = contrast_findings(path, blocks)
+        worst = worst_contrast(findings)
+        status = "unknown"
+        if findings:
+            status = "fail" if any(f["status"] == "fail" for f in findings) else "pass"
+        return {
+            "status": status,
+            "worst_ratio": worst,
+            "findings": findings,
+        }
+    finally:
+        if cleanup and os.path.exists(path):
+            try:
+                os.remove(path)
+            except Exception:
+                pass
+
