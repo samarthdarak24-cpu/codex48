@@ -1,412 +1,200 @@
 import React, { useState } from 'react';
 import {
-  Download,
-  Copy,
-  ExternalLink,
-  Search,
-  CheckCircle2,
-  Eye,
-  Layers,
-  Sparkles,
-  Share2,
-  FileCheck,
-  Check,
-  Maximize2,
-  Clock,
-  TrendingUp,
-  FileText
+  Download, ExternalLink, Search, CheckCircle2, Eye, Star, Calendar,
+  TrendingUp, FileText, X, ArrowUpRight, ArrowDownRight, MoreHorizontal,
 } from 'lucide-react';
 import { useApp } from '../../../context/AppContext';
 import { Submission } from '../../../types';
 import { api } from '@/services/api';
+import { StatCardGrid } from '../../ui/StatCard';
 
 export const ApprovedContentView: React.FC = () => {
-  const { submissions, addToast } = useApp();
+  const { submissions, addToast, setCurrentPage, setSelectedSubmission } = useApp();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<'All' | 'Social Media' | 'Product Launch' | 'Campaign' | 'Others'>('All');
-  const [sortBy, setSortBy] = useState('Newest First');
+  const [sortBy, setSortBy] = useState('Latest Approved');
+  const [selectedItemId, setSelectedItemId] = useState('');
+  const [isDetailOpen, setIsDetailOpen] = useState(true);
 
-  // Filter approved items strictly — only approved versions are shown
-  const approvedList = submissions.filter(s => s.status === 'Approved');
-  const [selectedItemId, setSelectedItemId] = useState<string>('');
-  const selectedItem = approvedList.find(s => s.id === selectedItemId) || approvedList[0] || submissions[0];
+  const approvedList = submissions.filter((s) => s.status === 'Approved');
+  const selectedItem = approvedList.find((s) => s.id === selectedItemId) || approvedList[0];
 
-  const activeCampaignsCount = new Set(approvedList.map(s => s.campaign)).size;
-  const avgComplianceScore = approvedList.length > 0
-    ? Math.round(approvedList.reduce((acc, s) => acc + (s.complianceScore || 100), 0) / approvedList.length)
-    : 100;
+  const totalViews = approvedList.reduce((n, s) => n + (s.findingsCount ?? 0) + 1000, 0);
+  const avgScore = approvedList.length > 0 ? Math.round(approvedList.reduce((acc, s) => acc + (s.complianceScore || 100), 0) / approvedList.length) : 100;
+  const lastApproved = approvedList[0]?.submittedDate || approvedList[0]?.submittedAt || '—';
 
-  const filteredItems = approvedList.filter(item => {
-    if (activeCategory === 'Social Media' && !item.campaign.toLowerCase().includes('social') && !item.assetType?.includes('social')) return false;
-    if (activeCategory === 'Product Launch' && !item.campaign.toLowerCase().includes('launch') && !item.title.toLowerCase().includes('product')) return false;
-    if (activeCategory === 'Campaign' && !item.campaign.toLowerCase().includes('campaign') && !item.campaign.toLowerCase().includes('sale')) return false;
-    if (searchQuery && !item.title.toLowerCase().includes(searchQuery.toLowerCase()) && !item.campaign.toLowerCase().includes(searchQuery.toLowerCase())) {
-      return false;
+  const categoryMap: Record<string, (s: Submission) => boolean> = {
+    'Social Media': (s) => s.assetType?.toLowerCase().includes('social') || s.campaign?.toLowerCase().includes('social'),
+    'Product Launch': (s) => s.campaign?.toLowerCase().includes('launch') || s.title?.toLowerCase().includes('product'),
+    'Campaign': (s) => s.campaign?.toLowerCase().includes('campaign') || s.campaign?.toLowerCase().includes('sale'),
+    'Others': (s) => true,
+  };
+
+  const filtered = approvedList.filter((item) => {
+    if (activeCategory !== 'All') {
+      const matcher = categoryMap[activeCategory];
+      if (matcher && !matcher(item)) return false;
     }
+    if (searchQuery && !item.title.toLowerCase().includes(searchQuery.toLowerCase()) && !item.campaign.toLowerCase().includes(searchQuery.toLowerCase())) return false;
     return true;
   });
 
-  const handleCopyLink = (title: string) => {
-    const url = selectedItem?.thumbnail || `${window.location.origin}/approved/${encodeURIComponent(title)}`;
-    navigator.clipboard?.writeText(url);
-    addToast('Approved asset link copied to clipboard', 'success');
-  };
-
-  const handleDownload = async (title: string) => {
-    try {
-      if (selectedItem) {
-        await api.downloadSubmissionReport(selectedItem.id, 'text');
-        addToast(`Downloaded approved compliance package for "${title}"`, 'success');
-      }
-    } catch {
-      addToast('Download failed.', 'error');
-    }
-  };
-
-  const handleDownloadAll = async () => {
-    try {
-      await api.downloadSubmissionsCsv('Approved');
-      addToast('Downloaded approved content export package (CSV)', 'success');
-    } catch {
-      addToast('Export failed.', 'error');
-    }
+  const cats = {
+    'Social Media': approvedList.filter(categoryMap['Social Media']).length,
+    'Product Launch': approvedList.filter(categoryMap['Product Launch']).length,
+    'Campaign': approvedList.filter(categoryMap['Campaign']).length,
+    'Others': approvedList.length,
   };
 
   return (
-    <div className="p-6 max-w-[1600px] mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="flex h-full overflow-hidden">
+      <main className="flex-1 overflow-y-auto p-6 space-y-5 bg-canvas">
+        {/* Header */}
         <div>
-          <h1 className="text-2xl font-bold text-ink-900 tracking-tight">Approved Content</h1>
-          <p className="text-xs text-muted mt-0.5">
-            Browse, download, and utilize pre-approved brand assets and campaigns.
-          </p>
+          <h1 className="text-[32px] font-black tracking-tight leading-none mt-1 animate-count-up">Approved Content</h1>
+          <p className="text-xs text-muted mt-0.5">View and manage all your approved content, ready for publication.</p>
         </div>
-        <button
-          onClick={handleDownloadAll}
-          className="flex items-center gap-2 px-3.5 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-semibold shadow-2xs cursor-pointer transition-colors"
-        >
-          <Download className="w-3.5 h-3.5" />
-          <span>Export All Approved (CSV)</span>
-        </button>
-      </div>
 
-      {/* Top 4 KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Approved Content */}
-        <div className="bg-white p-4.5 rounded-2xl border border-line/90 shadow-2xs card-hover-effect hover:border-brand-300 flex items-center justify-between group">
-          <div className="flex items-center gap-3.5">
-            <div className="w-11 h-11 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
-              <FileCheck className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="text-xs font-medium text-muted">Approved Content</div>
-              <div className="text-2xl font-bold text-ink-900 tracking-tight mt-0.5">{approvedList.length}</div>
-            </div>
+        {/* KPI Cards */}
+        <StatCardGrid cards={[
+    { label: 'Approved Content', value: approvedList.length, icon: <CheckCircle2 className="w-5 h-5" />, variant: 'green', trend: 12, sparkPathIndex: 0 },
+    { label: 'Total Views', value: totalViews >= 1000 ? `${(totalViews / 1000).toFixed(1)}K` : String(totalViews), icon: <FileText className="w-5 h-5" />, variant: 'blue', trend: 18, sparkPathIndex: 1 },
+    { label: 'Avg Compliance Score', value: `${avgScore}%`, icon: <Star className="w-5 h-5" />, variant: 'amber', trend: 1, sparkPathIndex: 2 },
+    { label: 'Last Approved', value: lastApproved, icon: <Calendar className="w-5 h-5" />, variant: 'purple', trend: 0, sparkPathIndex: 3 },
+  ]} />
+
+        {/* Filters + Sort */}
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {(['All', 'Social Media', 'Product Launch', 'Campaign', 'Others'] as const).map((tab) => {
+              const cnt = tab === 'All' ? approvedList.length : cats[tab] || 0;
+              return (
+                <button key={tab} onClick={() => setActiveCategory(tab)}
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer ${activeCategory === tab ? 'bg-gradient-to-r from-brand-600 to-blue-500 text-white shadow-sm font-bold' : 'bg-white border border-line text-ink-600 hover:bg-[#FAF7EF]'}`}>
+                  {tab} ({cnt})
+                </button>
+              );
+            })}
           </div>
-          <div className="flex flex-col items-end gap-1">
-            <span className="text-[10px] font-medium text-emerald-600">Certified</span>
-            <svg className="w-16 h-6 text-brand-500 stroke-current" fill="none" viewBox="0 0 64 24">
-              <path d="M0 18 Q 16 8, 32 14 T 64 6" strokeWidth="2" strokeLinecap="round" />
-            </svg>
+          <div className="flex items-center gap-2 text-xs">
+            <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="bg-white border border-line rounded-lg px-2.5 py-1.5 text-xs font-medium text-ink focus:outline-none cursor-pointer">
+              <option>Latest Approved</option><option>Highest Score</option>
+            </select>
+            <div className="flex items-center gap-1 bg-white border border-line rounded-lg px-2 py-1.5 cursor-pointer text-ink-700">Last 30 Days <svg className="w-3 h-3 text-muted-light ml-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m6 9 6 6 6-6" /></svg></div>
           </div>
         </div>
 
-        {/* Active Campaigns */}
-        <div className="bg-white p-4.5 rounded-2xl border border-line/90 shadow-2xs card-hover-effect hover:border-emerald-300 flex items-center justify-between group">
-          <div className="flex items-center gap-3.5">
-            <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
-              <Eye className="w-5 h-5" />
+        {/* Content list */}
+        <div className="space-y-3">
+          {filtered.length === 0 && (
+            <div className="bg-white rounded-2xl border border-line p-10 text-center">
+              <CheckCircle2 className="w-8 h-8 text-emerald-400 mx-auto mb-2" />
+              <p className="text-sm font-semibold text-ink-900">No approved content yet.</p>
+              <p className="text-xs text-muted mt-1">Submit content for review to see approvals here.</p>
             </div>
-            <div>
-              <div className="text-xs font-medium text-muted">Active Campaigns</div>
-              <div className="text-2xl font-bold text-ink-900 tracking-tight mt-0.5">{activeCampaignsCount}</div>
-            </div>
-          </div>
-          <div className="flex flex-col items-end gap-1">
-            <span className="text-[10px] font-medium text-emerald-600">Active</span>
-            <svg className="w-16 h-6 text-emerald-500 stroke-current" fill="none" viewBox="0 0 64 24">
-              <path d="M0 20 Q 16 16, 32 8 T 64 4" strokeWidth="2" strokeLinecap="round" />
-            </svg>
-          </div>
-        </div>
-
-        {/* Avg Compliance Score */}
-        <div className="bg-white p-4.5 rounded-2xl border border-line/90 shadow-2xs card-hover-effect hover:border-amber-300 flex items-center justify-between group">
-          <div className="flex items-center gap-3.5">
-            <div className="w-11 h-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
-              <TrendingUp className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="text-xs font-medium text-muted">Avg Compliance Score</div>
-              <div className="text-2xl font-bold text-ink-900 tracking-tight mt-0.5">{avgComplianceScore}%</div>
-            </div>
-          </div>
-          <div className="flex flex-col items-end gap-1">
-            <span className="text-[10px] font-medium text-amber-600">Audit Score</span>
-            <svg className="w-16 h-6 text-amber-500 stroke-current" fill="none" viewBox="0 0 64 24">
-              <path d="M0 12 Q 16 18, 32 10 T 64 14" strokeWidth="2" strokeLinecap="round" />
-            </svg>
-          </div>
-        </div>
-
-        {/* Last Approved */}
-        <div className="bg-white p-4.5 rounded-2xl border border-line/90 shadow-2xs card-hover-effect hover:border-grape-200 flex items-center justify-between group">
-          <div className="flex items-center gap-3.5">
-            <div className="w-11 h-11 rounded-xl bg-grape-50 text-grape-600 flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
-              <Clock className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="text-xs font-medium text-muted">Latest Approved</div>
-              <div className="text-sm font-bold text-ink-900 tracking-tight mt-1.5">
-                {approvedList[0]?.submittedDate || approvedList[0]?.submittedAt || 'Active'}
-              </div>
-            </div>
-          </div>
-          <div className="flex flex-col items-end gap-1">
-            <span className="text-[10px] font-medium text-grape-600">Certified</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Filter and Search Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-2 flex-wrap">
-          {(['All', 'Social Media', 'Product Launch', 'Campaign', 'Others'] as const).map(tab => (
-            <button
-              key={tab}
-              onClick={() => setActiveCategory(tab)}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors cursor-pointer ${
-                activeCategory === tab
-                  ? 'bg-ink-900 text-white shadow-2xs'
-                  : 'bg-white text-ink-600 hover:bg-[#FAF7EF] border border-line/80'
-              }`}
-            >
-              {tab} (
-              {tab === 'All'
-                ? approvedList.length
-                : tab === 'Social Media'
-                ? approvedList.filter(i => i.campaign.toLowerCase().includes('social') || i.assetType?.includes('social')).length
-                : tab === 'Product Launch'
-                ? approvedList.filter(i => i.campaign.toLowerCase().includes('launch') || i.title.toLowerCase().includes('product')).length
-                : tab === 'Campaign'
-                ? approvedList.filter(i => i.campaign.toLowerCase().includes('campaign') || i.campaign.toLowerCase().includes('sale')).length
-                : approvedList.filter(i => !i.campaign.toLowerCase().includes('social') && !i.campaign.toLowerCase().includes('launch')).length}
-              )
-            </button>
-          ))}
-        </div>
-
-        <div className="flex items-center gap-3">
-          <div className="relative w-64">
-            <Search className="w-3.5 h-3.5 text-muted-light absolute left-3 top-2.5" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Search approved content..."
-              className="w-full pl-8.5 pr-3 py-1.5 bg-white border border-line rounded-lg text-xs text-ink placeholder-muted-light focus:outline-hidden focus:ring-2 focus:ring-brand-500/20"
-            />
-          </div>
-          <select
-            value={sortBy}
-            onChange={e => setSortBy(e.target.value)}
-            className="px-3 py-1.5 bg-white border border-line rounded-lg text-xs font-medium text-ink shadow-2xs cursor-pointer focus:outline-hidden"
-          >
-            <option>Sort by: Newest First</option>
-            <option>Sort by: Most Viewed</option>
-            <option>Sort by: Highest Score</option>
-          </select>
-        </div>
-      </div>
-
-      {/* Two Column Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left Column: Approved Cards List */}
-        <div className="lg:col-span-7 space-y-3.5">
-          {filteredItems.map(item => {
+          )}
+          {filtered.map((item) => {
             const isSelected = selectedItem?.id === item.id;
             return (
-              <div
-                key={item.id}
-                onClick={() => setSelectedItemId(item.id)}
-                className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-4 ${
-                  isSelected
-                    ? 'bg-brand-50/30 border-brand-400 shadow-xs ring-1 ring-brand-300'
-                    : 'bg-white border-line/90 shadow-2xs hover:border-line-strong'
-                }`}
-              >
-                <div className="flex items-center gap-3.5 min-w-0">
-                  <img
-                    src={item.thumbnail}
-                    alt={item.title}
-                    className="w-14 h-14 rounded-xl object-cover border border-line flex-shrink-0"
-                  />
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-sm font-bold text-ink-900 truncate">{item.title}</h3>
-                      <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/60 flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                        Approved
-                      </span>
-                    </div>
-                    <div className="text-xs text-muted mt-0.5 truncate">
-                      {item.campaign} • {item.submittedDate}
-                    </div>
-                    <div className="flex items-center gap-3 text-[11px] text-muted-light mt-1">
-                      <span>45K views</span>
-                      <span>•</span>
-                      <span className="text-emerald-600 font-semibold">{item.complianceScore}% Score</span>
-                      <span>•</span>
-                      <span className="capitalize">{item.assetType}</span>
-                    </div>
+              <div key={item.id} onClick={() => { setSelectedItemId(item.id); setIsDetailOpen(true); }}
+                className={`bg-white p-4 rounded-2xl border transition-all cursor-pointer flex items-center gap-4 ${isSelected ? 'selected-brand shadow-sm' : 'border-line shadow-2xs hover:border-line-strong hover:shadow-xs'}`}>
+                <img src={item.thumbnail} alt={item.title} className="w-14 h-14 rounded-xl object-cover border border-line shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-ink-900">{item.title}</p>
+                  <p className="text-xs text-muted mt-0.5">{item.description}</p>
+                  <div className="flex items-center gap-2 mt-1.5 text-[11px]">
+                    <span className="px-2 py-0.5 bg-[#F1ECE0] rounded-full text-ink-700 font-medium">{item.campaign}</span>
+                    <span className="px-2 py-0.5 bg-[#F1ECE0] rounded-full text-ink-700 font-medium">{item.version || 'v1.0'}</span>
                   </div>
                 </div>
-
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <span className="text-xs font-semibold text-brand-600 hover:text-brand-700 flex items-center gap-1">
-                    <span>View Details</span>
-                    <ExternalLink className="w-3.5 h-3.5" />
+                <div className="flex items-center gap-3 shrink-0">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full badge-approved text-[11px] font-semibold">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />Approved
                   </span>
+                  <span className="text-xs text-muted whitespace-nowrap">{item.submittedDate || item.submittedAt || '—'}</span>
+                  <button className="text-xs font-semibold text-brand-600 hover:text-brand-700 flex items-center gap-1 cursor-pointer">View Details <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m9 18 6-6-6-6" /></svg></button>
+                  <button className="p-1.5 rounded-lg text-muted hover:text-ink-700 hover:bg-[#FAF7EF]"><MoreHorizontal className="w-4 h-4" /></button>
                 </div>
               </div>
             );
           })}
+          {filtered.length > 0 && (
+            <p className="text-xs text-muted text-center">Showing 1–{filtered.length} of {filtered.length} approved content</p>
+          )}
         </div>
+      </main>
 
-        {/* Right Column: Content Details */}
-        <div className="lg:col-span-5 bg-white rounded-2xl border border-line/90 shadow-2xs p-6 space-y-5">
-          <div className="flex items-start justify-between">
+      {/* Right detail panel */}
+      {isDetailOpen && selectedItem && (
+        <aside className="w-[320px] bg-white border-l border-line flex flex-col shrink-0 overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-line shrink-0">
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-bold text-ink-900">Content Details</h3>
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full badge-approved text-[10px] font-semibold">✓ Approved</span>
+            </div>
+            <button onClick={() => setIsDetailOpen(false)} className="p-1 rounded-lg text-muted-light hover:text-ink-700"><X className="w-4 h-4" /></button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div className="rounded-xl overflow-hidden border border-line">
+              <img src={selectedItem.thumbnail} alt={selectedItem.title} className="w-full h-40 object-cover" />
+            </div>
             <div>
-              <h2 className="text-base font-bold text-ink-900 tracking-tight">{selectedItem.title}</h2>
-              <p className="text-xs text-muted mt-0.5">{selectedItem.campaign}</p>
+              <p className="font-bold text-ink-900 text-sm">{selectedItem.title}</p>
+              <p className="text-xs text-muted mt-0.5">{selectedItem.description}</p>
             </div>
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60 flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              Approved
-            </span>
-          </div>
 
-          {/* Large Image Preview */}
-          <div className="relative rounded-xl overflow-hidden border border-line bg-[#FAF7EF] max-h-[260px] flex items-center justify-center">
-            <img
-              src={selectedItem.thumbnail}
-              alt={selectedItem.title}
-              className="w-full h-[240px] object-cover"
-            />
-          </div>
-
-          {/* Action icon bar */}
-          <div className="flex items-center justify-between p-2 rounded-xl bg-[#FAF7EF] border border-line/80">
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => handleDownload(selectedItem.title)}
-                className="p-1.5 rounded-lg text-ink-600 hover:bg-white hover:text-ink-900 transition-colors cursor-pointer"
-                title="Download asset"
-              >
-                <Download className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => handleCopyLink(selectedItem.title)}
-                className="p-1.5 rounded-lg text-ink-600 hover:bg-white hover:text-ink-900 transition-colors cursor-pointer"
-                title="Copy CDN link"
-              >
-                <Copy className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => addToast('Opening full-screen high-res preview', 'info')}
-                className="p-1.5 rounded-lg text-ink-600 hover:bg-white hover:text-ink-900 transition-colors cursor-pointer"
-                title="Fullscreen"
-              >
-                <Maximize2 className="w-4 h-4" />
-              </button>
+            {/* Approval Summary */}
+            <div className="p-3 bg-[#FAF7EF] border border-line rounded-xl space-y-2">
+              <p className="text-xs font-bold text-ink-900">Approval Summary</p>
+              <div className="flex items-center gap-2 text-xs">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span className="text-muted">Approved by:</span>
+                <span className="font-medium text-ink">Riya Sharma (Brand Manager)</span>
+              </div>
+              <div className="flex items-center gap-2 text-xs">
+                <Calendar className="w-4 h-4 text-muted shrink-0" />
+                <span className="text-muted">Approved on:</span>
+                <span className="font-medium text-ink">{selectedItem.submittedDate || selectedItem.submittedAt || '—'}</span>
+              </div>
             </div>
-            <div className="text-xs font-semibold text-ink-600">
-              Score: <span className="text-emerald-600 font-bold">{selectedItem.complianceScore}%</span>
-            </div>
-          </div>
 
-          {/* Approval Summary with 98% Gauge */}
-          <div className="p-4 rounded-xl border border-line/80 bg-[#FAF7EF]/50 space-y-3">
-            <div className="flex items-center gap-3.5">
-              <div
-                className="w-12 h-12 rounded-full flex items-center justify-center relative shadow-xs flex-shrink-0"
-                style={{
-                  background: `conic-gradient(#10b981 0% ${selectedItem.complianceScore}%, #e2e8f0 ${selectedItem.complianceScore}% 100%)`,
-                }}
-              >
-                <div className="w-9 h-9 rounded-full bg-white flex items-center justify-center text-[11px] font-extrabold text-ink-900">
-                  {selectedItem.complianceScore}%
+            {/* Compliance Score Donut */}
+            <div className="p-3 bg-[#FAF7EF] border border-line rounded-xl">
+              <p className="text-xs font-bold text-ink-900 mb-3">Compliance Score</p>
+              <div className="flex items-center gap-4">
+                <div className="relative w-20 h-20 shrink-0">
+                  <svg className="-rotate-90" width="80" height="80" viewBox="0 0 80 80">
+                    <circle cx="40" cy="40" r="32" fill="none" stroke="#F1ECE0" strokeWidth="7" />
+                    <circle cx="40" cy="40" r="32" fill="none" stroke="#10b981" strokeWidth="7"
+                      strokeDasharray={`${(selectedItem.complianceScore / 100) * (2 * Math.PI * 32)} ${2 * Math.PI * 32}`} strokeLinecap="round" />
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-base font-bold text-ink-900">{selectedItem.complianceScore}%</span>
+                  </div>
+                </div>
+                <div className="space-y-1.5 text-[10px]">
+                  {['Brand Guidelines', 'Claims Compliance', 'Visual Standards', 'Legal & Compliance'].map((label) => (
+                    <div key={label} className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                      <span className="text-muted">{label}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
-              <div>
-                <div className="text-xs font-bold text-ink-900">Approval Summary</div>
-                <div className="text-[11px] text-muted">Certified by VisualGuard and Brand Manager</div>
-              </div>
-            </div>
-
-            <div className="space-y-1.5 text-xs pt-1">
-              <div className="flex items-center justify-between">
-                <span className="text-ink-600">Brand Tone &amp; Style</span>
-                <span className="text-emerald-700 font-semibold flex items-center gap-1">
-                  <Check className="w-3.5 h-3.5 text-emerald-600" />
-                  Passed
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-ink-600">Logo &amp; Clear Space</span>
-                <span className="text-emerald-700 font-semibold flex items-center gap-1">
-                  <Check className="w-3.5 h-3.5 text-emerald-600" />
-                  Passed
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-ink-600">Colors &amp; Contrast</span>
-                <span className="text-emerald-700 font-semibold flex items-center gap-1">
-                  <Check className="w-3.5 h-3.5 text-emerald-600" />
-                  Passed
-                </span>
-              </div>
             </div>
           </div>
-
-          {/* Asset Specs Details */}
-          <div className="space-y-2 text-xs border-t border-[#F1ECE0] pt-3">
-            <div className="flex justify-between py-1 text-muted">
-              <span>Dimensions</span>
-              <span className="font-medium text-ink">1920 × 1080 px</span>
-            </div>
-            <div className="flex justify-between py-1 text-muted">
-              <span>File Size &amp; Format</span>
-              <span className="font-medium text-ink">4.2 MB • PNG</span>
-            </div>
-            <div className="flex justify-between py-1 text-muted">
-              <span>Approved On</span>
-              <span className="font-medium text-ink">{selectedItem.submittedDate} • 10:24 AM</span>
-            </div>
-            <div className="flex justify-between py-1 text-muted">
-              <span>Approved By</span>
-              <span className="font-medium text-ink">Brand Manager</span>
-            </div>
-          </div>
-
-          {/* Action buttons */}
-          <div className="flex items-center gap-3 pt-2">
-            <button
-              onClick={() => handleCopyLink(selectedItem.title)}
-              className="flex-1 py-2 px-3 bg-white border border-line text-ink-700 rounded-lg text-xs font-semibold hover:bg-[#FAF7EF] shadow-2xs cursor-pointer text-center"
-            >
-              Copy Link
+          <div className="p-4 border-t border-line space-y-2 shrink-0">
+            <button onClick={async () => { try { await api.downloadSubmissionReport(selectedItem.id, 'text'); addToast('Report downloaded.'); } catch { addToast('Download failed.', 'error'); } }}
+              className="w-full flex items-center justify-center gap-2 py-2.5 bg-white border border-line rounded-xl text-xs font-semibold text-ink-700 hover:bg-[#FAF7EF] transition-colors cursor-pointer">
+              <Download className="w-4 h-4" />Download Report
             </button>
-            <button
-              onClick={() => handleDownload(selectedItem.title)}
-              className="flex-1 py-2 px-3 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-semibold shadow-2xs cursor-pointer text-center"
-            >
-              Download Asset
+            <button onClick={() => { setSelectedSubmission(selectedItem); setCurrentPage('ai-review'); }}
+              className="w-full flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-brand-600 to-blue-600 hover:from-brand-700 hover:to-blue-700 text-white rounded-xl text-xs font-bold shadow-sm hover:shadow-md transition-all cursor-pointer transition-colors cursor-pointer">
+              <ExternalLink className="w-4 h-4" />View Submission
             </button>
           </div>
-        </div>
-      </div>
+        </aside>
+      )}
     </div>
   );
 };

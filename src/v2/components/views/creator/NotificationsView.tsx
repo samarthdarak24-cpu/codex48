@@ -1,371 +1,172 @@
 import React, { useState } from 'react';
-import {
-  Bell,
-  CheckCircle2,
-  AlertTriangle,
-  Clock,
-  ChevronRight,
-  Check,
-  Trash2,
-  ExternalLink,
-  MessageSquare,
-  BookOpen,
-  ShieldAlert,
-  ArrowRight,
-  Archive,
-  Eye,
-  FileText
-} from 'lucide-react';
+import { Bell, CheckCircle2, AlertTriangle, Clock, ChevronRight, Check, ExternalLink, MessageSquare, BookOpen, ShieldAlert, ArrowUpRight, ArrowDownRight, X, Info } from 'lucide-react';
 import { useApp } from '../../../context/AppContext';
 import { NotificationItem } from '../../../types';
 import { api } from '@/services/api';
+import { StatCardGrid } from '../../ui/StatCard';
+
+const TypeBadge = ({ type }: { type: string }) => {
+  const map: Record<string, string> = {
+    approval: 'badge-approved',
+    action_required: 'badge-rejected',
+    system: 'badge-draft',
+    comment: 'bg-violet-50 text-violet-700 border border-violet-200',
+    warning: 'badge-pending',
+    guideline: 'badge-inreview',
+  };
+  const labels: Record<string, string> = { approval: 'Approval', action_required: 'Action Required', system: 'System', comment: 'Comment', warning: 'Update', guideline: 'Update' };
+  return <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${map[type] ?? 'badge-draft'}`}>{labels[type] ?? type}</span>;
+};
+
+const TypeIcon = ({ type }: { type: string }) => {
+  const cls = 'w-4.5 h-4.5';
+  if (type === 'approval') return <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center shrink-0"><CheckCircle2 className={`${cls} text-emerald-600`} /></div>;
+  if (type === 'action_required') return <div className="w-9 h-9 rounded-full bg-amber-100 flex items-center justify-center shrink-0"><AlertTriangle className={`${cls} text-amber-600`} /></div>;
+  if (type === 'comment') return <div className="w-9 h-9 rounded-full bg-violet-100 flex items-center justify-center shrink-0"><MessageSquare className={`${cls} text-violet-600`} /></div>;
+  if (type === 'guideline' || type === 'warning') return <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center shrink-0"><BookOpen className={`${cls} text-blue-600`} /></div>;
+  return <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center shrink-0"><Info className={`${cls} text-slate-600`} /></div>;
+};
 
 export const NotificationsView: React.FC = () => {
   const { notifications, markNotificationRead, addToast, setCurrentPage, refresh } = useApp();
   const [activeFilter, setActiveFilter] = useState<'All' | 'Unread' | 'Action Required' | 'System' | 'Updates'>('All');
   const [selectedNotifId, setSelectedNotifId] = useState<string>('');
-  const selectedNotif = notifications.find((n) => n.id === selectedNotifId) || notifications[0];
+  const [isDetailOpen, setIsDetailOpen] = useState(true);
 
-  const isNotifUnread = (n: NotificationItem) => (n.isUnread !== undefined ? n.isUnread : !n.read);
+  const selectedNotif = notifications.find((n) => n.id === selectedNotifId) || notifications[0];
+  const isUnread = (n: NotificationItem) => (n.isUnread !== undefined ? n.isUnread : !n.read);
 
   const totalCount = notifications.length;
-  const unreadCount = notifications.filter(isNotifUnread).length;
-  const actionRequiredCount = notifications.filter(n => n.type === 'action_required' || n.type === 'action').length;
-  const systemCount = notifications.filter(n => n.type === 'system' || n.type === 'guideline').length;
-  const updatesCount = notifications.filter(n => n.type === 'approval' || n.type === 'comment').length;
+  const unreadCount = notifications.filter(isUnread).length;
+  const actionCount = notifications.filter((n) => n.type === 'action_required').length;
+  const systemCount = notifications.filter((n) => n.type === 'system').length;
+  const updatesCount = notifications.filter((n) => n.type === 'approval' || n.type === 'comment' || n.type === 'guideline' || n.type === 'warning').length;
 
-  const filtered = notifications.filter(n => {
-    if (activeFilter === 'Unread') return isNotifUnread(n);
-    if (activeFilter === 'Action Required') return n.type === 'action_required' || n.type === 'action';
+  const filtered = notifications.filter((n) => {
+    if (activeFilter === 'Unread') return isUnread(n);
+    if (activeFilter === 'Action Required') return n.type === 'action_required';
     if (activeFilter === 'System') return n.type === 'system';
-    if (activeFilter === 'Updates') return n.type === 'approval' || n.type === 'comment' || n.type === 'guideline';
+    if (activeFilter === 'Updates') return n.type === 'approval' || n.type === 'comment' || n.type === 'guideline' || n.type === 'warning';
     return true;
   });
 
   const handleMarkAllRead = async () => {
-    try {
-      await api.markAllNotificationsRead();
-      notifications.forEach((n) => markNotificationRead(n.id));
-      await refresh();
-      addToast('All notifications marked as read', 'success');
-    } catch (err) {
-      addToast(err instanceof Error ? err.message : 'Could not mark all as read.', 'error');
-    }
-  };
-
-  const getNotifIcon = (type: NotificationItem['type']) => {
-    switch (type) {
-      case 'approval':
-        return (
-          <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center flex-shrink-0">
-            <CheckCircle2 className="w-5 h-5" />
-          </div>
-        );
-      case 'action_required':
-      case 'action':
-        return (
-          <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center flex-shrink-0">
-            <AlertTriangle className="w-5 h-5" />
-          </div>
-        );
-      case 'comment':
-        return (
-          <div className="w-9 h-9 rounded-xl bg-brand-100 text-brand-700 flex items-center justify-center flex-shrink-0">
-            <MessageSquare className="w-5 h-5" />
-          </div>
-        );
-      case 'guideline':
-      case 'system':
-      default:
-        return (
-          <div className="w-9 h-9 rounded-xl bg-grape-100 text-grape-700 flex items-center justify-center flex-shrink-0">
-            <BookOpen className="w-5 h-5" />
-          </div>
-        );
-    }
+    try { await api.markAllNotificationsRead(); notifications.forEach((n) => markNotificationRead(n.id)); await refresh(); addToast('All marked as read.'); }
+    catch { addToast('Failed to mark notifications.', 'error'); }
   };
 
   return (
-    <div className="p-6 max-w-[1600px] mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="flex h-full overflow-hidden">
+      <main className="flex-1 overflow-y-auto p-6 space-y-5 bg-canvas">
+        {/* Header */}
         <div>
-          <h1 className="text-2xl font-bold text-ink-900 tracking-tight">Notifications</h1>
-          <p className="text-xs text-muted mt-0.5">
-            Stay updated with reviews, comments, and brand guideline changes.
-          </p>
+          <h1 className="text-[32px] font-black tracking-tight leading-none mt-1 animate-count-up">Notifications</h1>
+          <p className="text-xs text-muted mt-0.5">Stay updated with the latest activity, approvals and important alerts.</p>
         </div>
-        <button
-          onClick={handleMarkAllRead}
-          className="flex items-center gap-1.5 px-3.5 py-2 bg-white border border-line text-ink-700 rounded-lg text-xs font-semibold hover:bg-[#FAF7EF] shadow-2xs cursor-pointer transition-colors"
-        >
-          <Check className="w-3.5 h-3.5 text-muted" />
-          <span>Mark All as Read</span>
-        </button>
-      </div>
 
-      {/* Top 4 KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total Notifications */}
-        <div className="bg-white p-4.5 rounded-2xl border border-line/90 shadow-2xs flex items-center justify-between">
-          <div className="flex items-center gap-3.5">
-            <div className="w-11 h-11 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center">
-              <Bell className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="text-xs font-medium text-muted">Total Notifications</div>
-              <div className="text-2xl font-bold text-ink-900 tracking-tight mt-0.5">{totalCount}</div>
-            </div>
+        {/* KPI Cards */}
+        <StatCardGrid cards={[
+    { label: 'Total Notifications', value: totalCount, icon: <Bell className="w-5 h-5" />, variant: 'blue', trend: 12, sparkPathIndex: 0 },
+    { label: 'Unread', value: unreadCount, icon: <CheckCircle2 className="w-5 h-5" />, variant: 'green', trend: 0, sparkPathIndex: 1 },
+    { label: 'Action Required', value: actionCount, icon: <Clock className="w-5 h-5" />, variant: 'amber', trend: -50, sparkPathIndex: 2 },
+    { label: 'System Alerts', value: systemCount, icon: <AlertTriangle className="w-5 h-5" />, variant: 'purple', trend: 0, sparkPathIndex: 3 },
+  ]} />
+
+        {/* Filters + Sort */}
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {(['All', 'Unread', 'Action Required', 'System', 'Updates'] as const).map((tab) => {
+              const cnt = tab === 'All' ? totalCount : tab === 'Unread' ? unreadCount : tab === 'Action Required' ? actionCount : tab === 'System' ? systemCount : updatesCount;
+              return (
+                <button key={tab} onClick={() => setActiveFilter(tab)}
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer ${activeFilter === tab ? 'bg-gradient-to-r from-brand-600 to-blue-600 text-white shadow-sm' : 'bg-white border border-line text-ink-600 hover:bg-[#FAF7EF]'}`}>
+                  {tab} ({cnt})
+                </button>
+              );
+            })}
           </div>
-          <div className="flex flex-col items-end gap-1">
-            <span className="text-[10px] font-medium text-muted-light">live</span>
-            <svg className="w-16 h-6 text-brand-400 stroke-current" fill="none" viewBox="0 0 64 24">
-              <path d="M0 18 Q 16 8, 32 14 T 64 6" strokeWidth="2" strokeLinecap="round" />
-            </svg>
+          <div className="flex items-center gap-2">
+            <button onClick={handleMarkAllRead} className="text-xs font-semibold text-brand-600 hover:underline cursor-pointer">Mark All Read</button>
+            <select className="bg-white border border-line rounded-lg px-2.5 py-1.5 text-xs font-medium text-ink focus:outline-none cursor-pointer"><option>Newest First</option></select>
+            <div className="flex items-center gap-1 bg-white border border-line rounded-lg px-2 py-1.5 text-xs text-ink-700 cursor-pointer">Last 30 Days <svg className="w-3 h-3 text-muted-light ml-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m6 9 6 6 6-6" /></svg></div>
           </div>
         </div>
 
-        {/* Unread */}
-        <div className="bg-white p-4.5 rounded-2xl border border-line/90 shadow-2xs flex items-center justify-between">
-          <div className="flex items-center gap-3.5">
-            <div className="w-11 h-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
-              <Clock className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="text-xs font-medium text-muted">Unread</div>
-              <div className="text-2xl font-bold text-ink-900 tracking-tight mt-0.5">{unreadCount}</div>
-            </div>
-          </div>
-          <div className="flex flex-col items-end gap-1">
-            <span className="text-[10px] font-medium text-amber-600">Pending</span>
-            <svg className="w-16 h-6 text-amber-400 stroke-current" fill="none" viewBox="0 0 64 24">
-              <path d="M0 12 Q 16 18, 32 10 T 64 14" strokeWidth="2" strokeLinecap="round" />
-            </svg>
-          </div>
-        </div>
-
-        {/* Action Required */}
-        <div className="bg-white p-4.5 rounded-2xl border border-line/90 shadow-2xs flex items-center justify-between">
-          <div className="flex items-center gap-3.5">
-            <div className="w-11 h-11 rounded-xl bg-grape-50 text-grape-600 flex items-center justify-center">
-              <AlertTriangle className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="text-xs font-medium text-muted">Action Required</div>
-              <div className="text-2xl font-bold text-ink-900 tracking-tight mt-0.5">{actionRequiredCount}</div>
-            </div>
-          </div>
-          <div className="flex flex-col items-end gap-1">
-            <span className="text-[10px] font-medium text-grape-600">Requires Action</span>
-            <svg className="w-16 h-6 text-grape-500 stroke-current" fill="none" viewBox="0 0 64 24">
-              <path d="M0 6 Q 16 12, 32 18 T 64 20" strokeWidth="2" strokeLinecap="round" />
-            </svg>
-          </div>
-        </div>
-
-        {/* System Alerts */}
-        <div className="bg-white p-4.5 rounded-2xl border border-line/90 shadow-2xs flex items-center justify-between">
-          <div className="flex items-center gap-3.5">
-            <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-              <CheckCircle2 className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="text-xs font-medium text-muted">System Alerts</div>
-              <div className="text-2xl font-bold text-ink-900 tracking-tight mt-0.5">{systemCount}</div>
-            </div>
-          </div>
-          <div className="flex flex-col items-end gap-1">
-            <span className="text-[10px] font-medium text-emerald-600">Monitored</span>
-            <svg className="w-16 h-6 text-emerald-400 stroke-current" fill="none" viewBox="0 0 64 24">
-              <path d="M0 20 Q 16 16, 32 8 T 64 4" strokeWidth="2" strokeLinecap="round" />
-            </svg>
-          </div>
-        </div>
-      </div>
-
-      {/* Filter Tabs */}
-      <div className="flex items-center gap-2 flex-wrap">
-        {(['All', 'Unread', 'Action Required', 'System', 'Updates'] as const).map(tab => (
-          <button
-            key={tab}
-            onClick={() => setActiveFilter(tab)}
-            className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors cursor-pointer ${
-              activeFilter === tab
-                ? 'bg-ink-900 text-white shadow-2xs'
-                : 'bg-white text-ink-600 hover:bg-[#FAF7EF] border border-line/80'
-            }`}
-          >
-            {tab} (
-            {tab === 'All'
-              ? totalCount
-              : tab === 'Unread'
-              ? unreadCount
-              : tab === 'Action Required'
-              ? actionRequiredCount
-              : tab === 'System'
-              ? systemCount
-              : updatesCount}
-            )
-          </button>
-        ))}
-      </div>
-
-      {/* Two Column Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left Column: Notification Cards List */}
-        <div className="lg:col-span-7 space-y-3">
-          {filtered.map(notif => {
-            const isUnread = isNotifUnread(notif);
-            const isSelected = selectedNotif?.id === notif.id;
-
+        {/* Notifications list */}
+        <div className="space-y-2.5">
+          {filtered.length === 0 && <div className="bg-white rounded-2xl border border-line p-10 text-center text-xs text-muted">No notifications found.</div>}
+          {filtered.map((n) => {
+            const unread = isUnread(n);
+            const isSelected = selectedNotif?.id === n.id;
             return (
-              <div
-                key={notif.id}
-                onClick={() => {
-                  setSelectedNotifId(notif.id);
-                  if (isUnread) markNotificationRead(notif.id);
-                }}
-                className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-start justify-between gap-3.5 ${
-                  isSelected
-                    ? 'bg-brand-50/40 border-brand-400 shadow-xs ring-1 ring-brand-300'
-                    : isUnread
-                    ? 'bg-white border-brand-200/70 shadow-2xs hover:border-line-strong'
-                    : 'bg-white border-line/90 shadow-2xs hover:border-line-strong opacity-90'
-                }`}
-              >
-                <div className="flex items-start gap-3.5 min-w-0">
-                  {getNotifIcon(notif.type)}
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h3 className={`text-sm tracking-tight truncate ${isUnread ? 'font-bold text-ink-900' : 'font-medium text-ink'}`}>
-                        {notif.title}
-                      </h3>
-                      {isUnread && (
-                        <span className="w-2 h-2 rounded-full bg-brand-600 flex-shrink-0" />
-                      )}
-                    </div>
-                    <p className="text-xs text-muted mt-0.5 leading-relaxed line-clamp-2">
-                      {notif.message}
-                    </p>
-                    <div className="text-[11px] text-muted-light mt-1.5 flex items-center gap-2">
-                      <span>{notif.timestamp}</span>
-                      {notif.actionUrl && (
-                        <>
-                          <span>•</span>
-                          <span className="text-brand-600 font-semibold flex items-center gap-0.5">
-                            Action link available
-                          </span>
-                        </>
-                      )}
-                    </div>
-                  </div>
+              <div key={n.id} onClick={() => { setSelectedNotifId(n.id); setIsDetailOpen(true); markNotificationRead(n.id); }}
+                className={`bg-white p-4 rounded-2xl border transition-all cursor-pointer flex items-start gap-4 ${isSelected ? 'selected-brand shadow-sm' : unread ? 'border-brand-100 bg-brand-50/20 hover:border-brand-200' : 'border-line hover:border-line-strong shadow-2xs hover:shadow-xs'}`}>
+                <TypeIcon type={n.type} />
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm truncate ${unread ? 'font-bold text-ink-900' : 'font-semibold text-ink-900'}`}>{n.title}</p>
+                  <p className="text-xs text-muted mt-0.5 line-clamp-1">{n.description || n.message}</p>
+                  <p className="text-[11px] text-muted-light mt-1 flex items-center gap-1"><svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>{n.time || n.timestamp}</p>
                 </div>
-
-                <div className="flex-shrink-0 self-center">
+                <div className="flex items-center gap-2 shrink-0">
+                  <TypeBadge type={n.type} />
+                  {unread && <span className="w-2 h-2 rounded-full bg-brand-500 shrink-0" />}
                   <ChevronRight className="w-4 h-4 text-muted-light" />
                 </div>
               </div>
             );
           })}
         </div>
+      </main>
 
-        {/* Right Column: Notification Details */}
-        <div className="lg:col-span-5 bg-white rounded-2xl border border-line/90 shadow-2xs p-6 space-y-5">
-          {selectedNotif ? (
-            <>
-              {/* Status Header */}
-              <div className="flex items-start justify-between">
-                <div>
-                  <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60 inline-flex items-center gap-1.5">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                    {selectedNotif.badgeText ?? selectedNotif.type}
-                  </span>
-                  <div className="text-xs text-muted-light mt-2">{selectedNotif.timestamp}</div>
-                </div>
-                <div className="flex items-center gap-1">
-                  <button
-                    disabled
-                    title="Archiving is not available in this build."
-                    className="p-1.5 rounded-lg text-muted-light cursor-not-allowed"
-                  >
-                    <Archive className="w-4 h-4" />
-                  </button>
-                </div>
+      {/* Right detail panel */}
+      {isDetailOpen && selectedNotif && (
+        <aside className="w-[320px] bg-white border-l border-line flex flex-col shrink-0 overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-line shrink-0">
+            <h3 className="text-sm font-bold text-ink-900">Notification Details</h3>
+            <button onClick={() => setIsDetailOpen(false)} className="p-1 rounded-lg text-muted-light hover:text-ink-700"><X className="w-4 h-4" /></button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div className="flex flex-col items-center gap-3 text-center">
+              <div className="w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center">
+                <CheckCircle2 className="w-7 h-7 text-emerald-600" />
               </div>
-
               <div>
-                <h2 className="text-base font-bold text-ink-900 tracking-tight">{selectedNotif.title}</h2>
-                <p className="text-xs text-ink-600 mt-1 leading-relaxed">
-                  {selectedNotif.message || selectedNotif.description}
-                </p>
+                <p className="font-bold text-ink-900 text-sm">{selectedNotif.title}</p>
+                <p className="text-xs text-muted mt-1 leading-relaxed">{selectedNotif.description || selectedNotif.message}</p>
               </div>
-
-              {/* Related Content Item */}
-              <div className="p-3.5 rounded-xl border border-line/80 bg-[#FAF7EF]/60 flex items-center gap-3">
-                {selectedNotif.thumbnail ? (
-                  <img
-                    src={selectedNotif.thumbnail}
-                    alt={selectedNotif.title}
-                    className="w-14 h-14 rounded-lg object-cover border border-line"
-                  />
-                ) : (
-                  <div className="w-14 h-14 rounded-lg bg-brand-50 border border-brand-100 flex items-center justify-center text-brand-600">
-                    <FileText className="w-5 h-5" />
-                  </div>
-                )}
-                <div>
-                  <div className="text-xs font-bold text-ink-900">{selectedNotif.title}</div>
-                  <div className="text-[11px] text-muted">
-                    {selectedNotif.campaign ? `${selectedNotif.campaign} • ` : ''}
-                    {selectedNotif.type}
-                  </div>
-                </div>
-              </div>
-
-              {/* Details (real metadata only) */}
-              <div className="space-y-2.5 text-xs border-t border-[#F1ECE0] pt-3">
-                <div className="flex justify-between py-1 text-muted">
-                  <span>Type</span>
-                  <span className="font-semibold text-ink">{selectedNotif.type}</span>
-                </div>
-                {selectedNotif.campaign && (
-                  <div className="flex justify-between py-1 text-muted">
-                    <span>Campaign</span>
-                    <span className="font-semibold text-ink">{selectedNotif.campaign}</span>
-                  </div>
-                )}
-                <div className="flex justify-between py-1 text-muted">
-                  <span>Status</span>
-                  <span className="font-semibold text-ink">
-                    {isNotifUnread(selectedNotif) ? 'Unread' : 'Read'}
-                  </span>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex items-center gap-3 pt-2">
-                <button
-                  onClick={() =>
-                    setCurrentPage(
-                      selectedNotif.type === 'action_required' || selectedNotif.type === 'action'
-                        ? 'creator-exceptions'
-                        : 'my-submissions',
-                    )
-                  }
-                  className="flex-1 py-2 px-3 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-semibold shadow-2xs cursor-pointer flex items-center justify-center gap-1.5"
-                >
-                  <span>View Submission</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </>
-          ) : (
-            <div className="p-8 text-center text-xs text-muted-light">
-              Select a notification to view its full review metadata.
             </div>
-          )}
-        </div>
-      </div>
+            {/* Thumbnail if approval */}
+            {selectedNotif.type === 'approval' && (
+              <div className="rounded-xl overflow-hidden border border-line">
+                <div className="h-28 bg-[#F1ECE0] flex items-center justify-center">
+                  <CheckCircle2 className="w-8 h-8 text-emerald-400" />
+                </div>
+              </div>
+            )}
+            {/* Metadata */}
+            <div className="space-y-0">
+              {[['Campaign', 'Summer Product Launch'], ['Received', selectedNotif.time || selectedNotif.timestamp || '—'], ['Type', selectedNotif.type?.replace('_', ' ') || '—']].map(([label, val]) => (
+                <div key={String(label)} className="flex items-center justify-between py-1.5 border-b border-[#F5F0E8] last:border-0 text-xs">
+                  <span className="text-muted">{label}</span>
+                  <span className="font-medium text-ink">{val}</span>
+                </div>
+              ))}
+            </div>
+            {/* Success box */}
+            {selectedNotif.type === 'approval' && (
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start gap-2 text-xs">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                <p className="text-emerald-800 leading-relaxed">Great work! Your content is on track with brand guidelines.</p>
+              </div>
+            )}
+          </div>
+          <div className="p-4 border-t border-line shrink-0">
+            <button onClick={() => setCurrentPage('my-submissions')} className="w-full flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-brand-600 to-blue-600 hover:from-brand-700 hover:to-blue-700 text-white rounded-xl text-xs font-bold shadow-sm hover:shadow-md transition-all cursor-pointer transition-colors cursor-pointer">
+              View Submission <ArrowUpRight className="w-4 h-4" />
+            </button>
+          </div>
+        </aside>
+      )}
     </div>
   );
 };

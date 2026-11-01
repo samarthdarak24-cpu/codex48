@@ -1,23 +1,11 @@
 import React, { useState } from 'react';
 import {
-  Bookmark,
-  Play,
-  UploadCloud,
-  X,
-  Plus,
-  Info,
-  Clock,
-  CheckCircle2,
-  ChevronRight,
-  Calendar,
-  Instagram,
-  Package,
-  Users,
-  Check
+  Bookmark, Play, UploadCloud, X, Plus, Info, Clock, CheckCircle2,
+  ChevronRight, Calendar, Instagram, Package, Users, Check, FileText,
+  ShieldCheck, Loader2,
 } from 'lucide-react';
 import { useApp } from '../../../context/AppContext';
 import { api } from '@/services/api';
-import { BrandAssetsPicker } from '@/components/content/BrandAssetsPicker';
 
 export const NewContentView: React.FC = () => {
   const { addToast, setCurrentPage, refresh, guidelines } = useApp();
@@ -30,400 +18,230 @@ export const NewContentView: React.FC = () => {
   const [product, setProduct] = useState('Glow Naturally Serum');
   const [targetAudience, setTargetAudience] = useState('Young Adults (18–30)');
   const [publishDate, setPublishDate] = useState('Mar 30, 2026');
-  const [copyText, setCopyText] = useState(
-    'Meet your new daily glow routine. Lightweight hydration with vitamin C for a fresh, healthy-looking glow.'
-  );
-
+  const [copyText, setCopyText] = useState('Meet your new daily glow routine. Lightweight hydration with vitamin C for a fresh, healthy-looking glow.');
   const [hasRunCheck, setHasRunCheck] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [draftId, setDraftId] = useState<string | null>(null);
-  const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
-  const [findingsCount, setFindingsCount] = useState<number | null>(null);
   const [posterFile, setPosterFile] = useState<File | null>(null);
   const [posterPreviewUrl, setPosterPreviewUrl] = useState<string | null>(null);
-  const [isUploadingPoster, setIsUploadingPoster] = useState(false);
-  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
-
-  // Checklist state
-  const [check1, setCheck1] = useState(true);
-  const [check2, setCheck2] = useState(true);
+  const [findingsCount, setFindingsCount] = useState<number | null>(null);
+  const [check1, setCheck1] = useState(false);
+  const [check2, setCheck2] = useState(false);
   const [check3, setCheck3] = useState(false);
 
-  const apiType: 'Text' | 'Image' =
-    contentType === 'Social Post' ? 'Text' : 'Image';
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+  const charCount = copyText.length;
 
-  /**
-   * Persist the content as a real submission. Re-uses the record if the user
-   * has already saved/checked this draft so we never create duplicates.
-   */
-  const ensureDraft = async (): Promise<string | null> => {
-    if (draftId) return draftId;
-    if (!campaignName.trim() || !contentTitle.trim() || !copyText.trim()) {
-      addToast('Campaign name, content title and copy are required.', 'error');
-      return null;
-    }
-    const created = await api.createSubmission({
-      title: contentTitle.trim(),
-      type: apiType,
-      channel: channel || 'Social Media',
-      brand: 'PureGlow',
-      text: copyText,
-      assetId: selectedAssetId ?? undefined,
-    });
-    setDraftId(created.id);
-    await refresh();
-    return created.id;
+  const handleFileChange = (file: File) => {
+    setPosterFile(file);
+    const url = URL.createObjectURL(file);
+    setPosterPreviewUrl(url);
+    setCheck2(true);
+  };
+
+  const handleRunBrandCheck = async () => {
+    if (!copyText.trim()) { addToast('Please enter content copy before running a brand check.', 'error'); return; }
+    setIsRunning(true);
+    try {
+      const sub = await api.createSubmission({ title: contentTitle || 'Untitled', type: 'Text', channel, brand: 'PureGlow', text: copyText });
+      const review = await api.runSemanticReview(sub.id);
+      setFindingsCount(review.count ?? 0);
+      setHasRunCheck(true);
+      setCheck3(true);
+      addToast(review.count === 0 ? 'Brand check passed — no issues found.' : `Brand check: ${review.count} finding(s) detected.`);
+    } catch (err) { addToast(err instanceof Error ? err.message : 'Brand check failed.', 'error'); }
+    finally { setIsRunning(false); }
   };
 
   const handleSaveDraft = async () => {
+    if (!contentTitle.trim()) { addToast('Please enter a content title.', 'error'); return; }
     setIsSaving(true);
     try {
-      const id = await ensureDraft();
-      if (id) addToast('Draft saved to My Submissions.', 'success');
-    } catch (err) {
-      addToast(err instanceof Error ? err.message : 'Could not save the draft.', 'error');
-    } finally {
-      setIsSaving(false);
-    }
+      await api.createSubmission({ title: contentTitle, type: 'Text', channel, brand: 'PureGlow', text: copyText });
+      await refresh(); addToast('Draft saved.'); setCheck1(true);
+    } catch (err) { addToast(err instanceof Error ? err.message : 'Save failed.', 'error'); }
+    finally { setIsSaving(false); }
   };
 
-  /**
-   * Run the real review pipeline for this content and report the actual
-   * number of findings. Never claims a pass percentage that wasn't computed.
-   */
-  const handleRunBrandCheck = async () => {
-    setIsRunning(true);
-    try {
-      const id = await ensureDraft();
-      if (!id) return;
-      const result = await api.runSemanticReview(id);
-      const count = result?.count ?? 0;
-      setHasRunCheck(true);
-      setCheck3(true);
-      setFindingsCount(count);
-      if (count > 0) {
-        addToast(`Brand check found ${count} finding(s). Review them before submitting.`, 'info');
-      } else {
-        addToast('Brand check complete — no findings raised for this content.', 'success');
-      }
-    } catch (err) {
-      addToast(err instanceof Error ? err.message : 'Brand check failed.', 'error');
-    } finally {
-      setIsRunning(false);
-    }
-  };
+  const checkItems = [
+    { id: 'details', label: 'Content details completed', checked: check1, onClick: () => setCheck1(!check1) },
+    { id: 'creative', label: 'Creative attached', checked: check2, onClick: () => setCheck2(!check2) },
+    { id: 'brandcheck', label: 'Brand check passed or findings reviewed', checked: check3, onClick: () => setCheck3(!check3) },
+  ];
 
-  const handleSubmitForReview = async () => {
-    setIsSubmitting(true);
-    try {
-      const id = await ensureDraft();
-      if (!id) return;
-      await refresh();
-      addToast('Submitted for brand review.', 'success');
-      setCurrentPage('my-submissions');
-    } catch (err) {
-      addToast(err instanceof Error ? err.message : 'Submission failed.', 'error');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  const guidelineMatchItems = [
+    { name: 'Product claims policy', version: 'v2.1' },
+    { name: 'Visual identity guide', version: 'v3.0' },
+    { name: 'Social media guidelines', version: 'v2.5' },
+  ];
+
+  const brandCheckItems = [
+    { label: 'Claims', icon: <FileText className="w-3.5 h-3.5" /> },
+    { label: 'Approved phrases', icon: <Check className="w-3.5 h-3.5" /> },
+    { label: 'Brand tone', icon: <ShieldCheck className="w-3.5 h-3.5" /> },
+    { label: 'Required disclaimers', icon: <Info className="w-3.5 h-3.5" /> },
+    { label: 'Visual assets', icon: <Package className="w-3.5 h-3.5" /> },
+  ];
 
   return (
-    <div className="p-6 max-w-[1600px] mx-auto space-y-6">
-      {/* Header matching 2content.png */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="p-6 max-w-[1600px] mx-auto">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-4 mb-5">
         <div>
-          <h1 className="text-2xl font-bold text-ink-900 tracking-tight">New Content</h1>
-          <p className="text-sm text-muted mt-0.5">
-            Create content and check it against your brand guidelines before submitting for approval.
-          </p>
+          <h1 className="text-[32px] font-black tracking-tight leading-none mt-1 animate-count-up">New Content</h1>
+          <p className="text-xs text-muted mt-0.5">Create content and check it against your brand guidelines before submitting for approval.</p>
         </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={handleSaveDraft}
-            disabled={isSaving || isRunning}
-            className="flex items-center gap-2 px-3.5 py-2 bg-white border border-line text-ink-700 rounded-lg text-xs font-semibold hover:bg-[#FAF7EF] shadow-2xs cursor-pointer transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            <Bookmark className="w-3.5 h-3.5 text-muted" />
-            <span>{isSaving ? 'Saving…' : 'Save Draft'}</span>
+        <div className="flex items-center gap-2">
+          <button onClick={handleSaveDraft} disabled={isSaving} className="flex items-center gap-2 px-4 py-2 bg-white border border-line rounded-xl text-xs font-semibold text-ink-700 hover:bg-[#FAF7EF] shadow-2xs transition-colors cursor-pointer disabled:opacity-50">
+            {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Bookmark className="w-4 h-4" />}Save Draft
           </button>
-          <button
-            onClick={handleRunBrandCheck}
-            disabled={isRunning}
-            className="flex items-center gap-2 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-bold shadow-xs cursor-pointer transition-colors"
-          >
-            <Play className="w-3.5 h-3.5 fill-white" />
-            <span>{isRunning ? 'Checking Rules...' : 'Run Brand Check'}</span>
-          </button>
-          <button
-            onClick={handleSubmitForReview}
-            disabled={isSubmitting || isRunning}
-            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs cursor-pointer transition-colors disabled:opacity-60"
-          >
-            <CheckCircle2 className="w-3.5 h-3.5 text-white" />
-            <span>{isSubmitting ? 'Submitting…' : 'Submit for Review'}</span>
+          <button onClick={handleRunBrandCheck} disabled={isRunning} className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-brand-600 to-blue-600 hover:from-brand-700 hover:to-blue-700 text-white rounded-xl text-xs font-bold shadow-sm hover:shadow-md transition-all cursor-pointer shadow-2xs transition-colors cursor-pointer disabled:opacity-50">
+            {isRunning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}Run Brand Check
           </button>
         </div>
       </div>
 
-      {/* Main 2-Column Grid matching 2content.png */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left Column: Form Details (8 Cols) */}
-        <div className="lg:col-span-8 space-y-5">
-          {/* Content Details Box */}
-          <div className="bg-white rounded-2xl border border-line/90 p-5 shadow-2xs space-y-4">
-            <h2 className="text-sm font-bold text-ink-900 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-brand-600" />
-              <span>Content Details</span>
-            </h2>
-
-            {/* Row 1: Campaign Name, Content Title, Content Type */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        {/* Main form */}
+        <div className="lg:col-span-2 space-y-4">
+          {/* Content Details */}
+          <div className="bg-white rounded-2xl border border-line shadow-2xs p-5">
+            <h3 className="text-sm font-bold text-ink-900 mb-4 flex items-center gap-2">
+              <FileText className="w-4 h-4 text-brand-600" />Content Details
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
               <div>
-                <label className="block text-xs font-bold text-ink-900 mb-1">Campaign Name *</label>
-                <input
-                  type="text"
-                  value={campaignName}
-                  onChange={e => setCampaignName(e.target.value)}
-                  className="w-full px-3 py-2 bg-[#FAF7EF]/70 border border-line rounded-xl text-xs text-ink focus:outline-none focus:ring-1 focus:ring-brand-500"
-                />
+                <label className="block text-xs font-semibold text-ink-700 mb-1.5">Campaign Name <span className="text-red-500">*</span></label>
+                <input value={campaignName} onChange={(e) => setCampaignName(e.target.value)} className="w-full px-3 py-2.5 bg-white border border-line rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400" />
               </div>
-
               <div>
-                <label className="block text-xs font-bold text-ink-900 mb-1">Content Title *</label>
-                <input
-                  type="text"
-                  value={contentTitle}
-                  onChange={e => setContentTitle(e.target.value)}
-                  className="w-full px-3 py-2 bg-[#FAF7EF]/70 border border-line rounded-xl text-xs text-ink focus:outline-none focus:ring-1 focus:ring-brand-500"
-                />
+                <label className="block text-xs font-semibold text-ink-700 mb-1.5">Content Title <span className="text-red-500">*</span></label>
+                <input value={contentTitle} onChange={(e) => setContentTitle(e.target.value)} className="w-full px-3 py-2.5 bg-white border border-line rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400" />
               </div>
-
               <div>
-                <label className="block text-xs font-bold text-ink-900 mb-1">Content Type *</label>
-                <select
-                  value={contentType}
-                  onChange={e => setContentType(e.target.value)}
-                  className="w-full px-3 py-2 bg-[#FAF7EF]/70 border border-line rounded-xl text-xs text-ink focus:outline-none focus:ring-1 focus:ring-brand-500 cursor-pointer"
-                >
-                  <option>Social Post</option>
-                  <option>Web Banner</option>
-                  <option>Short Video / Reel</option>
-                  <option>Print Poster</option>
+                <label className="block text-xs font-semibold text-ink-700 mb-1.5">Content Type <span className="text-red-500">*</span></label>
+                <select value={contentType} onChange={(e) => setContentType(e.target.value)} className="w-full px-3 py-2.5 bg-white border border-line rounded-xl text-xs focus:outline-none cursor-pointer">
+                  <option>Social Post</option><option>Poster</option><option>Video</option><option>Document</option>
                 </select>
               </div>
             </div>
-
-            {/* Row 2: Campaign, Channel, Product */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
               <div>
-                <label className="block text-xs font-bold text-ink-900 mb-1">Campaign *</label>
+                <label className="block text-xs font-semibold text-ink-700 mb-1.5">Campaign <span className="text-red-500">*</span></label>
                 <div className="relative">
-                  <select
-                    value={campaignSelect}
-                    onChange={e => setCampaignSelect(e.target.value)}
-                    className="w-full pl-8 pr-3 py-2 bg-[#FAF7EF]/70 border border-line rounded-xl text-xs text-ink focus:outline-none focus:ring-1 focus:ring-brand-500 cursor-pointer appearance-none"
-                  >
-                    <option>Summer 2026</option>
-                    <option>Holiday Special</option>
-                    <option>Product Launch 2025</option>
+                  <Calendar className="w-3.5 h-3.5 text-muted-light absolute left-3 top-2.5 pointer-events-none" />
+                  <select value={campaignSelect} onChange={(e) => setCampaignSelect(e.target.value)} className="w-full pl-8 pr-3 py-2.5 bg-white border border-line rounded-xl text-xs focus:outline-none cursor-pointer">
+                    <option>Summer 2026</option><option>Spring 2026</option><option>Holiday 2026</option>
                   </select>
-                  <Calendar className="w-3.5 h-3.5 text-muted-light absolute left-2.5 top-2.5 pointer-events-none" />
                 </div>
               </div>
-
               <div>
-                <label className="block text-xs font-bold text-ink-900 mb-1">Channel *</label>
+                <label className="block text-xs font-semibold text-ink-700 mb-1.5">Channel <span className="text-red-500">*</span></label>
                 <div className="relative">
-                  <select
-                    value={channel}
-                    onChange={e => setChannel(e.target.value)}
-                    className="w-full pl-8 pr-3 py-2 bg-[#FAF7EF]/70 border border-line rounded-xl text-xs text-ink focus:outline-none focus:ring-1 focus:ring-brand-500 cursor-pointer appearance-none"
-                  >
-                    <option>Instagram</option>
-                    <option>TikTok</option>
-                    <option>YouTube</option>
-                    <option>Web Store</option>
+                  <Instagram className="w-3.5 h-3.5 text-muted-light absolute left-3 top-2.5 pointer-events-none" />
+                  <select value={channel} onChange={(e) => setChannel(e.target.value)} className="w-full pl-8 pr-3 py-2.5 bg-white border border-line rounded-xl text-xs focus:outline-none cursor-pointer">
+                    <option>Instagram</option><option>Facebook</option><option>Twitter</option><option>LinkedIn</option><option>Poster</option>
                   </select>
-                  <Instagram className="w-3.5 h-3.5 text-muted-light absolute left-2.5 top-2.5 pointer-events-none" />
                 </div>
               </div>
-
               <div>
-                <label className="block text-xs font-bold text-ink-900 mb-1">Product *</label>
+                <label className="block text-xs font-semibold text-ink-700 mb-1.5">Product <span className="text-red-500">*</span></label>
                 <div className="relative">
-                  <select
-                    value={product}
-                    onChange={e => setProduct(e.target.value)}
-                    className="w-full pl-8 pr-3 py-2 bg-[#FAF7EF]/70 border border-line rounded-xl text-xs text-ink focus:outline-none focus:ring-1 focus:ring-brand-500 cursor-pointer appearance-none"
-                  >
-                    <option>Glow Naturally Serum</option>
-                    <option>Hydration Mist 50ml</option>
-                    <option>Botanical Face Oil</option>
-                  </select>
-                  <Package className="w-3.5 h-3.5 text-muted-light absolute left-2.5 top-2.5 pointer-events-none" />
+                  <Package className="w-3.5 h-3.5 text-muted-light absolute left-3 top-2.5 pointer-events-none" />
+                  <input value={product} onChange={(e) => setProduct(e.target.value)} className="w-full pl-8 pr-3 py-2.5 bg-white border border-line rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-brand-500/20" />
                 </div>
               </div>
             </div>
-
-            {/* Row 3: Target Audience, Publish Date */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-bold text-ink-900 mb-1">Target Audience *</label>
+                <label className="block text-xs font-semibold text-ink-700 mb-1.5">Target Audience</label>
                 <div className="relative">
-                  <select
-                    value={targetAudience}
-                    onChange={e => setTargetAudience(e.target.value)}
-                    className="w-full pl-8 pr-3 py-2 bg-[#FAF7EF]/70 border border-line rounded-xl text-xs text-ink focus:outline-none focus:ring-1 focus:ring-brand-500 cursor-pointer appearance-none"
-                  >
-                    <option>Young Adults (18–30)</option>
-                    <option>General Audience</option>
-                    <option>Professionals (25–45)</option>
+                  <Users className="w-3.5 h-3.5 text-muted-light absolute left-3 top-2.5 pointer-events-none" />
+                  <select value={targetAudience} onChange={(e) => setTargetAudience(e.target.value)} className="w-full pl-8 pr-3 py-2.5 bg-white border border-line rounded-xl text-xs focus:outline-none cursor-pointer">
+                    <option>Young Adults (18–30)</option><option>Adults (30–45)</option><option>All Ages</option>
                   </select>
-                  <Users className="w-3.5 h-3.5 text-muted-light absolute left-2.5 top-2.5 pointer-events-none" />
                 </div>
               </div>
-
               <div>
-                <label className="block text-xs font-bold text-ink-900 mb-1">Publish Date *</label>
+                <label className="block text-xs font-semibold text-ink-700 mb-1.5">Publish Date <span className="text-red-500">*</span></label>
                 <div className="relative">
-                  <select
-                    value={publishDate}
-                    onChange={e => setPublishDate(e.target.value)}
-                    className="w-full pl-8 pr-3 py-2 bg-[#FAF7EF]/70 border border-line rounded-xl text-xs text-ink focus:outline-none focus:ring-1 focus:ring-brand-500 cursor-pointer appearance-none"
-                  >
-                    <option>Mar 30, 2026</option>
-                    <option>Apr 05, 2026</option>
-                    <option>Apr 15, 2026</option>
-                  </select>
-                  <Calendar className="w-3.5 h-3.5 text-muted-light absolute left-2.5 top-2.5 pointer-events-none" />
+                  <Calendar className="w-3.5 h-3.5 text-muted-light absolute left-3 top-2.5 pointer-events-none" />
+                  <input value={publishDate} onChange={(e) => setPublishDate(e.target.value)} className="w-full pl-8 pr-3 py-2.5 bg-white border border-line rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-brand-500/20" />
                 </div>
-              </div>
-            </div>
-
-            {/* Content Description / Copy */}
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-xs font-bold text-ink-900">Content Description / Copy *</label>
-                <span className="text-[11px] text-muted-light font-mono">{copyText.length} / 500</span>
-              </div>
-              <textarea
-                rows={3}
-                value={copyText}
-                onChange={e => setCopyText(e.target.value)}
-                className="w-full p-3 bg-[#FAF7EF]/70 border border-line rounded-xl text-xs text-ink focus:outline-none focus:ring-1 focus:ring-brand-500 leading-relaxed font-normal"
-              />
-              <div className="text-[11px] text-muted-light mt-1 flex items-center gap-1.5">
-                <span>💡</span>
-                <span>Keep your message clear and aligned with brand tone.</span>
               </div>
             </div>
           </div>
 
-          {/* Upload Creative Box */}
-          <div className="bg-white rounded-2xl border border-line/90 p-5 shadow-2xs space-y-4">
-            <h2 className="text-sm font-bold text-ink-900 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-brand-600" />
-              <span>Upload Creative</span>
-            </h2>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Dropzone */}
-              <div className="border-2 border-dashed border-line-strong rounded-2xl p-6 flex flex-col items-center justify-center text-center hover:border-brand-500 hover:bg-[#FAF7EF]/50 transition-colors cursor-pointer">
-                <div className="w-10 h-10 rounded-full bg-brand-50 text-brand-600 flex items-center justify-center mb-2">
-                  <UploadCloud className="w-5 h-5" />
-                </div>
-                <div className="text-xs font-bold text-ink">
-                  Drag &amp; drop your file here
-                </div>
-                <div className="text-[11px] text-brand-600 font-semibold mt-0.5">or click to browse</div>
-                <div className="text-[10px] text-muted-light mt-1">Supports: JPG, PNG, WEBP</div>
-              </div>
-
-              {/* Selected creative preview — reflects the real attached asset */}
-              <div className="relative rounded-2xl overflow-hidden border border-line bg-[#F1ECE0] group aspect-video md:aspect-auto flex items-center justify-center">
-                {selectedAssetId ? (
-                  <div className="flex flex-col items-center gap-1.5 p-4 text-center">
-                    <CheckCircle2 className="w-6 h-6 text-emerald-600" />
-                    <span className="text-xs font-semibold text-ink">Approved asset attached</span>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedAssetId(null)}
-                      className="text-[11px] font-semibold text-brand-600 hover:underline cursor-pointer"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ) : (
-                  <span className="text-[11px] text-muted-light px-4 text-center">
-                    No creative attached yet — pick one from the approved library below.
-                  </span>
-                )}
-              </div>
+          {/* Content Description */}
+          <div className="bg-white rounded-2xl border border-line shadow-2xs p-5">
+            <label className="block text-sm font-bold text-ink-900 mb-3">Content Description / Copy <span className="text-red-500">*</span></label>
+            <textarea value={copyText} onChange={(e) => setCopyText(e.target.value)} rows={5}
+              className="w-full px-3 py-2.5 bg-white border border-line rounded-xl text-xs resize-none focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400"
+              placeholder="Write your content copy here..." />
+            <div className="flex items-center justify-between mt-1.5">
+              <p className="text-[11px] text-muted-light flex items-center gap-1"><Info className="w-3 h-3" />Keep your message clear and aligned with brand tone.</p>
+              <span className={`text-[11px] font-semibold ${charCount > 450 ? 'text-amber-600' : 'text-muted'}`}>{charCount} / 500</span>
             </div>
-
-            {/* Brand & Product Assets — real library, upload and attach */}
-            <BrandAssetsPicker
-              brand="PureGlow"
-              selectedId={selectedAssetId}
-              onSelect={setSelectedAssetId}
-            />
           </div>
 
-          {/* Info Banner at bottom */}
-          <div className="p-4 bg-brand-50/70 border border-brand-100 rounded-2xl flex items-start gap-3 text-xs text-brand-700">
-            <Info className="w-4 h-4 text-brand-600 shrink-0 mt-0.5" />
-            <div>
-              <span className="font-bold">Before you submit: </span>
-              <span className="text-brand-700 leading-relaxed">
-                A brand check will inspect your copy and uploaded creative against brand guidelines. AI suggestions do not automatically approve content.
-              </span>
+          {/* Upload Creative */}
+          <div className="bg-white rounded-2xl border border-line shadow-2xs p-5">
+            <h3 className="text-sm font-bold text-ink-900 mb-3 flex items-center gap-2"><UploadCloud className="w-4 h-4 text-brand-600" />Upload Creative</h3>
+            <div className="grid grid-cols-2 gap-4">
+              {/* Drop zone */}
+              <div onClick={() => fileInputRef.current?.click()} className="flex flex-col items-center justify-center border-2 border-dashed border-line rounded-xl p-6 cursor-pointer hover:border-brand-400 hover:bg-brand-50/30 transition-colors">
+                <input ref={fileInputRef} type="file" accept="image/*,video/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileChange(f); }} />
+                <UploadCloud className="w-8 h-8 text-brand-400 mb-2" />
+                <p className="text-xs font-semibold text-ink-700">Drag & drop your file here</p>
+                <p className="text-[11px] text-brand-600 font-semibold mt-0.5">or click to browse</p>
+                <p className="text-[10px] text-muted-light mt-1.5">Supports: JPG, PNG, WEBP</p>
+              </div>
+              {/* Preview */}
+              {posterPreviewUrl ? (
+                <div className="relative rounded-xl overflow-hidden border border-line bg-[#F1ECE0]">
+                  <img src={posterPreviewUrl} alt="Preview" className="w-full h-full object-cover" />
+                  <button onClick={() => { setPosterFile(null); setPosterPreviewUrl(null); setCheck2(false); }}
+                    className="absolute top-2 right-2 w-6 h-6 rounded-full bg-white/90 flex items-center justify-center text-ink-700 hover:bg-white shadow-sm cursor-pointer">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center rounded-xl bg-[#FAF7EF] border border-line p-4 text-center">
+                  <Package className="w-8 h-8 text-muted-light mb-2" />
+                  <p className="text-xs text-muted">No file selected yet</p>
+                </div>
+              )}
             </div>
+            <button className="mt-3 flex items-center gap-1 text-xs font-semibold text-brand-600 hover:text-brand-700 cursor-pointer">
+              <Plus className="w-3.5 h-3.5" />Add another asset
+            </button>
+          </div>
+
+          {/* Info banner */}
+          <div className="flex items-start gap-3 p-4 bg-blue-50 border border-blue-200 rounded-2xl text-xs">
+            <Info className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
+            <p className="text-blue-800 leading-relaxed"><strong>Before you submit:</strong> A brand check will inspect your copy and uploaded creative against brand guidelines. AI suggestions do not automatically approve content.</p>
           </div>
         </div>
 
-        {/* Right Column: Pre-Flight Check & Guidelines & Checklist (4 Cols) */}
-        <div className="lg:col-span-4 space-y-5">
+        {/* Right panel */}
+        <div className="space-y-4">
           {/* Brand Check Preview */}
-          <div className="bg-white rounded-2xl border border-line/90 p-5 shadow-2xs space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-bold text-ink-900 flex items-center gap-2">
-                <span>Brand Check Preview</span>
-              </h2>
-              <span className="text-[11px] font-semibold text-muted-light flex items-center gap-1">
-                <Clock className="w-3.5 h-3.5" />
-                <span>{hasRunCheck ? 'Checks Passed' : 'Not run yet'}</span>
+          <div className="bg-white rounded-2xl border border-line shadow-2xs p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-bold text-ink-900 flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-brand-600" />Brand Check Preview</h3>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${hasRunCheck ? (findingsCount === 0 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200') : 'bg-slate-50 text-slate-600 border-slate-200'}`}>
+                {hasRunCheck ? (findingsCount === 0 ? '✓ Passed' : `⚠ ${findingsCount} issues`) : '⏱ Not run yet'}
               </span>
             </div>
-
-            <div className="space-y-2.5 text-xs">
-              {[
-                { name: 'Claims', status: hasRunCheck ? 'Passed' : 'Pending' },
-                { name: 'Approved phrases', status: hasRunCheck ? 'Passed' : 'Pending' },
-                { name: 'Brand tone', status: hasRunCheck ? 'Passed' : 'Pending' },
-                { name: 'Required disclaimers', status: hasRunCheck ? 'Passed' : 'Pending' },
-                {
-                  name: 'Visual assets',
-                  status: !hasRunCheck
-                    ? 'Pending'
-                    : (findingsCount ?? 0) > 0
-                      ? 'Issues'
-                      : 'Clear',
-                },
-              ].map(check => (
-                <div key={check.name} className="flex items-center justify-between py-1 border-b border-[#FAF7EF] last:border-none">
-                  <span className="text-ink-600">{check.name}</span>
-                  <span
-                    className={`px-2 py-0.5 rounded-full text-[10px] font-semibold flex items-center gap-1 ${
-                      check.status === 'Passed'
-                        ? 'bg-emerald-50 text-emerald-700'
-                        : 'bg-[#F1ECE0] text-muted-light'
-                    }`}
-                  >
-                    {check.status === 'Passed' ? <Check className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
-                    <span>{check.status}</span>
+            <div className="space-y-2">
+              {brandCheckItems.map((item) => (
+                <div key={item.label} className="flex items-center justify-between py-1.5 border-b border-[#F5F0E8] last:border-0 text-xs">
+                  <div className="flex items-center gap-2 text-muted">
+                    <span className="text-brand-500">{item.icon}</span>{item.label}
+                  </div>
+                  <span className={`text-[10px] font-semibold flex items-center gap-1 ${hasRunCheck && findingsCount === 0 ? 'text-emerald-600' : 'text-muted-light'}`}>
+                    {hasRunCheck && findingsCount === 0 ? <><Check className="w-3 h-3" />Passed</> : <><Clock className="w-3 h-3" />Pending</>}
                   </span>
                 </div>
               ))}
@@ -431,85 +249,42 @@ export const NewContentView: React.FC = () => {
           </div>
 
           {/* Guideline Match */}
-          <div className="bg-white rounded-2xl border border-line/90 p-5 shadow-2xs space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-bold text-ink-900">Guideline Match</h2>
-              <button
-                onClick={() => setCurrentPage('creator-guidelines')}
-                className="text-xs font-semibold text-brand-600 hover:text-brand-700 flex items-center gap-1"
-              >
-                <span>View Details</span>
-                <ChevronRight className="w-3.5 h-3.5" />
-              </button>
+          <div className="bg-white rounded-2xl border border-line shadow-2xs p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-bold text-ink-900 flex items-center gap-2"><FileText className="w-4 h-4 text-brand-600" />Guideline Match</h3>
+              <button className="text-[11px] text-brand-600 font-semibold hover:underline cursor-pointer">View Details →</button>
             </div>
-
-            <div className="space-y-2 text-xs">
-              {guidelines.length === 0 ? (
-                <div className="p-2.5 rounded-xl border border-[#F1ECE0] text-muted-light">
-                  No guidelines matched yet — the library is empty.
+            <div className="space-y-2">
+              {guidelineMatchItems.map((g) => (
+                <div key={g.name} className="flex items-center gap-2 p-2.5 bg-[#FAF7EF] rounded-xl border border-line cursor-pointer hover:bg-[#F1ECE0] transition-colors">
+                  <span className="text-[10px] font-bold text-red-500 shrink-0">PDF</span>
+                  <span className="flex-1 text-xs font-medium text-ink-700 truncate">{g.name}</span>
+                  <span className="text-[10px] text-muted-light shrink-0">{g.version}</span>
+                  <ChevronRight className="w-3.5 h-3.5 text-muted-light shrink-0" />
                 </div>
-              ) : (
-                guidelines.slice(0, 4).map(g => (
-                  <div
-                    key={g.id}
-                    onClick={() => setCurrentPage('creator-guidelines')}
-                    className="flex items-center justify-between p-2.5 rounded-xl border border-[#F1ECE0] hover:bg-[#FAF7EF] cursor-pointer"
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-rose-500 font-bold flex-shrink-0">📄</span>
-                      <span className="font-semibold text-ink truncate">{g.title}</span>
-                    </div>
-                    <span className="text-muted-light font-mono text-[11px] flex-shrink-0">{g.version} &gt;</span>
-                  </div>
-                ))
-              )}
+              ))}
             </div>
           </div>
 
           {/* Submission Checklist */}
-          <div className="bg-white rounded-2xl border border-line/90 p-5 shadow-2xs space-y-3">
-            <h2 className="text-sm font-bold text-ink-900">Submission Checklist</h2>
-
-            <div className="space-y-2.5 text-xs text-ink-700">
-              <label className="flex items-center gap-2.5 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={check1}
-                  onChange={e => setCheck1(e.target.checked)}
-                  className="w-4 h-4 text-brand-600 rounded border-line-strong focus:ring-brand-500"
-                />
-                <span>Content details completed</span>
-              </label>
-
-              <label className="flex items-center gap-2.5 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={check2}
-                  onChange={e => setCheck2(e.target.checked)}
-                  className="w-4 h-4 text-brand-600 rounded border-line-strong focus:ring-brand-500"
-                />
-                <span>Creative attached</span>
-              </label>
-
-              <label className="flex items-center gap-2.5 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={check3}
-                  onChange={e => setCheck3(e.target.checked)}
-                  className="w-4 h-4 text-brand-600 rounded border-line-strong focus:ring-brand-500"
-                />
-                <span>Brand check passed or findings reviewed</span>
-              </label>
+          <div className="bg-white rounded-2xl border border-line shadow-2xs p-4">
+            <h3 className="text-sm font-bold text-ink-900 mb-3">Submission Checklist</h3>
+            <div className="space-y-2.5">
+              {checkItems.map((item) => (
+                <label key={item.id} className="flex items-center gap-3 cursor-pointer">
+                  <div onClick={item.onClick}
+                    className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors cursor-pointer ${item.checked ? 'bg-brand-600 border-brand-600' : 'border-line bg-white hover:border-brand-400'}`}>
+                    {item.checked && <Check className="w-3 h-3 text-white" />}
+                  </div>
+                  <span className={`text-xs ${item.checked ? 'text-ink-900 font-medium line-through text-muted' : 'text-ink-700'}`}>{item.label}</span>
+                </label>
+              ))}
             </div>
-
-            <button
-              onClick={handleSubmitForReview}
-              disabled={isSubmitting || !check1}
-              className="w-full mt-3 flex items-center justify-center gap-2 px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-bold shadow-md shadow-brand-500/20 cursor-pointer transition-all disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              <CheckCircle2 className="w-4 h-4" />
-              <span>{isSubmitting ? 'Submitting…' : 'Submit for Manager Approval'}</span>
-            </button>
+            {check1 && check2 && check3 && (
+              <div className="mt-3 p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-700 flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 shrink-0" />Ready to submit!
+              </div>
+            )}
           </div>
         </div>
       </div>

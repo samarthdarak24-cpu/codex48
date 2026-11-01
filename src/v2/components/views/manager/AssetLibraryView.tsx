@@ -1,508 +1,229 @@
 import React, { useState, useRef } from 'react';
 import {
-  Images,
-  CheckCircle,
-  Clock,
-  AlertTriangle,
-  ChevronDown,
-  LayoutGrid,
-  List,
-  Eye,
-  Download,
-  MoreVertical,
-  Upload,
-  ExternalLink,
-  X,
-  Check,
-  Loader2,
+  Images, CheckCircle, Clock, AlertTriangle, ChevronDown, LayoutGrid, List,
+  Eye, Download, MoreVertical, Upload, X, Loader2, ArrowUpRight, ArrowDownRight, Search, Tag,
 } from 'lucide-react';
 import { useApp } from '../../../context/AppContext';
 import { Asset } from '../../../types';
 import { api } from '@/services/api';
+import { StatCardGrid } from '../../ui/StatCard';
+
+const StatusBadge = ({ status }: { status: string }) => {
+  const map: Record<string, string> = {
+    Approved: 'bg-emerald-500 text-white',
+    'In Review': 'bg-blue-500 text-white',
+    Pending: 'bg-amber-500 text-white',
+    Flagged: 'bg-red-500 text-white',
+  };
+  return <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${map[status] ?? 'bg-slate-500 text-white'}`}>{status}</span>;
+};
 
 export const AssetLibraryView: React.FC = () => {
   const { assets, selectedAsset, setSelectedAsset, searchQuery, showToast, loading, refresh } = useApp();
 
-  // Derived from the live asset library — no hardcoded counts.
   const approvedCount = assets.filter((a) => a.status === 'Approved').length;
   const pendingCount = assets.filter((a) => a.status === 'In Review' || a.status === 'Pending').length;
   const flaggedCount = assets.filter((a) => a.status === 'Flagged').length;
-  const typeCount = (t: string) => assets.filter((a) => a.type === t.toLowerCase()).length;
 
   const [activeCategory, setActiveCategory] = useState<'All' | 'Images' | 'Videos' | 'Documents' | 'Others'>('All');
-  const [sortOrder, setSortOrder] = useState<'az' | 'za'>('az');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [isDrawerOpen, setIsDrawerOpen] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [isApproving, setIsApproving] = useState(false);
-  const [isDownloading, setIsDownloading] = useState<string | null>(null);
+  const [localSearch, setLocalSearch] = useState('');
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const active = selectedAsset || assets[0];
 
-  const filtered = assets
-    .filter((ast) => {
-      if (activeCategory === 'Images' && ast.type !== 'image') return false;
-      if (activeCategory === 'Videos' && ast.type !== 'video') return false;
-      if (activeCategory === 'Documents' && ast.type !== 'document') return false;
-      if (searchQuery) {
-        const q = searchQuery.toLowerCase();
-        return (
-          ast.name.toLowerCase().includes(q) ||
-          ast.campaign.toLowerCase().includes(q) ||
-          ast.tags.some((t) => t.toLowerCase().includes(q))
-        );
-      }
-      return true;
-    })
-    .sort((a, b) => (sortOrder === 'az' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name)));
+  const filtered = assets.filter((ast) => {
+    if (activeCategory === 'Images' && ast.type !== 'image') return false;
+    if (activeCategory === 'Videos' && ast.type !== 'video') return false;
+    if (activeCategory === 'Documents' && ast.type !== 'document') return false;
+    const q = (searchQuery || localSearch).toLowerCase();
+    if (q) return ast.name.toLowerCase().includes(q) || ast.campaign.toLowerCase().includes(q) || ast.tags.some((t) => t.toLowerCase().includes(q));
+    return true;
+  });
 
   const handleFile = async (file: File) => {
     setIsUploading(true);
-    const category = file.type.startsWith('image/') ? 'Image' : file.type.startsWith('video/') ? 'Video' : 'Document';
     try {
-      await api.uploadAsset(file, file.name, 'PureGlow', category, '');
+      await api.uploadAsset(file, file.name, 'PureGlow', 'Image', '');
       await refresh();
-      showToast(`Uploaded ${file.name}.`);
-      setIsDrawerOpen(false);
-    } catch (err: unknown) {
-      showToast(err instanceof Error ? err.message : 'Upload failed.', 'error');
-    } finally {
-      setIsUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    }
+      showToast('Asset uploaded.');
+    } catch (err) { showToast(err instanceof Error ? err.message : 'Upload failed.', 'error'); }
+    finally { setIsUploading(false); }
   };
 
-  const handleApprove = async (id: string) => {
+  const handleApprove = async () => {
+    if (!active) return;
     setIsApproving(true);
-    try {
-      await api.approveAsset(id);
-      await refresh();
-      showToast('Asset approved.');
-    } catch (err: unknown) {
-      showToast(err instanceof Error ? err.message : 'Approval failed.', 'error');
-    } finally {
-      setIsApproving(false);
-    }
-  };
-
-  const handleDownload = async (id: string) => {
-    setIsDownloading(id);
-    try {
-      const url = await api.fetchAssetBlobUrl(id);
-      if (!url) {
-        showToast('This asset has no downloadable file on the server.', 'error');
-        return;
-      }
-      window.open(url, '_blank');
-    } catch {
-      showToast('Could not open the asset file.', 'error');
-    } finally {
-      setIsDownloading(null);
-    }
+    try { await api.approveAsset(active.id); await refresh(); showToast('Asset approved.'); }
+    catch (err) { showToast(err instanceof Error ? err.message : 'Approval failed.', 'error'); }
+    finally { setIsApproving(false); }
   };
 
   return (
-    <div className="flex-1 flex overflow-hidden">
-      <input
-        ref={fileInputRef}
-        type="file"
-        className="hidden"
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (f) void handleFile(f);
-        }}
-      />
-      {/* Main Asset Stream */}
-      <main className="flex-1 overflow-y-auto p-6 space-y-6 bg-[#F7F3EA]">
-        {/* Title */}
-        <div className="flex items-center justify-between">
+    <div className="flex h-full overflow-hidden">
+      <main className="flex-1 overflow-y-auto p-6 space-y-5 bg-canvas">
+        {/* Header */}
+        <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-bold tracking-tight text-ink-900">Asset Library</h2>
-            <p className="text-xs text-muted mt-0.5">
-              Manage and organize your approved brand assets.
-            </p>
-          </div>
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isUploading}
-            className="py-2 px-3.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition disabled:opacity-50"
-          >
-            {isUploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
-            {isUploading ? 'Uploading…' : 'Upload Asset'}
-          </button>
-        </div>
-
-        {/* 4 Stat Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white p-4 rounded-xl border border-line/80 shadow-2xs flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center shrink-0">
-                <Images className="w-5 h-5 text-brand-600" />
-              </div>
-              <div>
-                <p className="text-[11px] font-medium text-muted">Total Assets</p>
-                <h3 className="text-2xl font-bold text-ink-900 leading-tight">{assets.length}</h3>
-              </div>
-            </div>
-            <div className="text-right"><span className="text-[10px] font-medium text-muted-light">live</span></div>
-          </div>
-
-          <div className="bg-white p-4 rounded-xl border border-line/80 shadow-2xs flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-                <CheckCircle className="w-5 h-5 text-emerald-600" />
-              </div>
-              <div>
-                <p className="text-[11px] font-medium text-muted">Approved</p>
-                <h3 className="text-2xl font-bold text-ink-900 leading-tight">{approvedCount}</h3>
-              </div>
-            </div>
-            <div className="text-right"><span className="text-[10px] font-medium text-muted-light">live</span></div>
-          </div>
-
-          <div className="bg-white p-4 rounded-xl border border-line/80 shadow-2xs flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-xl bg-amber-50 text-amber-500 flex items-center justify-center shrink-0">
-                <Clock className="w-5 h-5 text-amber-500" />
-              </div>
-              <div>
-                <p className="text-[11px] font-medium text-muted">Pending Review</p>
-                <h3 className="text-2xl font-bold text-ink-900 leading-tight">{pendingCount}</h3>
-              </div>
-            </div>
-            <div className="text-right"><span className="text-[10px] font-medium text-muted-light">live</span></div>
-          </div>
-
-          <div className="bg-white p-4 rounded-xl border border-line/80 shadow-2xs flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-xl bg-rose-50 text-rose-500 flex items-center justify-center shrink-0">
-                <AlertTriangle className="w-5 h-5 text-rose-500" />
-              </div>
-              <div>
-                <p className="text-[11px] font-medium text-muted">Flagged</p>
-                <h3 className="text-2xl font-bold text-ink-900 leading-tight">{flaggedCount}</h3>
-              </div>
-            </div>
-            <div className="text-right"><span className="text-[10px] font-medium text-muted-light">live</span></div>
+            <h1 className="text-[32px] font-black tracking-tight leading-none mt-1 animate-count-up">Asset Library</h1>
+            <p className="text-xs text-muted mt-0.5">Manage and organize your approved brand assets.</p>
           </div>
         </div>
 
-        {/* Category Filter Pills & View Mode */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        {/* KPI Cards */}
+        <StatCardGrid cards={[
+    { label: 'Total Assets', value: assets.length, icon: <Images className="w-5 h-5" />, variant: 'blue', trend: 12, sparkPathIndex: 0 },
+    { label: 'Approved', value: approvedCount, icon: <CheckCircle className="w-5 h-5" />, variant: 'green', trend: 14, sparkPathIndex: 1 },
+    { label: 'Pending Review', value: pendingCount, icon: <Clock className="w-5 h-5" />, variant: 'amber', trend: -6, sparkPathIndex: 2 },
+    { label: 'Flagged', value: flaggedCount, icon: <AlertTriangle className="w-5 h-5" />, variant: 'red', trend: 8, sparkPathIndex: 3 },
+  ]} />
+
+        {/* Filter tabs */}
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {(['All Assets', 'Images', 'Videos', 'Documents', 'Others'] as const).map((tab) => {
+              const key = tab === 'All Assets' ? 'All' : tab as any;
+              const cnt = tab === 'All Assets' ? assets.length : assets.filter((a) => a.type === tab.toLowerCase().slice(0, -1)).length;
+              return (
+                <button key={tab} onClick={() => setActiveCategory(key)}
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer ${activeCategory === key ? 'bg-gradient-to-r from-brand-600 to-blue-500 text-white shadow-sm font-bold' : 'bg-white border border-line text-ink-600 hover:bg-[#FAF7EF]'}`}>
+                  {tab} ({cnt})
+                </button>
+              );
+            })}
+          </div>
           <div className="flex items-center gap-2">
-            {[
-              { id: 'All', label: `All Assets (${assets.length})` },
-              { id: 'Images', label: `Images (${typeCount('image')})` },
-              { id: 'Videos', label: `Videos (${typeCount('video')})` },
-              { id: 'Documents', label: `Documents (${typeCount('document')})` },
-              { id: 'Others', label: `Others (${typeCount('other')})` },
-            ].map((c) => (
-              <button
-                key={c.id}
-                onClick={() => setActiveCategory(c.id as any)}
-                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition ${
-                  activeCategory === c.id
-                    ? 'bg-brand-600 text-white shadow-2xs'
-                    : 'bg-white hover:bg-[#FAF7EF] text-ink-600 border border-line'
-                }`}
-              >
-                {c.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex items-center gap-2">
-            <div className="relative">
-              <select
-                value={sortOrder}
-                onChange={(e) => setSortOrder(e.target.value as 'az' | 'za')}
-                className="pl-3 pr-8 py-1.5 bg-white border border-line rounded-lg text-xs font-medium text-ink-700 hover:bg-[#FAF7EF] cursor-pointer appearance-none"
-              >
-                <option value="az">Sort: Name (A–Z)</option>
-                <option value="za">Sort: Name (Z–A)</option>
-              </select>
-              <ChevronDown className="w-3.5 h-3.5 text-muted-light absolute right-2.5 top-2 pointer-events-none" />
-            </div>
-            <div className="flex items-center p-0.5 bg-[#F1ECE0] rounded-lg border border-line">
-              <button
-                onClick={() => setViewMode('grid')}
-                className={`p-1.5 rounded-md ${viewMode === 'grid' ? 'bg-white text-brand-600 shadow-2xs' : 'text-muted'}`}
-              >
-                <LayoutGrid className="w-3.5 h-3.5" />
-              </button>
-              <button
-                onClick={() => setViewMode('list')}
-                className={`p-1.5 rounded-md ${viewMode === 'list' ? 'bg-white text-brand-600 shadow-2xs' : 'text-muted'}`}
-              >
-                <List className="w-3.5 h-3.5" />
-              </button>
+            <select className="bg-white border border-line rounded-lg px-2.5 py-1.5 text-xs font-medium text-ink focus:outline-none cursor-pointer"><option>Newest First</option></select>
+            <div className="flex items-center gap-0.5 bg-white border border-line rounded-lg p-1">
+              <button onClick={() => setViewMode('grid')} className={`p-1.5 rounded-md transition-colors ${viewMode === 'grid' ? 'bg-[#FAF7EF] text-ink-900' : 'text-muted-light hover:text-ink-700'}`}><LayoutGrid className="w-3.5 h-3.5" /></button>
+              <button onClick={() => setViewMode('list')} className={`p-1.5 rounded-md transition-colors ${viewMode === 'list' ? 'bg-[#FAF7EF] text-ink-900' : 'text-muted-light hover:text-ink-700'}`}><List className="w-3.5 h-3.5" /></button>
             </div>
           </div>
         </div>
 
-        {/* Sub-toolbar dropdown filters (server-backed category pills above are authoritative) */}
-        <div className="flex flex-wrap items-center gap-2.5 text-xs text-ink-700">
-          {['All Categories', 'All Status', 'All Campaigns', 'All Tags'].map((label) => (
-            <button
-              key={label}
-              disabled
-              title="Additional server-side filters are not available; use the category pills above."
-              className="px-3 py-1.5 bg-white border border-line rounded-lg font-medium opacity-50 cursor-not-allowed flex items-center gap-1.5 shadow-2xs"
-            >
-              <span>{label}</span> <ChevronDown className="w-3 h-3 text-muted-light" />
+        {/* Search filters row */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="relative">
+            <Search className="w-3.5 h-3.5 text-muted-light absolute left-3 top-2.5 pointer-events-none" />
+            <input value={localSearch} onChange={(e) => setLocalSearch(e.target.value)} placeholder="Search assets..." className="pl-8 pr-3 py-1.5 bg-white border border-line rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-brand-500/20" />
+          </div>
+          {['All Categories', 'All Status', 'All Campaigns', 'All Tags'].map((f) => (
+            <button key={f} className="flex items-center gap-1 px-2.5 py-1.5 bg-white border border-line rounded-xl text-xs text-ink-700 hover:bg-[#FAF7EF] transition-colors cursor-pointer">
+              {f} <ChevronDown className="w-3 h-3 text-muted-light" />
             </button>
           ))}
         </div>
 
-        {/* Asset Cards Grid */}
-        {loading ? (
-          <div className="bg-white rounded-xl border border-line p-10 text-center text-muted text-sm">Loading assets…</div>
-        ) : filtered.length === 0 ? (
-          <div className="bg-white rounded-xl border border-line p-10 text-center text-muted text-sm">
-            No assets match this filter.
-          </div>
-        ) : viewMode === 'grid' ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {filtered.map((ast) => {
-              const isSelected = active?.id === ast.id;
-              return (
-                <div
-                  key={ast.id}
-                  onClick={() => {
-                    setSelectedAsset(ast);
-                    setIsDrawerOpen(true);
-                  }}
-                  className={`bg-white rounded-xl border overflow-hidden shadow-2xs hover:shadow transition cursor-pointer flex flex-col ${
-                    isSelected ? 'ring-2 ring-brand-500 border-transparent' : 'border-line'
-                  }`}
-                >
-                  <div className="relative h-36 bg-[#F1ECE0] overflow-hidden">
-                    <img
-                      alt={ast.name}
-                      className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
-                      src={ast.thumbnail}
-                    />
-                    <span
-                      className={`absolute top-2.5 left-2.5 px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 shadow-xs ${
-                        ast.status === 'Approved'
-                          ? 'bg-emerald-100 text-emerald-800'
-                          : ast.status === 'In Review'
-                          ? 'bg-brand-100 text-brand-700'
-                          : ast.status === 'Pending'
-                          ? 'bg-amber-100 text-amber-800'
-                          : 'bg-rose-100 text-rose-800'
-                      }`}
-                    >
-                      ● {ast.status}
-                    </span>
+        {/* Grid */}
+        {viewMode === 'grid' ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+            {filtered.length === 0 && <div className="col-span-full text-center py-12 text-xs text-muted bg-white rounded-2xl border border-line">No assets found.</div>}
+            {filtered.map((ast) => (
+              <div key={ast.id} onClick={() => { setSelectedAsset(ast); setIsDrawerOpen(true); }}
+                className={`bg-white rounded-2xl border overflow-hidden shadow-2xs cursor-pointer hover:-translate-y-0.5 hover:shadow-xs transition-all ${selectedAsset?.id === ast.id ? 'ring-2 ring-brand-500 border-transparent' : 'border-line hover:border-line-strong'}`}>
+                <div className="relative h-36 overflow-hidden bg-[#F1ECE0]">
+                  <img src={ast.thumbnail} alt={ast.name} className="w-full h-full object-cover" />
+                  <div className="absolute top-2 left-2"><StatusBadge status={ast.status} /></div>
+                </div>
+                <div className="p-3">
+                  <p className="font-semibold text-ink-900 text-xs truncate">{ast.name}</p>
+                  <div className="flex items-center gap-2 mt-1 text-[10px] text-muted-light">
+                    <span>{ast.format}</span><span>·</span><span>{ast.uploadedAt}</span>
                   </div>
-
-                  <div className="p-3.5 flex-1 flex flex-col justify-between">
-                    <div>
-                      <h4 className="font-bold text-ink-900 text-xs truncate">{ast.name}</h4>
-                      <div className="flex items-center gap-2 text-[10px] text-muted-light mt-1">
-                        <span>{ast.format}</span>
-                        <span>•</span>
-                        <span>{ast.size}</span>
-                      </div>
-                      <div className="text-[10px] text-muted-light mt-1">{ast.uploadedAt}</div>
-                    </div>
-
-                    <div className="pt-2 border-t border-[#F1ECE0] flex items-center justify-between text-muted-light mt-2">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedAsset(ast);
-                          setIsDrawerOpen(true);
-                        }}
-                        className="p-1 hover:text-ink-700"
-                        title="View details"
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          void handleDownload(ast.id);
-                        }}
-                        disabled={isDownloading === ast.id}
-                        className="p-1 hover:text-ink-700 disabled:opacity-50"
-                        title="Download asset"
-                      >
-                        <Download className="w-3.5 h-3.5" />
-                      </button>
-                      <button className="p-1 hover:text-ink-700" title="More">
-                        <MoreVertical className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
+                  <div className="flex items-center gap-1.5 mt-2 pt-2 border-t border-[#F5F0E8]">
+                    <button onClick={(e) => e.stopPropagation()} className="p-1 text-muted hover:text-ink-700 rounded transition-colors"><Eye className="w-3.5 h-3.5" /></button>
+                    <button onClick={(e) => e.stopPropagation()} className="p-1 text-muted hover:text-ink-700 rounded transition-colors"><Download className="w-3.5 h-3.5" /></button>
+                    <button onClick={(e) => e.stopPropagation()} className="ml-auto p-1 text-muted hover:text-ink-700 rounded"><MoreVertical className="w-3.5 h-3.5" /></button>
                   </div>
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
         ) : (
-          <div className="bg-white rounded-xl border border-line shadow-2xs overflow-hidden">
-            <table className="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr className="border-b border-[#F1ECE0] bg-[#FAF7EF]/60 text-[11px] font-semibold text-muted uppercase">
-                  <th className="py-2.5 px-4">Asset</th>
-                  <th className="py-2.5 px-3">Campaign</th>
-                  <th className="py-2.5 px-3">Status</th>
-                  <th className="py-2.5 px-3">Uploaded</th>
-                  <th className="py-2.5 px-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#F1ECE0]">
+          <div className="bg-white rounded-2xl border border-line shadow-2xs overflow-hidden">
+            <table className="w-full text-left">
+              <thead><tr className="bg-gradient-to-r from-slate-50 via-blue-50/40 to-pink-50/30 border-b border-slate-200">
+                {['Asset', 'Type', 'Status', 'Campaign', 'Uploaded', 'Actions'].map((h) => <th key={h} className="py-3 px-4 text-[11px] font-semibold text-muted uppercase tracking-wide">{h}</th>)}
+              </tr></thead>
+              <tbody className="divide-y divide-[#F5F0E8]">
                 {filtered.map((ast) => (
-                  <tr
-                    key={ast.id}
-                    onClick={() => {
-                      setSelectedAsset(ast);
-                      setIsDrawerOpen(true);
-                    }}
-                    className="hover:bg-[#FAF7EF]/80 cursor-pointer"
-                  >
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-2.5">
-                        <img alt={ast.name} className="w-8 h-8 rounded-lg object-cover border border-line" src={ast.thumbnail} />
-                        <span className="font-semibold text-ink truncate max-w-[180px]">{ast.name}</span>
-                      </div>
-                    </td>
-                    <td className="py-3 px-3 text-ink-600">{ast.campaign}</td>
-                    <td className="py-3 px-3">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                        ast.status === 'Approved' ? 'bg-emerald-100 text-emerald-800'
-                          : ast.status === 'Flagged' ? 'bg-rose-100 text-rose-800'
-                          : 'bg-brand-100 text-brand-700'
-                      }`}>{ast.status}</span>
-                    </td>
-                    <td className="py-3 px-3 text-[11px] text-muted">{ast.uploadedAt}</td>
-                    <td className="py-3 px-3 text-right">
-                      <button onClick={(e) => { e.stopPropagation(); void handleDownload(ast.id); }} disabled={isDownloading === ast.id} className="text-brand-600 hover:text-brand-700 font-semibold inline-flex items-center gap-0.5 disabled:opacity-50">
-                        <Download className="w-3 h-3" /> Download
-                      </button>
-                    </td>
+                  <tr key={ast.id} className="hover:bg-[#FAF7EF]/60 transition-colors cursor-pointer" onClick={() => { setSelectedAsset(ast); setIsDrawerOpen(true); }}>
+                    <td className="py-3 px-4"><div className="flex items-center gap-3"><img src={ast.thumbnail} alt="" className="w-9 h-9 rounded-lg object-cover border border-line" /><span className="text-xs font-medium text-ink-900">{ast.name}</span></div></td>
+                    <td className="py-3 px-4 text-xs text-muted">{ast.format}</td>
+                    <td className="py-3 px-4"><StatusBadge status={ast.status} /></td>
+                    <td className="py-3 px-4 text-xs text-muted">{ast.campaign}</td>
+                    <td className="py-3 px-4 text-xs text-muted">{ast.uploadedAt}</td>
+                    <td className="py-3 px-4"><div className="flex items-center gap-1"><Eye className="w-3.5 h-3.5 text-muted" /><Download className="w-3.5 h-3.5 text-muted" /><MoreVertical className="w-3.5 h-3.5 text-muted" /></div></td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         )}
+
+        {/* Pagination */}
+        <div className="flex items-center justify-between">
+          <p className="text-xs text-muted">Showing 1–{Math.min(filtered.length, 8)} of {filtered.length} assets</p>
+          <div className="flex items-center gap-1">
+            {[1,2,3,4,5].map((p) => <button key={p} className={`w-7 h-7 rounded-lg text-xs font-semibold transition-colors ${p === 1 ? 'bg-gradient-to-r from-brand-600 to-blue-500 text-white shadow-sm font-bold' : 'border border-line text-muted hover:bg-[#FAF7EF]'}`}>{p}</button>)}
+          </div>
+        </div>
       </main>
 
-      {/* Right Drawer: Asset Details */}
+      {/* Right panel */}
       {isDrawerOpen && active && (
-        <aside className="w-[390px] bg-white border-l border-line flex flex-col justify-between shrink-0 z-20 overflow-y-auto shadow-lg">
-          <div className="p-5 flex flex-col space-y-4">
-            {/* Drawer Header */}
-            <div className="flex items-center justify-between">
-              <h3 className="font-bold text-ink-900 text-sm">Asset Details</h3>
-              <button onClick={() => setIsDrawerOpen(false)} className="text-muted-light hover:text-ink-600 p-1">
-                <X className="w-4 h-4" />
+        <aside className="w-[300px] bg-white border-l border-line flex flex-col shrink-0 overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-line shrink-0">
+            <h3 className="text-sm font-bold text-ink-900">Asset Details</h3>
+            <div className="flex items-center gap-2">
+              <button onClick={() => { fileInputRef.current?.click(); }} className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-brand-600 to-blue-600 hover:from-brand-700 hover:to-blue-700 text-white rounded-xl text-xs font-bold shadow-sm hover:shadow-md transition-all cursor-pointer transition-colors cursor-pointer">
+                <Upload className="w-3.5 h-3.5" />Upload
               </button>
-            </div>
-
-            {/* Asset Hero Image */}
-            <div className="rounded-xl overflow-hidden border border-line h-44 bg-[#FAF7EF]">
-              <img
-                alt={active.name}
-                className="w-full h-full object-cover"
-                src={active.thumbnail}
-              />
-            </div>
-
-            {/* Title & Badges */}
-            <div>
-              <div className="flex items-center gap-2">
-                <h4 className="font-bold text-ink-900 text-sm truncate">{active.name}</h4>
-                <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-[#F1ECE0] text-ink-700">
-                  {active.type}
-                </span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-800">
-                  {active.status}
-                </span>
-              </div>
-            </div>
-
-            {/* Asset Specifications */}
-            <div className="space-y-2 text-xs">
-              <div className="p-3 rounded-xl bg-[#FAF7EF] border border-line/70 space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-muted-light">Size:</span>
-                  <span className="font-medium text-ink">{active.size}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-light">Dimensions:</span>
-                  <span className="font-medium text-ink">{active.dimensions || '—'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-light">Campaign:</span>
-                  <span className="font-medium text-ink">{active.campaign}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-light">Uploaded By:</span>
-                  <span className="font-medium text-ink">{active.uploadedBy}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-light">Upload Date:</span>
-                  <span className="font-medium text-ink">{active.uploadedAt}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Tags Section — real tags from the asset record */}
-            <div className="space-y-1.5 text-xs">
-              <span className="font-bold text-ink">Tags</span>
-              <div className="flex flex-wrap items-center gap-1.5">
-                {active.tags.length === 0 && (
-                  <span className="text-muted-light">No tags on this asset.</span>
-                )}
-                {active.tags.map((t) => (
-                  <span
-                    key={t}
-                    className="px-2 py-0.5 bg-[#F1ECE0] text-ink-600 rounded-md text-[11px] font-medium"
-                  >
-                    {t}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            {/* Related Guidelines Link */}
-            <div className="space-y-1 text-xs">
-              <span className="font-bold text-ink">Related Guidelines</span>
-              <div className="p-2.5 rounded-xl border border-line bg-white hover:bg-[#FAF7EF] flex items-center justify-between cursor-pointer">
-                <span className="font-medium text-brand-600">Brand Visual Standards v2.0</span>
-                <ExternalLink className="w-3.5 h-3.5 text-muted-light" />
-              </div>
+              <input ref={fileInputRef} type="file" accept="image/*,video/*,.pdf,.docx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
+              <button onClick={() => setIsDrawerOpen(false)} className="p-1 rounded-lg text-muted-light hover:text-ink-700"><X className="w-4 h-4" /></button>
             </div>
           </div>
-
-          {/* Drawer Actions */}
-          <div className="p-4 border-t border-line bg-[#FAF7EF]/50 flex items-center gap-2">
-            <button
-              onClick={() => void handleDownload(active.id)}
-              disabled={isDownloading === active.id}
-              className="flex-1 py-2.5 px-3 bg-white border border-line hover:bg-[#FAF7EF] text-ink font-semibold rounded-xl text-xs flex items-center justify-center gap-1.5 transition shadow-2xs disabled:opacity-50"
-            >
-              <Download className="w-3.5 h-3.5 text-muted" /> Download
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div className="rounded-xl overflow-hidden border border-line">
+              <img src={active.thumbnail} alt={active.name} className="w-full h-40 object-cover" />
+            </div>
+            <div className="flex items-center gap-2">
+              <p className="font-bold text-ink-900 text-sm flex-1 truncate">{active.name}</p>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${active.type === 'image' ? 'bg-blue-50 text-blue-700' : 'bg-slate-50 text-slate-700'}`}>{active.format || active.type}</span>
+              <StatusBadge status={active.status} />
+            </div>
+            <div className="space-y-0">
+              {[['Size', active.size || '—'], ['Dimensions', active.dimensions || '—'], ['Campaign', active.campaign], ['Uploaded By', active.uploadedBy], ['Upload Date', active.uploadedAt]].map(([label, val]) => (
+                <div key={String(label)} className="flex items-center justify-between py-1.5 border-b border-[#F5F0E8] last:border-0 text-xs">
+                  <span className="text-muted">{label}</span>
+                  <span className="font-medium text-ink">{val}</span>
+                </div>
+              ))}
+            </div>
+            {/* Tags */}
+            <div>
+              <p className="text-xs font-bold text-ink-900 mb-2">Tags</p>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {active.tags.map((tag) => <span key={tag} className="px-2 py-0.5 bg-[#F1ECE0] rounded-full text-[10px] font-medium text-ink-700">{tag}</span>)}
+                <button className="px-2 py-0.5 bg-white border border-dashed border-line rounded-full text-[10px] font-medium text-brand-600 hover:bg-brand-50 transition-colors cursor-pointer">+ Add Tag</button>
+              </div>
+            </div>
+            {/* Related guidelines */}
+            <div className="p-2.5 bg-[#FAF7EF] border border-line rounded-xl flex items-center gap-2 text-xs cursor-pointer hover:bg-[#F1ECE0] transition-colors">
+              <Tag className="w-3.5 h-3.5 text-brand-600 shrink-0" />
+              <span className="text-brand-700 font-medium">Brand Visual Standards v2.0</span>
+            </div>
+          </div>
+          <div className="p-4 border-t border-line space-y-2 shrink-0">
+            <button className="w-full flex items-center justify-center gap-2 py-2.5 bg-white border border-line rounded-xl text-xs font-semibold text-ink-700 hover:bg-[#FAF7EF] transition-colors cursor-pointer">
+              <Download className="w-4 h-4" />Download
             </button>
-            {active.status !== 'Approved' ? (
-              <button
-                onClick={() => void handleApprove(active.id)}
-                disabled={isApproving}
-                className="flex-1 py-2.5 px-3 bg-emerald-700 hover:bg-emerald-800 text-white font-semibold rounded-xl text-xs flex items-center justify-center gap-1.5 transition shadow-2xs disabled:opacity-50"
-              >
-                {isApproving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />} Approve
-              </button>
-            ) : (
-              <button
-                disabled
-                title="This asset is already approved."
-                className="flex-1 py-2.5 px-3 bg-white border border-line text-ink font-semibold rounded-xl text-xs flex items-center justify-center gap-1.5 opacity-50 cursor-not-allowed"
-              >
-                <Check className="w-3.5 h-3.5" /> Approved
+            {active.status !== 'Approved' && (
+              <button onClick={handleApprove} disabled={isApproving} className="w-full flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-brand-600 to-blue-600 hover:from-brand-700 hover:to-blue-700 text-white rounded-xl text-xs font-bold shadow-sm hover:shadow-md transition-all cursor-pointer transition-colors cursor-pointer disabled:opacity-50">
+                {isApproving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}Add to Campaign
               </button>
             )}
           </div>
