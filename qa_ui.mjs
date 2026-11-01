@@ -23,7 +23,7 @@ const which = (process.argv[2] || 'all').toLowerCase()
 const browser = await chromium.launch({ executablePath: EXE, headless: true })
 
 async function login(page, email) {
-  await page.goto(BASE + '/login', { waitUntil: 'networkidle' })
+  await page.goto(BASE + '/login', { waitUntil: 'domcontentloaded' })
   await page.fill('#email', email)
   await page.fill('#password', 'precedent')
   await page.click('button[type="submit"]')
@@ -35,7 +35,7 @@ async function shot(page, route, label, { full = true, wait = 600 } = {}) {
   const onErr = (e) => errors.push(String(e))
   page.on('pageerror', onErr)
   try {
-    await page.goto(BASE + route, { waitUntil: 'networkidle' })
+    await page.goto(BASE + route, { waitUntil: 'domcontentloaded' })
     await page.waitForTimeout(wait)
     const info = await page.evaluate(() => ({
       overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
