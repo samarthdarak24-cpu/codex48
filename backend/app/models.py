@@ -659,3 +659,28 @@ class AgentTraceRecord(Base):
     total_duration_ms: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
+
+class RuleConflictReview(Base):
+    """A manager's decision to mark a detected rule conflict as reviewed.
+
+    Conflict detection itself is deterministic and recomputed on every read, so
+    a review cannot silently delete a conflict. This row only records that a
+    human acknowledged it, which is what lets the UI show a persistent
+    'reviewed' state instead of a local-only toggle.
+    """
+
+    __tablename__ = "rule_conflict_reviews"
+    __table_args__ = (
+        UniqueConstraint("workspace", "rule_a_code", "rule_b_code", name="uq_conflict_review"),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    workspace: Mapped[str] = mapped_column(String, default="PureGlow", server_default="PureGlow", nullable=True, index=True)
+    rule_a_code: Mapped[str] = mapped_column(String, nullable=False)
+    rule_b_code: Mapped[str] = mapped_column(String, nullable=False)
+    resolution: Mapped[str] = mapped_column(String, default="reviewed")  # reviewed | dismissed
+    note: Mapped[str] = mapped_column(Text, default="")
+    reviewed_by_id: Mapped[str] = mapped_column(String, default="")
+    reviewed_by_name: Mapped[str] = mapped_column(String, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+

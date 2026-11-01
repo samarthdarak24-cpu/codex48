@@ -1,5 +1,9 @@
 """Submissions + Review router (CONTRACT.md §Submissions)."""
-from fastapi import APIRouter, Depends, HTTPException, status as http_status
+import csv
+import io
+import json
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status as http_status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -62,6 +66,59 @@ def list_submissions(
     return [svc.submission_to_dict(s) for s in subs]
 
 
+@router.get("/export")
+def export_submissions(
+    format: str = Query(default="csv"),
+    status: str | None = Query(default=None),
+    brand: str | None = Query(default=None),
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    query = db.query(models.Submission)
+    if current_user.workspace:
+        query = query.filter(
+            (models.Submission.workspace == current_user.workspace)
+            | (models.Submission.workspace.is_(None) if current_user.workspace == "PureGlow" else False)
+        )
+    if current_user.role == "creator":
+        query = query.filter(models.Submission.creator_id == current_user.id)
+    if status is not None:
+        query = query.filter(models.Submission.status == status)
+    if brand is not None:
+        query = query.filter(models.Submission.brand == brand)
+    subs = query.order_by(models.Submission.updated_at.desc()).all()
+
+    if format.lower() == "json":
+        data = [svc.submission_to_dict(s) for s in subs]
+        return Response(
+            content=json.dumps(data, indent=2),
+            media_type="application/json",
+            headers={"Content-Disposition": "attachment; filename=submissions_export.json"},
+        )
+    else:
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["id", "code", "title", "status", "brand", "channel", "type", "version", "createdAt", "updatedAt"])
+        for s in subs:
+            writer.writerow([
+                s.id,
+                s.code,
+                s.title,
+                s.status,
+                s.brand,
+                s.channel,
+                s.type,
+                f"v{s.version}",
+                s.created_at.isoformat() if s.created_at else "",
+                s.updated_at.isoformat() if s.updated_at else "",
+            ])
+        return Response(
+            content=output.getvalue(),
+            media_type="text/csv",
+            headers={"Content-Disposition": "attachment; filename=submissions_export.csv"},
+        )
+
+
 @router.get("/{sub_id}")
 def get_submission(
     sub_id: str,
@@ -73,6 +130,61 @@ def get_submission(
     if current_user.role == "creator" and sub.creator_id != current_user.id:
         raise HTTPException(status_code=http_status.HTTP_403_FORBIDDEN, detail="Not allowed")
     return svc.submission_to_dict(sub)
+
+
+@router.get("/{sub_id}/report")
+def get_submission_report(
+    sub_id: str,
+    format: str = Query(default="json"),
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    sub = db.get(models.Submission, sub_id)
+    require_workspace(sub, current_user, detail="Submission not found")
+    if current_user.role == "creator" and sub.creator_id != current_user.id:
+        raise HTTPException(status_code=http_status.HTTP_403_FORBIDDEN, detail="Not allowed")
+
+    sub_dict = svc.submission_to_dict(sub)
+    report_data = {
+        "reportTitle": f"Compliance Audit Report: {sub.title} ({sub.code})",
+        "generatedAt": models.utcnow().isoformat(),
+        "generatedBy": current_user.name,
+        "workspace": sub.workspace,
+        "submission": sub_dict,
+        "summary": {
+            "version": f"v{sub.version}",
+            "status": sub.status,
+            "brand": sub.brand,
+            "channel": sub.channel,
+            "findingsCount": len(sub_dict.get("findings", [])),
+            "versionsCount": len(sub_dict.get("versions", [])),
+            "complianceScore": 100 if sub.status == "Approved" else 65 if sub.status == "Needs Changes" else 40,
+        },
+    }
+    if format.lower() == "text":
+        lines = [
+            "PRECEDENT BRAND GOVERNANCE COMPLIANCE REPORT",
+            "=" * 50,
+            f"Title: {sub.title} ({sub.code})",
+            f"Status: {sub.status}",
+            f"Version: v{sub.version}",
+            f"Brand: {sub.brand}",
+            f"Channel: {sub.channel}",
+            f"Generated: {report_data['generatedAt']} by {current_user.name}",
+            "-" * 50,
+            f"FINDINGS ({len(sub_dict.get('findings', []))} total):",
+        ]
+        for f in sub_dict.get("findings", []):
+            lines.append(f"- [{f.get('severity', 'Info').upper()}] {f.get('ruleCode', 'RULE')}: {f.get('message', '')}")
+            if f.get("sourcePassage"):
+                lines.append(f"  Source Passage: \"{f.get('sourcePassage')}\"")
+        content = "\n".join(lines)
+        return Response(
+            content=content,
+            media_type="text/plain",
+            headers={"Content-Disposition": f"attachment; filename=report_{sub.code}.txt"},
+        )
+    return report_data
 
 
 @router.post("")

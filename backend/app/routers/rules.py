@@ -294,6 +294,22 @@ def reject_rule(
 def rules_conflicts(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     ws = getattr(current_user, "workspace", "PureGlow")
     conflicts = svc.detect_conflicts(db, workspace=ws)
+    # Attach the persisted review state so the UI shows a real, refresh-safe
+    # status instead of a component-local toggle.
+    reviews = {
+        (r.rule_a_code, r.rule_b_code): r
+        for r in db.query(models.RuleConflictReview)
+        .filter(models.RuleConflictReview.workspace == ws)
+        .all()
+    }
+    for c in conflicts:
+        a = (c.get("ruleA") or {}).get("code") or ""
+        b = (c.get("ruleB") or {}).get("code") or ""
+        rev = reviews.get((a, b)) or reviews.get((b, a))
+        c["reviewed"] = rev is not None
+        c["reviewedBy"] = rev.reviewed_by_name if rev else None
+        c["reviewedAt"] = rev.created_at.isoformat() if rev and rev.created_at else None
+        c["reviewNote"] = rev.note if rev else ""
     # Optional AI explanation, grounded in the deterministic conflicts. Never
     # creates or resolves conflicts; the deterministic checker is authoritative.
     try:
@@ -317,5 +333,96 @@ def get_rule(
     current_user: models.User = Depends(get_current_user),
 ):
     r = db.get(models.Rule, rule_id)
-    require_workspace(r, user, shared=True, detail="Rule not found")
+    require_workspace(r, current_user, shared=True, detail="Rule not found")
     return svc.rule_to_dict(r)
+
+
+class ConflictReviewRequest(BaseModel):
+    ruleACode: str
+    ruleBCode: str
+    resolution: str = "reviewed"
+    note: str = ""
+
+
+@router.post("/rules/conflicts/review", status_code=201)
+def review_conflict(
+    body: ConflictReviewRequest,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(require_manager),
+):
+    """Persist that a manager reviewed a detected conflict.
+
+    This never edits or deactivates a rule — that is a separate, explicit
+    action. It only records acknowledgement so the conflict list can show a
+    real reviewed state that survives a refresh.
+    """
+    ws = getattr(current_user, "workspace", "PureGlow")
+    a, b = body.ruleACode.strip(), body.ruleBCode.strip()
+    if not a or not b:
+        raise HTTPException(status_code=422, detail="Both rule codes are required")
+
+    existing = (
+        db.query(models.RuleConflictReview)
+        .filter(
+            models.RuleConflictReview.workspace == ws,
+            models.RuleConflictReview.rule_a_code == a,
+            models.RuleConflictReview.rule_b_code == b,
+        )
+        .first()
+    )
+    if existing:
+        existing.note = body.note or existing.note
+        existing.resolution = body.resolution
+        db.commit()
+        return {"id": existing.id, "status": "reviewed", "duplicate": True}
+
+    row = models.RuleConflictReview(
+        id=new_id("cr"),
+        workspace=ws,
+        rule_a_code=a,
+        rule_b_code=b,
+        resolution=body.resolution,
+        note=body.note,
+        reviewed_by_id=current_user.id,
+        reviewed_by_name=current_user.name,
+    )
+    db.add(row)
+    try:
+        record(
+            db,
+            action="Conflict Reviewed",
+            entity_title=f"{a} ↔ {b}",
+            entity_meta="Rules & Conflicts",
+            brand=ws,
+            user_id=current_user.id,
+            details=body.note or f"Conflict between {a} and {b} marked as reviewed.",
+            status="Recorded",
+            entity_kind="rule_conflict",
+            entity_id=row.id,
+        )
+    except Exception:
+        pass
+    db.commit()
+    return {"id": row.id, "status": "reviewed", "duplicate": False}
+
+
+@router.delete("/rules/conflicts/review", status_code=200)
+def clear_conflict_review(
+    ruleACode: str,
+    ruleBCode: str,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(require_manager),
+):
+    """Undo a review (manager-only). Detection stays deterministic."""
+    ws = getattr(current_user, "workspace", "PureGlow")
+    deleted = (
+        db.query(models.RuleConflictReview)
+        .filter(
+            models.RuleConflictReview.workspace == ws,
+            models.RuleConflictReview.rule_a_code == ruleACode,
+            models.RuleConflictReview.rule_b_code == ruleBCode,
+        )
+        .delete()
+    )
+    db.commit()
+    return {"deleted": deleted}

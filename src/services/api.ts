@@ -241,6 +241,7 @@ export const api = {
   guidelines: () => request<GuidelineDoc[]>('/guidelines'),
   searchGuidelines: (q: string) => request<any[]>(`/guidelines/search?q=${encodeURIComponent(q)}`),
   rules: () => request<Rule[]>('/rules'),
+  conflicts: () => request<any[]>('/rules/conflicts'),
   claims: () => request<ApprovedClaim[]>('/claims'),
   exceptions: () => request<ExceptionRequest[]>('/exceptions'),
   getExceptionHistory: (id: string) => request<any[]>(`/exceptions/${id}/history`),
@@ -353,6 +354,17 @@ export const api = {
     form.append('name', input.name)
     form.append('description', input.description)
     form.append('category', input.category)
+    form.append('brand', 'PureGlow')
+    form.append('visible_to_creators', 'true')
+    return request<GuidelineDoc>('/guidelines', { method: 'POST', body: form })
+  },
+
+  uploadGuidelineFile: (file: File, name: string, category: string, description: string) => {
+    const form = new FormData()
+    form.append('file', file)
+    form.append('name', name)
+    form.append('description', description)
+    form.append('category', category)
     form.append('brand', 'PureGlow')
     form.append('visible_to_creators', 'true')
     return request<GuidelineDoc>('/guidelines', { method: 'POST', body: form })
@@ -673,6 +685,151 @@ export const api = {
 
   listAnalyses: (limit = 50) =>
     request<(AssetAnalysis & { submissionTitle?: string; submissionCode?: string })[]>(`/analysis?limit=${limit}`),
+
+  /* User Profile & Security                                          */
+  /* ---------------------------------------------------------------- */
+  updateProfile: (data: { name?: string; title?: string; avatarTone?: string }) =>
+    request<User>('/auth/me', { method: 'PATCH', body: JSON.stringify(data) }),
+
+  changePassword: (currentPassword: string, newPassword: string) =>
+    request<{ ok: boolean; message: string }>('/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ currentPassword, newPassword }),
+    }),
+
+  /* Exports & Reports                                                */
+  /* ---------------------------------------------------------------- */
+  downloadAuditCsv: (action?: string, brand?: string) => {
+    const params = new URLSearchParams({ format: 'csv' })
+    if (action) params.append('action', action)
+    if (brand) params.append('brand', brand)
+    return downloadFile(`/audit/export?${params.toString()}`, `audit_log_${new Date().toISOString().slice(0, 10)}.csv`)
+  },
+
+  downloadSubmissionsCsv: (status?: string, brand?: string) => {
+    const params = new URLSearchParams({ format: 'csv' })
+    if (status) params.append('status', status)
+    if (brand) params.append('brand', brand)
+    return downloadFile(`/submissions/export?${params.toString()}`, `submissions_${new Date().toISOString().slice(0, 10)}.csv`)
+  },
+
+  downloadSubmissionReport: (submissionId: string, format: 'json' | 'text' = 'text') => {
+    const filename = `compliance_report_${submissionId}.${format === 'text' ? 'txt' : 'json'}`
+    return downloadFile(`/submissions/${encodeURIComponent(submissionId)}/report?format=${format}`, filename)
+  },
+
+  /* Analytics & Health (real DB aggregations)                         */
+  /* ---------------------------------------------------------------- */
+
+  /** `range` is 7d | 30d | 90d | 1y and genuinely changes the returned series. */
+  analytics: (range = '30d') =>
+    request<AnalyticsSummary>(`/analytics?range=${encodeURIComponent(range)}`),
+
+  analyticsTrends: (range = '30d') =>
+    request<AnalyticsTrends>(`/analytics/trends?range=${encodeURIComponent(range)}`),
+
+  analyticsExport: (range = '30d') =>
+    downloadFile(`/analytics/export?range=${encodeURIComponent(range)}`, 'precedent-analytics.csv'),
+
+  /** Per-creator dashboard metrics; the server scopes this to the caller. */
+  creatorSummary: () => request<CreatorSummary>('/analytics/creator-summary'),
+
+  /* Rules & Conflicts                                                 */
+  /* ---------------------------------------------------------------- */
+
+  /** Persist that a manager reviewed a conflict. Never mutates a rule. */
+  reviewConflict: (ruleACode: string, ruleBCode: string, note = '') =>
+    request<{ id: string; status: string; duplicate: boolean }>('/rules/conflicts/review', {
+      method: 'POST',
+      body: JSON.stringify({ ruleACode, ruleBCode, note }),
+    }),
+
+  clearConflictReview: (ruleACode: string, ruleBCode: string) =>
+    request<{ deleted: number }>(
+      `/rules/conflicts/review?ruleACode=${encodeURIComponent(ruleACode)}&ruleBCode=${encodeURIComponent(ruleBCode)}`,
+      { method: 'DELETE' },
+    ),
+
+  /** Fetch a protected guideline file with the bearer token and return an object URL. */
+  fetchGuidelineBlobUrl: async (id: string): Promise<string | null> => {
+    try {
+      const res = await fetch(`${API_BASE}/guidelines/${id}/file`, { headers: authHeaders() })
+      if (!res.ok) return null
+      return URL.createObjectURL(await res.blob())
+    } catch {
+      return null
+    }
+  },
+}
+
+/* ------------------------------------------------------------------ */
+/* Analytics response types                                            */
+/* ------------------------------------------------------------------ */
+
+export interface AnalyticsSummary {
+  range: string
+  generatedAt: string
+  sampleSize: number
+  totals: {
+    submissions: number
+    inReview: number
+    approved: number
+    needsChanges: number
+    declined: number
+    decided: number
+    openFindings: number
+    totalFindings: number
+  }
+  statusBreakdown: Record<string, number>
+  complianceScore: number
+  findingsByCategory: { category: string; count: number; high: number; medium: number; low: number }[]
+  topRules: { code: string; title: string; count: number }[]
+  ruleCoverage: { activeRules: number; totalRules: number; rulesTriggered: number }
+  citations: { verified: number; total: number; passages: number; verifiedPct: number }
+  reviewPerformance: { decisions: number; avgReviewHours: number | null; tracked: boolean }
+  sentinel: { open: number; resolved: number }
+  exceptions: Record<string, number>
+  campaignHealth: { campaign: string; count: number; issues: number; score: number }[]
+}
+
+export interface AnalyticsTrends {
+  range: string
+  bucket: 'day' | 'week'
+  points: { date: string; score: number; submissions: number; issues: number }[]
+  hasData: boolean
+  empty: boolean
+}
+
+export interface CreatorSummary {
+  sampleSize: number
+  complianceScore: number
+  statusBreakdown: Record<string, number>
+  approved: number
+  inReview: number
+  needsChanges: number
+  openIssues: number
+  openTasks: number
+  unreadNotifications: number
+  recent: { id: string; title: string; status: string; score: number; createdAt: string | null }[]
+}
+
+/** Utility to download file responses with authenticated bearer headers */
+export async function downloadFile(path: string, defaultFilename: string): Promise<void> {
+  const headers = new Headers()
+  if (session?.token) headers.set('Authorization', `Bearer ${session.token}`)
+  const res = await fetch(`${API_BASE}${path}`, { headers })
+  if (!res.ok) {
+    throw new ApiError(`Download failed with status ${res.status}`, res.status)
+  }
+  const blob = await res.blob()
+  const url = window.URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = defaultFilename
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  window.URL.revokeObjectURL(url)
 }
 
 export type Api = typeof api

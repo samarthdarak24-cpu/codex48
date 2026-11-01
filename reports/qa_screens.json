@@ -4,7 +4,7 @@
       "route": "/app/overview",
       "label": "creator-overview",
       "ok": true,
-      "textLen": 1765,
+      "textLen": 3152,
       "overflow": 0,
       "markerOk": true,
       "errors": []
@@ -22,7 +22,7 @@
       "route": "/app/submissions",
       "label": "creator-submissions",
       "ok": true,
-      "textLen": 1618,
+      "textLen": 1544,
       "overflow": 0,
       "markerOk": true,
       "errors": []
@@ -37,13 +37,15 @@
       "errors": []
     },
     {
-      "route": "/app/feedback/sub_ba87083cc259",
+      "route": "/app/feedback/sub_70670f7df58b",
       "label": "creator-feedback",
       "ok": false,
-      "textLen": 1890,
+      "textLen": 1974,
       "overflow": 0,
-      "markerOk": true,
+      "markerOk": false,
       "errors": [
+        "creator: Failed to load resource: the server responded with a status of 404 (Not Found)",
+        "creator: Failed to load resource: the server responded with a status of 404 (Not Found)",
         "creator: Failed to load resource: the server responded with a status of 404 (Not Found)"
       ]
     },
@@ -51,7 +53,7 @@
       "route": "/manager/overview",
       "label": "manager-overview",
       "ok": true,
-      "textLen": 1948,
+      "textLen": 3355,
       "overflow": 0,
       "markerOk": true,
       "errors": []
@@ -60,7 +62,7 @@
       "route": "/manager/queue",
       "label": "manager-queue",
       "ok": true,
-      "textLen": 1834,
+      "textLen": 1700,
       "overflow": 0,
       "markerOk": true,
       "errors": []
@@ -87,7 +89,7 @@
       "route": "/manager/sandbox",
       "label": "manager-sandbox",
       "ok": true,
-      "textLen": 2941,
+      "textLen": 2942,
       "overflow": 0,
       "markerOk": true,
       "errors": []
@@ -96,7 +98,7 @@
       "route": "/manager/audit",
       "label": "manager-audit",
       "ok": true,
-      "textLen": 2231,
+      "textLen": 2689,
       "overflow": 0,
       "markerOk": true,
       "errors": []
@@ -131,18 +133,20 @@
       "route": "/app/overview",
       "label": "mobile-creator-overview",
       "overflow": 0,
-      "textLen": 1414,
+      "textLen": 2790,
       "ok": true
     },
     {
       "route": "/app/submissions",
       "label": "mobile-creator-submissions",
       "overflow": 0,
-      "textLen": 1156,
+      "textLen": 1078,
       "ok": true
     }
   ],
   "consoleErrors": [
+    "creator: Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "creator: Failed to load resource: the server responded with a status of 404 (Not Found)",
     "creator: Failed to load resource: the server responded with a status of 404 (Not Found)"
   ],
   "creatorLanded": "http://127.0.0.1:5173/app/overview",
@@ -150,7 +154,7 @@
   "summary": {
     "screens": 13,
     "screensPassed": 12,
-    "consoleErrors": 1,
+    "consoleErrors": 3,
     "mobilePassed": 2
   }
 }

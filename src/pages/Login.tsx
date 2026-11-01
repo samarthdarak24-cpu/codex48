@@ -34,7 +34,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (status === 'authenticated' && user) {
-      navigate(user.role === 'manager' ? '/manager/overview' : '/app/overview', { replace: true })
+      navigate(user.role === 'manager' ? '/manager/overview' : '/creator/dashboard', { replace: true })
     }
   }, [status, user, navigate])
 
@@ -59,7 +59,7 @@ export default function LoginPage() {
         return
       }
       const account = await login(email, password)
-      navigate(account.role === 'manager' ? '/manager/overview' : '/app/overview', { replace: true })
+      navigate(account.role === 'manager' ? '/manager/overview' : '/creator/dashboard', { replace: true })
     } catch (err) {
       setErrors({ form: err instanceof Error ? err.message : 'Unable to sign in. Please try again.' })
     } finally {

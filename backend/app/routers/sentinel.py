@@ -166,11 +166,17 @@ def resolve(
     task_id: str,
     body: ResolveBody,
     db: Session = Depends(get_db),
-    current_user=Depends(require_manager),
+    current_user=Depends(get_current_user),
 ):
-    # A reassessment task is a governance decision: only a manager may close it.
+    # A reassessment task can be resolved by a manager or the assigned creator.
     task_row = db.get(models.ReassessmentTask, task_id)
+    if task_row is None:
+        if current_user.role != "manager":
+            raise HTTPException(403, "Manager role required")
+        raise HTTPException(404, "Task not found or already resolved")
     require_workspace(task_row, current_user, detail="Task not found or already resolved")
+    if current_user.role != "manager" and task_row.assignee_id != current_user.id:
+        raise HTTPException(403, "Only a manager or the task assignee may resolve this task")
     try:
         task = svc.resolve_task(
             db,

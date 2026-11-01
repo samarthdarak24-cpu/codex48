@@ -22,7 +22,7 @@ interface PosterCanvasProps {
 const STROKE: Record<PosterBoxTone, string> = {
   danger: '#EF4444',
   warn: '#F0A32A',
-  info: '#2F6FED',
+  info: '#4E7A3D',
 }
 
 const TONE_LABEL: Record<PosterBoxTone, string> = {

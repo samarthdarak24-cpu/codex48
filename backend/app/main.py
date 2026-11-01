@@ -23,6 +23,7 @@ from app.db import SessionLocal, init_db
 from app.errors import RequestIDMiddleware, install_error_handlers
 from app.routers import (
     analysis,
+    analytics,
     assets,
     audit,
     auth,
@@ -238,6 +239,7 @@ for _router in (
     feedback.router,
     proofpass.router,
     crew.router,
+    analytics.router,
 ):
     app.include_router(_router)
 

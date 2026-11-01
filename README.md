@@ -156,6 +156,14 @@ Mapped 1:1 to the reference images.
 | 13 | AI Trust | `/manager/trust` | `src/pages/manager/Trust.tsx` |
 | 14 | Notifications (A3) | `/notifications` | `src/pages/Notifications.tsx` |
 
+### v2 reference-matched workspace (21 pages)
+
+The 21-page UI from `lastfinalecode/` is mounted at `/creator/*` (10 pages) and
+`/manager/*` (11 pages), backed by the same FastAPI service. The legacy creator
+workspace remains at `/app/*`. See [`docs/V2_UI_INTEGRATION.md`](docs/V2_UI_INTEGRATION.md)
+for the full route map, data mapping, and the three views that still carry
+view-local demo data.
+
 ### Deliberate deviation from the references
 
 Reference image 8 shows an **Upload Document** button on the creator's Brand Guidelines page. The creator view here

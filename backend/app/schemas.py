@@ -13,6 +13,17 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class UpdateProfileRequest(BaseModel):
+    name: Optional[str] = None
+    title: Optional[str] = None
+    avatarTone: Optional[str] = None
+
+
+class ChangePasswordRequest(BaseModel):
+    currentPassword: str
+    newPassword: str
+
+
 class UserOut(BaseModel):
     id: str
     name: str

@@ -1,0 +1,82 @@
+/* v2 workspace styles — animations and small utilities used by the 21 views.
+   Colours are the product palette: forest green / sage / warm ivory / charcoal. */
+
+@keyframes v2ViewFadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes v2PulseSubtle {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.02);
+  }
+}
+
+@keyframes v2FloatGentle {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+.animate-view-fade-in {
+  animation: v2ViewFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-pulse-subtle {
+  animation: v2PulseSubtle 3s ease-in-out infinite;
+}
+
+.animate-float-gentle {
+  animation: v2FloatGentle 4s ease-in-out infinite;
+}
+
+/* Tailwind 4 animation utilities used by the source views; provide a safe
+   Tailwind 3 fallback so elements still animate instead of snapping. */
+.animate-in {
+  animation: v2ViewFadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.card-hover-effect {
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.card-hover-effect:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 12px 24px -6px rgba(35, 40, 42, 0.08),
+    0 4px 8px -2px rgba(35, 40, 42, 0.03);
+}
+
+/* Tailwind 4 shadow aliases (the source views use shadow-2xs / shadow-xs). */
+.shadow-2xs {
+  box-shadow: 0 1px 2px rgba(35, 40, 42, 0.05);
+}
+.shadow-xs {
+  box-shadow: 0 1px 2px rgba(35, 40, 42, 0.08);
+}
+
+/* Analytics donuts — green / sage / amber / red, no blue or purple. */
+.conic-gradient-analytics {
+  background: conic-gradient(#4e7a3d 0% 65%, #7c8f5e 65% 84%, #f0a32a 84% 95%, #ef4444 95% 100%);
+}
+.conic-gradient-sentinel {
+  background: conic-gradient(#ef4444 0% 40%, #f0a32a 40% 75%, #4e7a3d 75% 90%, #7c8f5e 90% 100%);
+}
+.conic-gradient-findings {
+  background: conic-gradient(#7c8f5e 0% 32%, #4e7a3d 32% 63%, #a9b892 63% 86%, #f0a32a 86% 100%);
+}
