@@ -1,452 +1,240 @@
-import React, { useMemo, useState } from 'react';
-import {
-  Upload,
-  BookOpen,
-  CheckCircle2,
-  Clock,
-  Archive,
-  Download,
-  FileText,
-  ExternalLink,
-  ChevronRight,
-  X,
-  Sparkles,
-  TrendingUp,
-} from 'lucide-react';
+import React, { useMemo, useState, useRef } from 'react';
+import { Upload, BookOpen, CheckCircle2, Clock, Archive, Download, FileText, ExternalLink, ChevronRight, X, Sparkles, ArrowUpRight, ArrowDownRight, Eye, MoreVertical, Calendar, User, Tag } from 'lucide-react';
 import { useApp } from '../../../context/AppContext';
-import { downloadFile } from '@/services/api';
+import { api } from '@/services/api';
+import { StatCardGrid } from '../../ui/StatCard';
+
+const StatusBadge = ({ status }: { status: string }) => {
+  const map: Record<string, string> = {
+    Active: 'bg-emerald-500 text-white', Draft: 'bg-amber-500 text-white',
+    Pending: 'bg-amber-500 text-white', Archived: 'bg-slate-400 text-white',
+  };
+  return <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${map[status] ?? 'bg-slate-400 text-white'}`}>{status}</span>;
+};
 
 export const CreatorGuidelinesView: React.FC = () => {
   const { addToast, guidelines, downloadGuideline } = useApp();
+  const [activeCategory, setActiveCategory] = useState('All Guidelines');
+  const [activeStatus, setActiveStatus] = useState('All');
+  const [selectedGuidelineId, setSelectedGuidelineId] = useState('');
+  const [isDetailOpen, setIsDetailOpen] = useState(true);
+  const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const [uploadTitle, setUploadTitle] = useState('');
+  const [uploadCategory, setUploadCategory] = useState('Brand Identity');
+  const [uploadDescription, setUploadDescription] = useState('');
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [activeCategory, setActiveCategory] = useState<string>('All Guidelines');
-  const [activeStatus, setActiveStatus] = useState<string>('All');
-  const [sortBy, setSortBy] = useState<'newest' | 'title'>('newest');
-  const [selectedGuidelineId, setSelectedGuidelineId] = useState<string>('');
+  const activeCount = guidelines.filter((g) => g.status === 'Active').length;
+  const pendingCount = guidelines.filter((g) => g.status === 'Pending' || g.status === 'Draft').length;
+  const archivedCount = guidelines.filter((g) => g.status === 'Archived').length;
 
-  const statusCounts = useMemo(() => {
-    const counts: Record<string, number> = { All: guidelines.length };
-    for (const g of guidelines) {
-      counts[g.status] = (counts[g.status] ?? 0) + 1;
-    }
-    return counts;
-  }, [guidelines]);
+  const selectedGuideline = guidelines.find((g) => g.id === selectedGuidelineId) || guidelines[0];
 
-  const categories = useMemo(
-    () => [
-      { name: 'All Guidelines', count: guidelines.length },
-      ...[
-        'Brand Identity',
-        'Messaging & Tone',
-        'Visual Standards',
-        'Product Claims',
-        'Legal & Compliance',
-        'Marketing Assets',
-      ].map((name) => ({
-        name,
-        count: guidelines.filter((g) => g.category === name).length,
-      })),
-    ],
-    [guidelines],
-  );
+  const categories = useMemo(() => [
+    { name: 'All Guidelines', count: guidelines.length },
+    ...['Brand Identity', 'Messaging & Tone', 'Visual Standards', 'Product Claims', 'Legal & Compliance', 'Marketing Assets'].map((name) => ({
+      name, count: guidelines.filter((g) => g.category === name).length,
+    })),
+  ], [guidelines]);
 
-  const guidelinesList = useMemo(
-    () =>
-      guidelines.map((g) => ({
-        id: g.id,
-        title: g.title,
-        description: g.description,
-        fullDescription: g.description,
-        category: g.category,
-        format: g.format ?? 'PDF',
-        version: g.version,
-        date: g.lastUpdated,
-        status: g.status,
-        owner: g.owner,
-        thumbnail: g.thumbnail,
-      })),
-    [guidelines],
-  );
+  const filtered = guidelines.filter((g) => {
+    if (activeCategory !== 'All Guidelines' && g.category !== activeCategory) return false;
+    if (activeStatus === 'Active' && g.status !== 'Active') return false;
+    if (activeStatus === 'Draft' && g.status !== 'Draft') return false;
+    if (activeStatus === 'Archived' && g.status !== 'Archived') return false;
+    return true;
+  });
 
-  const selectedGuideline =
-    guidelinesList.find((g) => g.id === selectedGuidelineId) ?? guidelinesList[0];
-
-  const filteredGuidelines = useMemo(() => {
-    const filtered = guidelinesList.filter((g) => {
-      if (activeCategory !== 'All Guidelines' && g.category !== activeCategory) return false;
-      if (activeStatus !== 'All' && g.status !== activeStatus) return false;
-      return true;
-    });
-    const sorted = [...filtered];
-    if (sortBy === 'newest') {
-      sorted.sort((a, b) => String(b.date).localeCompare(String(a.date)));
-    } else {
-      sorted.sort((a, b) => a.title.localeCompare(b.title));
-    }
-    return sorted;
-  }, [guidelinesList, activeCategory, activeStatus, sortBy]);
-
-  const relatedGuidelines = useMemo(
-    () => guidelinesList.filter((g) => g.id !== selectedGuideline?.id).slice(0, 3),
-    [guidelinesList, selectedGuideline],
-  );
-
-  if (guidelinesList.length === 0) {
-    return (
-      <div className="p-6 max-w-[1600px] mx-auto space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-ink-900 tracking-tight">Brand Guidelines</h1>
-          <p className="text-sm text-muted mt-0.5">
-            Access and consult certified brand guidelines, policies and approved asset rules.
-          </p>
-        </div>
-        <div className="bg-white rounded-2xl border border-line/90 shadow-2xs p-10 text-center space-y-3">
-          <BookOpen className="w-6 h-6 text-muted mx-auto" />
-          <div className="text-sm font-bold text-ink-900">No guidelines published yet</div>
-          <p className="text-xs text-muted">
-            Guidelines appear here once a Brand Manager uploads and activates them.
-          </p>
-        </div>
-      </div>
-    );
-  }
+  const handleUpload = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!uploadTitle.trim() || !uploadFile) { addToast('Please fill in title and select a file.', 'error'); return; }
+    setIsUploading(true);
+    try {
+      await api.uploadGuidelineFile(uploadFile, uploadTitle, uploadCategory, uploadDescription);
+      addToast('Guideline uploaded successfully.');
+      setIsUploadOpen(false); setUploadTitle(''); setUploadFile(null);
+    } catch (err) { addToast(err instanceof Error ? err.message : 'Upload failed.', 'error'); }
+    finally { setIsUploading(false); }
+  };
 
   return (
-    <div className="p-6 max-w-[1600px] mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-ink-900 tracking-tight">Brand Guidelines</h1>
-          <p className="text-sm text-muted mt-0.5">
-            Access and consult certified brand guidelines, policies and approved asset rules.
-          </p>
-        </div>
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-[#FAF7EF] border border-line rounded-lg text-xs text-muted font-medium">
-          <BookOpen className="w-3.5 h-3.5 text-brand-600" />
-          <span>Read-Only Creator Mode</span>
-        </div>
-      </div>
-
-      {/* 4 KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-4.5 rounded-xl border border-line/80 shadow-xs flex items-center justify-between">
+    <div className="flex h-full overflow-hidden">
+      <main className="flex-1 overflow-y-auto p-6 space-y-5 bg-canvas">
+        {/* Header */}
+        <div className="flex items-start justify-between gap-4">
           <div>
-            <div className="text-xs font-medium text-muted">Total Guidelines</div>
-            <div className="text-2xl font-bold text-ink-900 mt-1">{guidelines.length}</div>
-            <div className="flex items-center gap-1 text-[11px] font-semibold text-emerald-600 mt-1">
-              <TrendingUp className="w-3 h-3" />
-              <span>↑ Active</span>
-            </div>
+            <h1 className="text-[32px] font-black tracking-tight leading-none mt-1 animate-count-up">Brand Guidelines</h1>
+            <p className="text-xs text-muted mt-0.5">Access and manage your brand guidelines, policies and approved assets.</p>
           </div>
-          <div className="w-12 h-12 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center">
-            <BookOpen className="w-6 h-6" />
-          </div>
+          <button onClick={() => setIsUploadOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-brand-600 to-blue-600 hover:from-brand-700 hover:to-blue-700 text-white rounded-xl text-xs font-bold shadow-sm hover:shadow-md transition-all cursor-pointer shadow-2xs transition-colors cursor-pointer shrink-0">
+            <Upload className="w-4 h-4" />Upload Document
+          </button>
         </div>
 
-        <div className="bg-white p-4.5 rounded-xl border border-line/80 shadow-xs flex items-center justify-between">
-          <div>
-            <div className="text-xs font-medium text-muted">Active Versions</div>
-            <div className="text-2xl font-bold text-ink-900 mt-1">
-              {guidelines.filter((g) => g.status === 'Active').length}
-            </div>
-            <div className="flex items-center gap-1 text-[11px] font-semibold text-emerald-600 mt-1">
-              <TrendingUp className="w-3 h-3" />
-              <span>Certified</span>
-            </div>
-          </div>
-          <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-            <CheckCircle2 className="w-6 h-6" />
-          </div>
-        </div>
+        {/* KPI Cards */}
+        <StatCardGrid cards={[
+    { label: 'Total Guidelines', value: guidelines.length, icon: <BookOpen className="w-5 h-5" />, variant: 'green', trend: 12, sparkPathIndex: 0 },
+    { label: 'Active Versions', value: activeCount, icon: <CheckCircle2 className="w-5 h-5" />, variant: 'blue', trend: 8, sparkPathIndex: 1 },
+    { label: 'Pending Review', value: pendingCount, icon: <Clock className="w-5 h-5" />, variant: 'amber', trend: -1, sparkPathIndex: 2 },
+    { label: 'Archived', value: archivedCount, icon: <Archive className="w-5 h-5" />, variant: 'purple', trend: 0, sparkPathIndex: 3 },
+  ]} />
 
-        <div className="bg-white p-4.5 rounded-xl border border-line/80 shadow-xs flex items-center justify-between">
-          <div>
-            <div className="text-xs font-medium text-muted">Pending Review</div>
-            <div className="text-2xl font-bold text-ink-900 mt-1">
-              {guidelines.filter((g) => g.status === 'Pending' || g.status === 'Draft').length}
+        {/* Two-column body */}
+        <div className="flex gap-5">
+          {/* Left: Category sidebar */}
+          <div className="w-52 shrink-0 space-y-1">
+            {categories.map((cat) => (
+              <button key={cat.name} onClick={() => setActiveCategory(cat.name)}
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-colors cursor-pointer ${activeCategory === cat.name ? 'bg-brand-50 text-brand-700 font-semibold' : 'text-ink-600 hover:bg-[#FAF7EF]'}`}>
+                <span className="truncate">{cat.name}</span>
+                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${activeCategory === cat.name ? 'bg-brand-100 text-brand-700' : 'bg-[#F1ECE0] text-ink-600'}`}>{cat.count}</span>
+              </button>
+            ))}
+            <div className="mt-4 p-3 bg-brand-50 border border-brand-100 rounded-xl text-center space-y-1.5">
+              <p className="text-[11px] font-semibold text-brand-700 flex items-center justify-center gap-1"><Sparkles className="w-3 h-3" />Keep your brand consistent across all content.</p>
+              <button className="w-full py-1 bg-white border border-brand-200 rounded-lg text-[11px] font-semibold text-brand-700 hover:bg-[#FAF7EF] transition inline-flex items-center justify-center gap-1">
+                View Brand Kit <ChevronRight className="w-3 h-3" />
+              </button>
             </div>
-            <div className="flex items-center gap-1 text-[11px] font-semibold text-amber-600 mt-1">
-              <Clock className="w-3 h-3" />
-              <span>Pending</span>
-            </div>
-          </div>
-          <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
-            <Clock className="w-6 h-6" />
-          </div>
-        </div>
-
-        <div className="bg-white p-4.5 rounded-xl border border-line/80 shadow-xs flex items-center justify-between">
-          <div>
-            <div className="text-xs font-medium text-muted">Categories</div>
-            <div className="text-2xl font-bold text-ink-900 mt-1">
-              {new Set(guidelines.map((g) => g.category)).size}
-            </div>
-            <div className="flex items-center gap-1 text-[11px] font-semibold text-brand-600 mt-1">
-              <span>Coverage</span>
-            </div>
-          </div>
-          <div className="w-12 h-12 rounded-xl bg-grape-50 text-grape-600 flex items-center justify-center">
-            <Archive className="w-6 h-6" />
-          </div>
-        </div>
-      </div>
-
-      {/* Main 3-Column Layout: Left Categories + Center Grid + Right Rail */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left Categories Sidebar */}
-        <div className="lg:col-span-3 space-y-4">
-          <div className="bg-white rounded-xl border border-line p-4 shadow-xs space-y-1 text-xs">
-            <h2 className="font-bold text-ink-900 text-sm mb-3 px-1">Categories</h2>
-            {categories.map((cat) => {
-              const isSelected = activeCategory === cat.name;
-              return (
-                <button
-                  key={cat.name}
-                  onClick={() => setActiveCategory(cat.name)}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg font-medium transition-colors cursor-pointer text-left ${
-                    isSelected
-                      ? 'bg-brand-50 text-brand-700 font-bold'
-                      : 'text-ink-600 hover:bg-[#FAF7EF] hover:text-ink-900'
-                  }`}
-                >
-                  <span>{cat.name}</span>
-                  <span
-                    className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                      isSelected ? 'bg-brand-200/80 text-brand-700' : 'bg-[#F1ECE0] text-muted'
-                    }`}
-                  >
-                    {cat.count}
-                  </span>
-                </button>
-              );
-            })}
           </div>
 
-          {/* Brand Kit Card */}
-          <div className="p-4 rounded-xl border border-line bg-white shadow-xs text-center space-y-2">
-            <div className="w-8 h-8 rounded-full bg-brand-50 text-brand-600 flex items-center justify-center mx-auto">
-              <Sparkles className="w-4 h-4" />
+          {/* Right: Guidelines grid */}
+          <div className="flex-1 space-y-4">
+            {/* Toolbar */}
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-1.5">
+                {(['All', 'Active', 'Draft', 'Archived'] as const).map((tab) => {
+                  const cnt = tab === 'All' ? guidelines.length : tab === 'Active' ? activeCount : tab === 'Draft' ? pendingCount : archivedCount;
+                  return (
+                    <button key={tab} onClick={() => setActiveStatus(tab)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer ${activeStatus === tab ? 'bg-gradient-to-r from-brand-600 to-blue-500 text-white shadow-sm font-bold' : 'bg-white border border-line text-ink-600 hover:bg-[#FAF7EF]'}`}>
+                      {tab} ({cnt})
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-muted">Sort by:</span>
+                <select className="bg-white border border-line rounded-lg px-2.5 py-1.5 text-xs font-medium text-ink focus:outline-none cursor-pointer"><option>Newest First</option></select>
+              </div>
             </div>
-            <p className="text-xs text-ink-600 leading-tight">
-              Keep your brand consistent across all content.
-            </p>
-            <button
-              disabled
-              title="The Brand Kit package is managed by your Brand Manager and is not downloadable from creator mode."
-              className="text-xs font-bold text-muted/60 cursor-not-allowed inline-flex items-center gap-1"
-            >
-              <span>View Brand Kit</span>
-              <ChevronRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        </div>
 
-        {/* Center Grid: Filter Pills + Guideline Cards */}
-        <div className="lg:col-span-6 space-y-4">
-          {/* Filter Pills */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-2 flex-wrap">
-              {[
-                { id: 'All', label: `All (${statusCounts.All ?? 0})` },
-                { id: 'Active', label: `Active (${statusCounts.Active ?? 0})` },
-                { id: 'Pending Review', label: `Pending (${statusCounts['Pending Review'] ?? 0})` },
-                { id: 'Archived', label: `Archived (${statusCounts.Archived ?? 0})` },
-              ].map((pill) => (
-                <button
-                  key={pill.id}
-                  onClick={() => setActiveStatus(pill.id)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
-                    activeStatus === pill.id
-                      ? 'bg-brand-600 text-white shadow-xs'
-                      : 'bg-white border border-line text-ink-600 hover:bg-[#FAF7EF]'
-                  }`}
-                >
-                  {pill.label}
-                </button>
+            {/* Grid */}
+            <div className="grid grid-cols-2 xl:grid-cols-3 gap-4">
+              {filtered.length === 0 && <div className="col-span-full text-center py-12 text-xs text-muted bg-white rounded-2xl border border-line">No guidelines found.</div>}
+              {filtered.map((g) => (
+                <div key={g.id} onClick={() => { setSelectedGuidelineId(g.id); setIsDetailOpen(true); }}
+                  className={`bg-white rounded-2xl border overflow-hidden shadow-2xs cursor-pointer hover:-translate-y-0.5 hover:shadow-xs transition-all ${selectedGuideline?.id === g.id ? 'ring-2 ring-brand-500 border-transparent' : 'border-line hover:border-line-strong'}`}>
+                  <div className="relative h-36 overflow-hidden bg-[#F1ECE0]">
+                    <img src={g.thumbnail} alt={g.title} className="w-full h-full object-cover" />
+                    <div className="absolute top-2 right-2"><StatusBadge status={g.status} /></div>
+                  </div>
+                  <div className="p-3 space-y-1.5">
+                    <p className="font-bold text-ink-900 text-xs">{g.title}</p>
+                    <p className="text-[11px] text-muted line-clamp-2">{g.description}</p>
+                    <div className="flex items-center gap-3 text-[10px] text-muted-light pt-1 border-t border-[#F5F0E8]">
+                      <span className="flex items-center gap-1"><FileText className="w-3 h-3" />PDF · {g.version}</span>
+                      <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{g.lastUpdated}</span>
+                    </div>
+                    <div className="flex items-center gap-2 pt-1">
+                      <button onClick={(e) => { e.stopPropagation(); setSelectedGuidelineId(g.id); setIsDetailOpen(true); }} className="flex items-center gap-1 text-[11px] font-semibold text-brand-600 hover:text-brand-700 cursor-pointer">
+                        <Eye className="w-3 h-3" />View →
+                      </button>
+                      <button onClick={(e) => { e.stopPropagation(); downloadGuideline(g.id); }} className="ml-auto p-1 text-muted hover:text-ink-700 rounded transition-colors"><Download className="w-3.5 h-3.5" /></button>
+                    </div>
+                  </div>
+                </div>
               ))}
             </div>
+          </div>
+        </div>
+      </main>
 
-            <div className="flex items-center gap-2">
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as 'newest' | 'title')}
-                className="px-2.5 py-1.5 bg-white border border-line rounded-lg text-xs font-semibold text-ink-700 shadow-xs cursor-pointer focus:outline-hidden focus:ring-2 focus:ring-brand-500/20"
-              >
-                <option value="newest">Sort by: Newest First</option>
-                <option value="title">Sort by: Title (A–Z)</option>
-              </select>
+      {/* Right detail panel */}
+      {isDetailOpen && selectedGuideline && (
+        <aside className="w-[300px] bg-white border-l border-line flex flex-col shrink-0 overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-line shrink-0">
+            <h3 className="text-sm font-bold text-ink-900">Guideline Details</h3>
+            <button onClick={() => setIsDetailOpen(false)} className="p-1 rounded-lg text-muted-light hover:text-ink-700"><X className="w-4 h-4" /></button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div className="rounded-xl overflow-hidden border border-line">
+              <img src={selectedGuideline.thumbnail} alt={selectedGuideline.title} className="w-full h-36 object-cover" />
             </div>
-          </div>
-
-          {/* Guideline Cards 2-Col Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {filteredGuidelines.map((g) => {
-              const isSelected = selectedGuideline?.id === g.id;
-              return (
-                <div
-                  key={g.id}
-                  onClick={() => setSelectedGuidelineId(g.id)}
-                  className={`bg-white rounded-xl border overflow-hidden shadow-xs cursor-pointer transition-all flex flex-col justify-between ${
-                    isSelected ? 'border-brand-500 ring-2 ring-brand-500/10' : 'border-line hover:border-line-strong'
-                  }`}
-                >
-                  <div>
-                    <div className="relative h-28 bg-[#F1ECE0] overflow-hidden">
-                      <img
-                        src={g.thumbnail}
-                        alt={g.title}
-                        className="w-full h-full object-cover"
-                      />
-                      <span
-                        className={`absolute top-2.5 right-2.5 px-2 py-0.5 rounded-full text-[10px] font-bold shadow-xs ${
-                          g.status === 'Active' ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-white'
-                        }`}
-                      >
-                        {g.status}
-                      </span>
-                    </div>
-
-                    <div className="p-3.5 space-y-1">
-                      <h3 className="font-bold text-ink-900 text-xs truncate">{g.title}</h3>
-                      <p className="text-[11px] text-muted line-clamp-2 leading-relaxed">
-                        {g.description}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="px-3.5 py-2.5 border-t border-[#F1ECE0] flex items-center justify-between text-[11px] text-muted-light">
-                    <span className="flex items-center gap-1 font-mono text-ink-600">
-                      <FileText className="w-3 h-3 text-rose-500" />
-                      {g.format} • {g.version}
-                    </span>
-                    <button className="font-bold text-brand-600 hover:text-brand-700 flex items-center gap-0.5 cursor-pointer">
-                      <span>View</span>
-                      <ChevronRight className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Right Rail: Guideline Details */}
-        <div className="lg:col-span-3 bg-white rounded-xl border border-line shadow-xs p-4 space-y-4">
-          <div className="flex items-center justify-between pb-2 border-b border-[#F1ECE0]">
-            <h2 className="text-xs font-bold text-ink-900">Guideline Details</h2>
-            <button className="text-muted-light hover:text-ink-600">
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-
-          {selectedGuideline && (
-            <>
-              <div className="rounded-xl overflow-hidden border border-line bg-[#F1ECE0]">
-                <img
-                  src={selectedGuideline.thumbnail}
-                  alt={selectedGuideline.title}
-                  className="w-full h-36 object-cover"
-                />
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between">
-                  <h3 className="font-bold text-ink-900 text-sm">{selectedGuideline.title}</h3>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                    {selectedGuideline.status}
+            <div className="flex items-start justify-between gap-2">
+              <p className="font-bold text-ink-900 text-sm">{selectedGuideline.title}</p>
+              <StatusBadge status={selectedGuideline.status} />
+            </div>
+            <p className="text-xs text-muted leading-relaxed">{selectedGuideline.description}</p>
+            <div className="space-y-0">
+              {[['Version', selectedGuideline.version], ['Last Updated', selectedGuideline.lastUpdated], ['Owner', selectedGuideline.owner], ['Category', selectedGuideline.category]].map(([label, val]) => (
+                <div key={String(label)} className="flex items-center justify-between py-1.5 border-b border-[#F5F0E8] last:border-0 text-xs">
+                  <span className="text-muted flex items-center gap-1.5">
+                    {label === 'Version' && <FileText className="w-3 h-3" />}
+                    {label === 'Last Updated' && <Calendar className="w-3 h-3" />}
+                    {label === 'Owner' && <User className="w-3 h-3" />}
+                    {label === 'Category' && <Tag className="w-3 h-3" />}
+                    {label}
                   </span>
+                  <span className="font-medium text-ink">{val}</span>
                 </div>
-                <p className="text-xs text-muted mt-1 leading-relaxed">
-                  {selectedGuideline.fullDescription}
-                </p>
-              </div>
-
-              <div className="space-y-2 pt-2 border-t border-[#F1ECE0] text-xs">
-                <div className="flex justify-between py-1 border-b border-[#FAF7EF]">
-                  <span className="text-muted">Version</span>
-                  <span className="font-mono font-semibold text-ink-900">{selectedGuideline.version}</span>
+              ))}
+            </div>
+            <div className="space-y-2">
+              <button onClick={() => downloadGuideline(selectedGuideline.id)} className="w-full flex items-center justify-center gap-2 py-2.5 bg-white border border-line rounded-xl text-xs font-semibold text-ink-700 hover:bg-[#FAF7EF] transition-colors cursor-pointer">
+                <Download className="w-4 h-4" />Download PDF
+              </button>
+              <button className="w-full flex items-center justify-center gap-2 py-2.5 bg-[#FAF7EF] border border-line rounded-xl text-xs font-semibold text-ink-700 hover:bg-[#F1ECE0] transition-colors cursor-pointer">
+                <ExternalLink className="w-4 h-4" />View Full Document
+              </button>
+            </div>
+            {selectedGuideline.relatedGuidelines && selectedGuideline.relatedGuidelines.length > 0 && (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-bold text-ink-900">Related Guidelines</p>
+                  <button className="text-[11px] text-brand-600 font-semibold hover:underline cursor-pointer">See All →</button>
                 </div>
-                <div className="flex justify-between py-1 border-b border-[#FAF7EF]">
-                  <span className="text-muted">Last Updated</span>
-                  <span className="font-semibold text-ink-900">{selectedGuideline.date}</span>
-                </div>
-                <div className="flex justify-between py-1">
-                  <span className="text-muted">Owner</span>
-                  <span className="font-semibold text-ink-900">{selectedGuideline.owner}</span>
-                </div>
-              </div>
-
-              <div className="space-y-2 pt-1">
-                <button
-                  onClick={async () => {
-                    try {
-                      await downloadFile(
-                        `/guidelines/${selectedGuideline.id}/download`,
-                        `${selectedGuideline.title.replace(/\s+/g, '_')}.pdf`,
-                      );
-                      addToast(`Downloaded ${selectedGuideline.title}`, 'success');
-                    } catch (err) {
-                      addToast(
-                        err instanceof Error ? err.message : 'Download failed — the file may not be attached.',
-                        'error',
-                      );
-                    }
-                  }}
-                  className="w-full py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-bold shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>Download PDF</span>
-                </button>
-                <button
-                  onClick={async () => {
-                    if (!selectedGuideline) return;
-                    try {
-                      await downloadGuideline(selectedGuideline.id);
-                      addToast(`Opened ${selectedGuideline.title}`, 'success');
-                    } catch (err) {
-                      addToast(err instanceof Error ? err.message : 'Could not open document.', 'error');
-                    }
-                  }}
-                  className="w-full py-2 bg-white border border-line hover:bg-[#FAF7EF] text-ink-700 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer"
-                >
-                  <ExternalLink className="w-3.5 h-3.5 text-muted" />
-                  <span>View Full Document</span>
-                </button>
-              </div>
-
-              {/* Related Guidelines — derived from the live library */}
-              {relatedGuidelines.length > 0 && (
-                <div className="pt-2 border-t border-[#F1ECE0] space-y-2">
-                  <div className="flex items-center justify-between text-xs font-bold text-ink-900">
-                    <span>Related Guidelines</span>
-                    <button className="text-[11px] text-brand-600 hover:underline">See All →</button>
-                  </div>
-                  {relatedGuidelines.map((g) => (
-                    <div
-                      key={g.id}
-                      onClick={() => setSelectedGuidelineId(g.id)}
-                      className="flex items-center justify-between p-2 rounded-lg border border-line hover:bg-[#FAF7EF] cursor-pointer"
-                    >
-                      <div className="flex items-center gap-2">
-                        <img
-                          src={g.thumbnail}
-                          alt=""
-                          className="w-8 h-8 rounded object-cover"
-                        />
-                        <div className="text-left">
-                          <div className="text-xs font-bold text-ink-900">{g.title}</div>
-                          <div className="text-[10px] text-muted-light">{g.version}</div>
-                        </div>
-                      </div>
-                      <ChevronRight className="w-4 h-4 text-muted-light" />
+                {selectedGuideline.relatedGuidelines.slice(0, 2).map((rel: any, i: number) => (
+                  <div key={i} className="flex items-center gap-2.5 p-2 rounded-xl border border-line hover:bg-[#FAF7EF] cursor-pointer transition-colors mb-2">
+                    <div className="w-8 h-8 rounded-lg bg-[#F1ECE0] border border-line shrink-0 overflow-hidden">
+                      <img src={rel.thumbnail || selectedGuideline.thumbnail} alt="" className="w-full h-full object-cover" />
                     </div>
-                  ))}
-                </div>
-              )}
-            </>
-          )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-ink-900 truncate">{rel.title}</p>
+                      <p className="text-[10px] text-muted-light">{rel.version}</p>
+                    </div>
+                    <ChevronRight className="w-3.5 h-3.5 text-muted-light shrink-0" />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </aside>
+      )}
+
+      {/* Upload Modal */}
+      {isUploadOpen && (
+        <div className="fixed inset-0 bg-ink-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl border border-line">
+            <div className="flex items-center justify-between pb-3 border-b border-line mb-4">
+              <h3 className="font-bold text-ink-900 text-sm">Upload Guideline Document</h3>
+              <button onClick={() => setIsUploadOpen(false)} className="p-1 rounded-lg text-muted-light hover:text-ink-700"><X className="w-4 h-4" /></button>
+            </div>
+            <form onSubmit={handleUpload} className="space-y-3">
+              <div><label className="block text-xs font-semibold text-ink-700 mb-1">Title *</label><input value={uploadTitle} onChange={(e) => setUploadTitle(e.target.value)} placeholder="Brand Identity Guidelines" className="w-full px-3 py-2 text-xs border border-line rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500/20" /></div>
+              <div><label className="block text-xs font-semibold text-ink-700 mb-1">Category</label><select value={uploadCategory} onChange={(e) => setUploadCategory(e.target.value)} className="w-full px-3 py-2 text-xs border border-line rounded-xl focus:outline-none cursor-pointer">{['Brand Identity', 'Messaging & Tone', 'Visual Standards', 'Product Claims', 'Legal & Compliance', 'Marketing Assets'].map((c) => <option key={c}>{c}</option>)}</select></div>
+              <div><label className="block text-xs font-semibold text-ink-700 mb-1">Description</label><textarea value={uploadDescription} onChange={(e) => setUploadDescription(e.target.value)} rows={2} placeholder="Describe this guideline..." className="w-full px-3 py-2 text-xs border border-line rounded-xl focus:outline-none resize-none" /></div>
+              <div><label className="block text-xs font-semibold text-ink-700 mb-1">File *</label><input ref={fileInputRef} type="file" accept=".pdf,.docx,.doc" className="hidden" onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)} /><button type="button" onClick={() => fileInputRef.current?.click()} className="w-full py-3 border-2 border-dashed border-line rounded-xl text-xs text-muted hover:border-brand-400 hover:bg-brand-50 transition-colors">{uploadFile ? uploadFile.name : 'Click to select PDF or DOCX'}</button></div>
+              <div className="flex gap-2 pt-2">
+                <button type="button" onClick={() => setIsUploadOpen(false)} className="flex-1 py-2 border border-line rounded-xl text-xs font-semibold text-ink-700 hover:bg-[#FAF7EF] transition-colors">Cancel</button>
+                <button type="submit" disabled={isUploading} className="flex-1 py-2 bg-gradient-to-r from-brand-600 to-blue-600 hover:from-brand-700 hover:to-blue-700 text-white rounded-xl text-xs font-bold shadow-sm hover:shadow-md transition-all cursor-pointer transition-colors disabled:opacity-50">{isUploading ? 'Uploading…' : 'Upload'}</button>
+              </div>
+            </form>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

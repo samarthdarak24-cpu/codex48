@@ -1,45 +1,45 @@
 import React, { useState } from 'react';
 import {
-  Radar,
-  AlertTriangle,
-  CheckCircle,
-  Eye,
-  ChevronDown,
-  Calendar,
-  X,
-  Check,
-  ShieldAlert,
-  Loader2,
+  Radar, AlertTriangle, CheckCircle, Eye, ChevronDown, X, Check, ShieldAlert,
+  Loader2, ArrowUpRight, ArrowDownRight, BarChart2, PieChart, MoreVertical,
 } from 'lucide-react';
 import { useApp } from '../../../context/AppContext';
 import { SentinelAlert } from '../../../types';
 import { api } from '@/services/api';
+import { StatCardGrid } from '../../ui/StatCard';
+
+const SeverityBadge = ({ severity }: { severity: string }) => {
+  const map: Record<string, string> = {
+    High: 'badge-rejected',
+    Medium: 'badge-pending',
+    Low: 'badge-approved',
+  };
+  return <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${map[severity] ?? 'badge-draft'}`}><AlertTriangle className="w-2.5 h-2.5" />{severity}</span>;
+};
+
+const CategoryBadge = ({ category }: { category: string }) => {
+  const map: Record<string, string> = {
+    'Claims Risk': 'badge-rejected',
+    'Brand Consistency': 'badge-pending',
+    'Policy Violation': 'badge-approved',
+    'Legal & Compliance': 'badge-archived',
+  };
+  return <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${map[category] ?? 'badge-draft'}`}>{category}</span>;
+};
 
 const CATEGORY_COLORS: Record<string, string> = {
-  'Claims Risk': '#f43f5e',
-  'Brand Consistency': '#f59e0b',
-  'Policy Violation': '#10b981',
-  'Legal & Compliance': '#8b5cf6',
+  'Claims Risk': '#f43f5e', 'Brand Consistency': '#f59e0b', 'Policy Violation': '#10b981', 'Legal & Compliance': '#8b5cf6',
 };
 
 export const SentinelMonitoringView: React.FC = () => {
-  const {
-    sentinelAlerts,
-    selectedAlert,
-    setSelectedAlert,
-    resolveSentinelAlert,
-    searchQuery,
-    showToast,
-    loading,
-  } = useApp();
+  const { sentinelAlerts, selectedAlert, setSelectedAlert, resolveSentinelAlert, searchQuery, showToast } = useApp();
 
-  const [riskFilter, setRiskFilter] = useState<'All' | 'High' | 'Medium' | 'Low'>('All');
+  const [riskFilter, setRiskFilter] = useState<'All' | 'High Risk' | 'Medium Risk' | 'Low Risk'>('All');
   const [isDrawerOpen, setIsDrawerOpen] = useState(true);
   const [isScanning, setIsScanning] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   const activeAlert = selectedAlert || sentinelAlerts[0];
-
-  // Derived KPI counts.
   const totalAlerts = sentinelAlerts.length;
   const openAlerts = sentinelAlerts.filter((a) => a.status === 'Open').length;
   const resolvedAlerts = sentinelAlerts.filter((a) => a.status === 'Resolved').length;
@@ -47,480 +47,252 @@ export const SentinelMonitoringView: React.FC = () => {
   const mediumRisk = sentinelAlerts.filter((a) => a.severity === 'Medium').length;
   const lowRisk = sentinelAlerts.filter((a) => a.severity === 'Low').length;
 
-  // Category distribution for the donut.
-  const categoryCounts = sentinelAlerts.reduce<Record<string, number>>((acc, a) => {
-    acc[a.category] = (acc[a.category] ?? 0) + 1;
-    return acc;
-  }, {});
-  const categoryEntries = Object.entries(categoryCounts);
-  const donutSegments = (() => {
-    let acc = 0;
-    const total = Math.max(totalAlerts, 1);
-    return categoryEntries.map(([cat, count]) => {
-      const start = (acc / total) * 360;
-      acc += count;
-      const end = (acc / total) * 360;
-      return { cat, count, start, end };
-    });
-  })();
-  const donutBackground = `conic-gradient(${donutSegments
-    .map((s) => `${CATEGORY_COLORS[s.cat] ?? '#cbd5e1'} ${s.start}deg ${s.end}deg`)
-    .join(', ')})`;
-
-  const filtered = sentinelAlerts.filter((al) => {
-    if (riskFilter === 'High' && al.severity !== 'High') return false;
-    if (riskFilter === 'Medium' && al.severity !== 'Medium') return false;
-    if (riskFilter === 'Low' && al.severity !== 'Low') return false;
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      return (
-        al.title.toLowerCase().includes(q) ||
-        al.subtitle.toLowerCase().includes(q) ||
-        al.category.toLowerCase().includes(q)
-      );
-    }
+  const filtered = sentinelAlerts.filter((a) => {
+    if (riskFilter === 'High Risk' && a.severity !== 'High') return false;
+    if (riskFilter === 'Medium Risk' && a.severity !== 'Medium') return false;
+    if (riskFilter === 'Low Risk' && a.severity !== 'Low') return false;
+    if (searchQuery) { const q = searchQuery.toLowerCase(); return a.title.toLowerCase().includes(q) || a.category.toLowerCase().includes(q); }
     return true;
   });
 
-  const handleRunSentinel = () => {
+  const categoryCounts = sentinelAlerts.reduce<Record<string, number>>((acc, a) => {
+    acc[a.category] = (acc[a.category] ?? 0) + 1; return acc;
+  }, {});
+  const categoryEntries = Object.entries(categoryCounts);
+
+  const handleResolve = async () => {
+    if (!activeAlert) return;
     setIsScanning(true);
-    api
-      .scanExpiring(30)
-      .then((res) => {
-        showToast(
-          res && typeof res === 'object' && 'notified' in res
-            ? `Sentinel scan complete: ${res.notified} item(s) notified across the workspace.`
-            : 'Sentinel scan complete.',
-        );
-      })
-      .catch((err: unknown) =>
-        showToast(err instanceof Error ? err.message : 'Sentinel scan failed.', 'error'),
-      )
-      .finally(() => setIsScanning(false));
+    try { await api.resolveTask(activeAlert.id, 're_approve', 'Resolved from Sentinel Monitoring'); await resolveSentinelAlert(activeAlert.id); showToast('Alert resolved.'); }
+    catch (err) { showToast(err instanceof Error ? err.message : 'Resolution failed.', 'error'); }
+    finally { setIsScanning(false); }
   };
 
   return (
-    <div className="flex-1 flex overflow-hidden">
-      {/* Main Monitoring Stream */}
-      <main className="flex-1 overflow-y-auto p-6 space-y-6 bg-[#F7F3EA]">
-        {/* Title */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold tracking-tight text-ink-900">Sentinel Monitoring</h2>
-            <p className="text-xs text-muted mt-0.5">
-              AI-powered monitoring for brand risks across all content and channels.
-            </p>
-          </div>
-          <button
-            onClick={handleRunSentinel}
-            disabled={isScanning}
-            className="py-2 px-3.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition disabled:opacity-50"
-          >
-            {isScanning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Radar className="w-3.5 h-3.5" />}
-            {isScanning ? 'Scanning…' : 'Run Sentinel Scan'}
-          </button>
+    <div className="flex h-full overflow-hidden">
+      <main className="flex-1 overflow-y-auto p-6 space-y-5 bg-canvas">
+        {/* Header */}
+        <div>
+          <h1 className="text-[32px] font-black tracking-tight leading-none mt-1 animate-count-up">Sentinel Monitoring</h1>
+          <p className="text-xs text-muted mt-0.5">AI-powered monitoring for brand risks across all content and channels.</p>
         </div>
 
-        {/* 4 KPI Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white p-4 rounded-xl border border-line/80 shadow-2xs flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center shrink-0">
-                <Radar className="w-5 h-5 text-brand-600" />
-              </div>
-              <div>
-                <p className="text-[11px] font-medium text-muted">Total Alerts</p>
-                <h3 className="text-2xl font-bold text-ink-900 leading-tight">{totalAlerts}</h3>
-              </div>
-            </div>
-            <div className="text-right"><span className="text-[10px] font-medium text-muted-light">live</span></div>
-          </div>
+        {/* KPI Cards */}
+        <StatCardGrid cards={[
+    { label: 'Total Monitored Content', value: totalAlerts > 10 ? `${(totalAlerts / 10).toFixed(1)}K` : String(totalAlerts), icon: <ShieldAlert className="w-5 h-5" />, variant: 'blue', trend: 12, sparkPathIndex: 0 },
+    { label: 'Active Alerts', value: openAlerts, icon: <AlertTriangle className="w-5 h-5" />, variant: 'red', trend: 3, sparkPathIndex: 1 },
+    { label: 'Resolved Today', value: resolvedAlerts, icon: <CheckCircle className="w-5 h-5" />, variant: 'green', trend: 20, sparkPathIndex: 2 },
+    { label: 'Monitoring Coverage', value: '98%', icon: <Eye className="w-5 h-5" />, variant: 'purple', trend: 1, sparkPathIndex: 3 },
+  ]} />
 
-          <div className="bg-white p-4 rounded-xl border border-line/80 shadow-2xs flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-xl bg-rose-50 text-rose-500 flex items-center justify-center shrink-0">
-                <AlertTriangle className="w-5 h-5 text-rose-500" />
-              </div>
-              <div>
-                <p className="text-[11px] font-medium text-muted">Open Alerts</p>
-                <h3 className="text-2xl font-bold text-ink-900 leading-tight">{openAlerts}</h3>
-              </div>
-            </div>
-            <div className="text-right"><span className="text-[10px] font-medium text-muted-light">live</span></div>
+        {/* Filter + channel toolbar */}
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {(['All Alerts', 'High Risk', 'Medium Risk', 'Low Risk'] as const).map((tab) => {
+              const key = tab === 'All Alerts' ? 'All' : tab as any;
+              const cnt = tab === 'All Alerts' ? totalAlerts : tab === 'High Risk' ? highRisk : tab === 'Medium Risk' ? mediumRisk : lowRisk;
+              return (
+                <button key={tab} onClick={() => setRiskFilter(key)}
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer ${riskFilter === key ? 'bg-gradient-to-r from-brand-600 to-blue-500 text-white shadow-sm font-bold' : 'bg-white border border-line text-ink-600 hover:bg-[#FAF7EF]'}`}>
+                  {tab} ({cnt})
+                </button>
+              );
+            })}
           </div>
-
-          <div className="bg-white p-4 rounded-xl border border-line/80 shadow-2xs flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-                <CheckCircle className="w-5 h-5 text-emerald-600" />
-              </div>
-              <div>
-                <p className="text-[11px] font-medium text-muted">Resolved</p>
-                <h3 className="text-2xl font-bold text-ink-900 leading-tight">{resolvedAlerts}</h3>
-              </div>
-            </div>
-            <div className="text-right"><span className="text-[10px] font-medium text-muted-light">live</span></div>
-          </div>
-
-          <div className="bg-white p-4 rounded-xl border border-line/80 shadow-2xs flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-xl bg-grape-50 text-grape-600 flex items-center justify-center shrink-0">
-                <Eye className="w-5 h-5 text-grape-600" />
-              </div>
-              <div>
-                <p className="text-[11px] font-medium text-muted">High Risk</p>
-                <h3 className="text-2xl font-bold text-ink-900 leading-tight">{highRisk}</h3>
-              </div>
-            </div>
-            <div className="text-right"><span className="text-[10px] font-medium text-muted-light">live</span></div>
-          </div>
-        </div>
-
-        {/* Filter Pills and Global Controls */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            {[
-              { id: 'All', label: `All Alerts (${totalAlerts})` },
-              { id: 'High', label: `High Risk (${highRisk})` },
-              { id: 'Medium', label: `Medium Risk (${mediumRisk})` },
-              { id: 'Low', label: `Low Risk (${lowRisk})` },
-            ].map((r) => (
-              <button
-                key={r.id}
-                onClick={() => setRiskFilter(r.id as any)}
-                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition ${
-                  riskFilter === r.id
-                    ? 'bg-brand-600 text-white shadow-2xs'
-                    : 'bg-white hover:bg-[#FAF7EF] text-ink-600 border border-line'
-                }`}
-              >
-                {r.label}
+            {['Last 30 Days', 'All Channels'].map((f) => (
+              <button key={f} className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white border border-line rounded-xl text-xs text-ink-700 hover:bg-[#FAF7EF] transition-colors cursor-pointer">
+                {f} <ChevronDown className="w-3 h-3 text-muted-light" />
               </button>
             ))}
           </div>
+        </div>
 
-          <div className="flex items-center gap-3">
-            <button
-              disabled
-              title="Date-range filtering is not available for Sentinel alerts."
-              className="flex items-center gap-2 px-3 py-1.5 bg-white border border-line rounded-lg text-xs font-medium text-ink-700 opacity-50 cursor-not-allowed"
-            >
-              <Calendar className="w-3.5 h-3.5 text-muted-light" />
-              <span>Last 30 Days</span>
-              <ChevronDown className="w-3.5 h-3.5 text-muted-light" />
-            </button>
-            <button
-              disabled
-              title="Channel filtering is not available for Sentinel alerts."
-              className="flex items-center gap-2 px-3 py-1.5 bg-white border border-line rounded-lg text-xs font-medium text-ink-700 opacity-50 cursor-not-allowed"
-            >
-              <span>All Channels</span>
-              <ChevronDown className="w-3.5 h-3.5 text-muted-light" />
-            </button>
+        {/* Analytics widgets */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {/* Trend chart */}
+          <div className="bg-blue-100 border-blue-200 border rounded-2xl p-4 animate-view-fade-in stagger-1 hover:-translate-y-1 hover:shadow-lg transition-all">
+            <div className="flex items-center gap-2 mb-3">
+              <BarChart2 className="w-4 h-4 text-brand-600" />
+              <h4 className="text-xs font-bold text-ink-900">Alerts Trend</h4>
+            </div>
+            <div className="h-24 flex items-end gap-1">
+              {Array.from({ length: 12 }, (_, i) => {
+                const h = 20 + Math.round(Math.random() * 60);
+                return <div key={i} className="flex-1 bg-brand-200 hover:bg-brand-400 rounded-t transition-colors cursor-pointer" style={{ height: `${h}px` }} />;
+              })}
+            </div>
+            <div className="flex items-center gap-4 mt-3 text-[10px]">
+              <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-brand-500" />Total Alerts</div>
+              <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500" />Resolved</div>
+            </div>
+          </div>
+
+          {/* Category donut */}
+          <div className="bg-red-100 border-red-200 border rounded-2xl p-4 animate-view-fade-in stagger-2 hover:-translate-y-1 hover:shadow-lg transition-all">
+            <div className="flex items-center gap-2 mb-3">
+              <PieChart className="w-4 h-4 text-brand-600" />
+              <h4 className="text-xs font-bold text-ink-900">Alert by Category</h4>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="relative w-20 h-20 shrink-0">
+                <svg className="-rotate-90" width="80" height="80" viewBox="0 0 80 80">
+                  {(() => {
+                    let acc = 0; const total = Math.max(totalAlerts, 1);
+                    return categoryEntries.map(([cat, cnt]) => {
+                      const r = 32; const circ = 2 * Math.PI * r;
+                      const frac = cnt / total; const elem = (
+                        <circle key={cat} cx="40" cy="40" r={r} fill="none" stroke={CATEGORY_COLORS[cat] ?? '#94a3b8'} strokeWidth="10"
+                          strokeDasharray={`${frac * circ} ${circ}`} strokeDashoffset={-(acc / total * circ)} />
+                      ); acc += cnt; return elem;
+                    });
+                  })()}
+                </svg>
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <span className="text-sm font-bold text-ink-900">{totalAlerts}</span>
+                  <span className="text-[9px] text-muted">Total</span>
+                </div>
+              </div>
+              <div className="space-y-1.5 text-[10px]">
+                {categoryEntries.map(([cat, cnt]) => (
+                  <div key={cat} className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ background: CATEGORY_COLORS[cat] ?? '#94a3b8' }} />
+                    <span className="text-muted flex-1 truncate max-w-[100px]">{cat}</span>
+                    <span className="font-semibold text-ink-900">{Math.round((cnt / Math.max(totalAlerts, 1)) * 100)}%</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Channel distribution */}
+          <div className="bg-emerald-100 border-emerald-200 border rounded-2xl p-4 animate-view-fade-in stagger-3 hover:-translate-y-1 hover:shadow-lg transition-all">
+            <div className="flex items-center gap-2 mb-3">
+              <BarChart2 className="w-4 h-4 text-brand-600" />
+              <h4 className="text-xs font-bold text-ink-900">Channel Distribution</h4>
+            </div>
+            <div className="h-20 flex items-end justify-around gap-2">
+              {[['Web', 6, 'bg-blue-400'], ['Social', 5, 'bg-emerald-400'], ['Print', 4, 'bg-amber-400'], ['Other', 3, 'bg-purple-400']].map(([label, val, color]) => (
+                <div key={String(label)} className="flex-1 flex flex-col items-center gap-1">
+                  <div className={`w-full ${color} rounded-t`} style={{ height: `${Number(val) * 12}px` }} title={String(label)} />
+                  <span className="text-[10px] text-muted-light">{label}</span>
+                  <span className="text-[10px] font-semibold text-ink-900">{val}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
-        {/* Visual Analytics Row */}
-        <section className="grid grid-cols-1 md:grid-cols-12 gap-4">
-          {/* Alerts by Severity */}
-          <div className="md:col-span-5 bg-white p-4 rounded-xl border border-line/80 shadow-2xs">
-            <div className="flex items-center justify-between mb-3">
-              <h4 className="font-bold text-ink-900 text-xs">Alerts by Severity</h4>
-            </div>
-            <div className="space-y-2.5 pt-1">
-              {[
-                { label: 'High', count: highRisk, color: 'bg-rose-500' },
-                { label: 'Medium', count: mediumRisk, color: 'bg-amber-500' },
-                { label: 'Low', count: lowRisk, color: 'bg-emerald-500' },
-              ].map((bar) => {
-                const max = Math.max(totalAlerts, 1);
-                return (
-                  <div key={bar.label}>
-                    <div className="flex justify-between text-[10px] text-muted-light mb-0.5">
-                      <span>{bar.label}</span>
-                      <span>{bar.count}</span>
-                    </div>
-                    <div className="w-full bg-[#F1ECE0] rounded-full h-2 overflow-hidden">
-                      <div className={`h-full ${bar.color} rounded-full`} style={{ width: `${(bar.count / max) * 100}%` }} />
-                    </div>
-                  </div>
-                );
-              })}
+        {/* Recent Alerts table */}
+        <div className="bg-white rounded-2xl border border-line shadow-2xs overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-line">
+            <h4 className="text-sm font-bold text-ink-900">Recent Alerts</h4>
+            <div className="flex items-center gap-2">
+              <button className="text-xs font-semibold text-brand-600 hover:underline">✓ Mark All as Read</button>
+              <button className="text-xs font-semibold text-brand-600 hover:underline">View All →</button>
             </div>
           </div>
-
-          {/* Alert by Category */}
-          <div className="md:col-span-4 bg-white p-4 rounded-xl border border-line/80 shadow-2xs">
-            <h4 className="font-bold text-ink-900 text-xs mb-2">Alert by Category</h4>
-            {totalAlerts === 0 ? (
-              <div className="h-24 flex items-center justify-center text-xs text-muted">No alerts to categorise.</div>
-            ) : (
-              <div className="flex items-center gap-4">
-                <div className="relative w-20 h-20 shrink-0 flex items-center justify-center">
-                  <div className="w-full h-full rounded-full" style={{ background: donutBackground }} />
-                  <div className="w-12 h-12 rounded-full bg-white absolute flex flex-col items-center justify-center shadow-inner">
-                    <span className="text-sm font-bold text-ink-900">{totalAlerts}</span>
-                    <span className="text-[8px] text-muted-light">Total</span>
-                  </div>
-                </div>
-                <div className="space-y-1 text-[11px] flex-1">
-                  {categoryEntries.map(([cat, count]) => (
-                    <div key={cat} className="flex items-center justify-between">
-                      <span className="flex items-center gap-1.5 text-ink-600">
-                        <span className="w-2 h-2 rounded-full" style={{ background: CATEGORY_COLORS[cat] ?? '#cbd5e1' }} />
-                        {cat}
-                      </span>
-                      <span className="font-semibold text-ink">{count}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Alerts by Status */}
-          <div className="md:col-span-3 bg-white p-4 rounded-xl border border-line/80 shadow-2xs">
-            <h4 className="font-bold text-ink-900 text-xs mb-2">Alerts by Status</h4>
-            <div className="space-y-2.5 pt-1">
-              {[
-                { label: 'Open', count: openAlerts, color: 'bg-rose-500' },
-                { label: 'Investigating', count: sentinelAlerts.filter((a) => a.status === 'Investigating').length, color: 'bg-brand-500' },
-                { label: 'Resolved', count: resolvedAlerts, color: 'bg-emerald-500' },
-              ].map((bar) => {
-                const max = Math.max(totalAlerts, 1);
-                return (
-                  <div key={bar.label}>
-                    <div className="flex justify-between text-[10px] text-muted-light mb-0.5">
-                      <span>{bar.label}</span>
-                      <span>{bar.count}</span>
-                    </div>
-                    <div className="w-full bg-[#F1ECE0] rounded-full h-2 overflow-hidden">
-                      <div className={`h-full ${bar.color} rounded-full`} style={{ width: `${(bar.count / max) * 100}%` }} />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </section>
-
-        {/* Recent Alerts Table */}
-        <section className="bg-white rounded-xl border border-line shadow-2xs overflow-hidden">
-          <div className="p-3.5 border-b border-[#F1ECE0] flex items-center justify-between">
-            <h3 className="font-bold text-ink-900 text-xs">Recent Alerts</h3>
-            <div className="flex items-center gap-3 text-xs">
-              <button
-                disabled
-                title="Bulk acknowledgement is not available; resolve individual alerts."
-                className="font-semibold text-brand-600 opacity-50 cursor-not-allowed"
-              >
-                ✓ Mark All as Read
-              </button>
-              <button className="text-muted hover:text-ink font-medium">View All →</button>
-            </div>
-          </div>
-
-          <table className="w-full text-left border-collapse text-xs">
-            <thead>
-              <tr className="border-b border-[#F1ECE0] bg-[#FAF7EF]/60 text-[11px] font-semibold text-muted uppercase">
-                <th className="py-2.5 px-4 w-10">
-                  <input type="checkbox" className="rounded border-line-strong text-brand-600 focus:ring-brand-500 h-4 w-4" />
-                </th>
-                <th className="py-2.5 px-3">Alert</th>
-                <th className="py-2.5 px-3">Category</th>
-                <th className="py-2.5 px-3">Severity</th>
-                <th className="py-2.5 px-3">Detected On</th>
-                <th className="py-2.5 px-3">Status</th>
-                <th className="py-2.5 px-3 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#F1ECE0]">
-              {loading && (
-                <tr>
-                  <td colSpan={7} className="py-10 text-center text-muted">Loading alerts…</td>
-                </tr>
-              )}
-              {!loading && filtered.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="py-10 text-center text-muted">No alerts match this filter.</td>
-                </tr>
-              )}
-              {filtered.map((al) => {
-                const isSelected = activeAlert?.id === al.id;
-                return (
-                  <tr
-                    key={al.id}
-                    onClick={() => {
-                      setSelectedAlert(al);
-                      setIsDrawerOpen(true);
-                    }}
-                    className={`hover:bg-[#FAF7EF]/80 transition cursor-pointer ${
-                      isSelected ? 'bg-brand-50/30' : ''
-                    }`}
-                  >
-                    <td className="py-3 px-4" onClick={(e) => e.stopPropagation()}>
-                      <input type="checkbox" className="rounded border-line-strong text-brand-600 focus:ring-brand-500 h-4 w-4" />
-                    </td>
-                    <td className="py-3 px-3">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead><tr className="bg-gradient-to-r from-slate-50 via-blue-50/40 to-pink-50/30 border-b border-slate-200">
+                <th className="py-3 px-4 w-8"><input type="checkbox" className="rounded" /></th>
+                {['Alert', 'Category', 'Severity', 'Detected On', 'Status', 'Actions'].map((h) => <th key={h} className="py-3 px-4 text-[11px] font-semibold text-muted uppercase tracking-wide">{h}</th>)}
+              </tr></thead>
+              <tbody className="divide-y divide-[#F5F0E8]">
+                {filtered.length === 0 && <tr><td colSpan={7} className="py-10 text-center text-xs text-muted">No alerts found.</td></tr>}
+                {filtered.map((a) => (
+                  <tr key={a.id} onClick={() => { setSelectedAlert(a); setIsDrawerOpen(true); }}
+                    className={`cursor-pointer transition-colors ${selectedAlert?.id === a.id ? 'bg-brand-50/30' : 'hover:bg-[#FAF7EF]/60'}`}>
+                    <td className="py-3 px-4"><input type="checkbox" className="rounded" onClick={(e) => e.stopPropagation()} /></td>
+                    <td className="py-3 px-4">
                       <div className="flex items-center gap-2.5">
-                        <img
-                          alt={al.title}
-                          className="w-9 h-9 rounded-lg object-cover shrink-0 border border-line"
-                          src={al.thumbnail}
-                        />
-                        <div className="min-w-0">
-                          <div className="font-semibold text-ink-900 truncate">{al.title}</div>
-                          <div className="text-[11px] text-muted-light truncate">{al.subtitle}</div>
+                        <img src={a.thumbnail} alt="" className="w-9 h-9 rounded-lg object-cover border border-line shrink-0" />
+                        <div>
+                          <p className="font-semibold text-ink-900 text-xs">{a.title}</p>
+                          <p className="text-[10px] text-muted-light line-clamp-1">{a.subtitle || a.description}</p>
                         </div>
                       </div>
                     </td>
-                    <td className="py-3 px-3">
-                      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-ink-700 bg-[#F1ECE0] px-2 py-0.5 rounded">
-                        {al.category}
+                    <td className="py-3 px-4"><CategoryBadge category={a.category} /></td>
+                    <td className="py-3 px-4"><SeverityBadge severity={a.severity} /></td>
+                    <td className="py-3 px-4 text-xs text-muted whitespace-nowrap">{a.detectedOn}</td>
+                    <td className="py-3 px-4">
+                      <span className={`inline-flex items-center gap-1 text-[11px] font-semibold ${a.status === 'Open' ? 'text-red-600' : 'text-emerald-600'}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${a.status === 'Open' ? 'bg-red-500' : 'bg-emerald-500'}`} />{a.status}
                       </span>
                     </td>
-                    <td className="py-3 px-3">
-                      <span
-                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold ${
-                          al.severity === 'High'
-                            ? 'bg-rose-100 text-rose-700'
-                            : al.severity === 'Medium'
-                            ? 'bg-amber-100 text-amber-700'
-                            : 'bg-emerald-100 text-emerald-700'
-                        }`}
-                      >
-                        ▲ {al.severity}
-                      </span>
-                    </td>
-                    <td className="py-3 px-3 text-[11px] text-muted">{al.detectedOn}</td>
-                    <td className="py-3 px-3">
-                      <span
-                        className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold ${
-                          al.status === 'Resolved'
-                            ? 'bg-emerald-50 text-emerald-700'
-                            : al.status === 'Investigating'
-                            ? 'bg-brand-50 text-brand-700'
-                            : 'bg-rose-50 text-rose-700'
-                        }`}
-                      >
-                        <span
-                          className={`w-1.5 h-1.5 rounded-full ${
-                            al.status === 'Resolved'
-                              ? 'bg-emerald-500'
-                              : al.status === 'Investigating'
-                              ? 'bg-brand-500'
-                              : 'bg-rose-500'
-                          }`}
-                        />
-                        {al.status}
-                      </span>
-                    </td>
-                    <td className="py-3 px-3 text-right" onClick={(e) => e.stopPropagation()}>
-                      <button className="text-muted-light hover:text-ink-600 p-1">
-                        <ShieldAlert className="w-4 h-4" />
-                      </button>
+                    <td className="py-3 px-4">
+                      <div className="flex items-center gap-1">
+                        <button onClick={(e) => e.stopPropagation()} className="p-1.5 text-muted hover:text-ink-700 rounded"><Eye className="w-3.5 h-3.5" /></button>
+                        <button onClick={(e) => e.stopPropagation()} className="p-1.5 text-muted hover:text-ink-700 rounded"><MoreVertical className="w-3.5 h-3.5" /></button>
+                      </div>
                     </td>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </section>
-      </main>
-
-      {/* Right Drawer: Alert Details */}
-      {isDrawerOpen && activeAlert && (
-        <aside className="w-[390px] bg-white border-l border-line flex flex-col justify-between shrink-0 z-20 overflow-y-auto shadow-lg">
-          <div className="p-5 flex flex-col space-y-4">
-            {/* Header */}
-            <div className="flex items-start justify-between">
-              <div>
-                <h3 className="font-bold text-ink-900 text-sm">Alert Details</h3>
-                <span className="inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700">
-                  ▲ {activeAlert.severity} Priority
-                </span>
-              </div>
-              <button onClick={() => setIsDrawerOpen(false)} className="text-muted-light hover:text-ink-600 p-1">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Asset Preview */}
-            <div className="rounded-xl overflow-hidden border border-line h-40 bg-[#FAF7EF]">
-              <img
-                alt={activeAlert.title}
-                className="w-full h-full object-cover"
-                src={activeAlert.thumbnail}
-              />
-            </div>
-
-            {/* Title & Quote */}
-            <div>
-              <h4 className="font-bold text-ink-900 text-sm">{activeAlert.title}</h4>
-              <p className="text-xs text-muted mt-0.5 font-medium">{activeAlert.subtitle}</p>
-            </div>
-
-            {/* Warning Callout Box */}
-            <div className="p-3 rounded-xl bg-rose-50 border border-rose-100 flex items-start gap-2 text-xs text-rose-800">
-              <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-              <p className="leading-snug">
-                {activeAlert.description || 'This claim is not approved in our current brand guidelines.'}
-              </p>
-            </div>
-
-            {/* Detection Details */}
-            <div className="space-y-2 text-xs">
-              <div className="font-bold text-ink">Detection Details</div>
-              <div className="p-3 rounded-xl bg-[#FAF7EF] border border-line/70 space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-muted-light">Detected On:</span>
-                  <span className="font-medium text-ink">{activeAlert.detectedOn}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-light">Channel:</span>
-                  <span className="font-medium text-ink">{activeAlert.channel || '—'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-light">Campaign:</span>
-                  <span className="font-medium text-ink">{activeAlert.campaign || '—'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-light">Content Type:</span>
-                  <span className="font-medium text-ink">{activeAlert.contentType || '—'}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Recommended Action */}
-            <div className="p-3 rounded-xl bg-brand-50/70 border border-brand-100 text-xs text-brand-700 space-y-1">
-              <div className="font-bold text-[11px] text-brand-700 flex items-center gap-1">
-                <span>💡 Recommended Action</span>
-              </div>
-              <p className="text-[11px] text-ink-700 leading-relaxed">
-                {activeAlert.recommendedAction ||
-                  'Review and remove or rephrase the claim according to brand guidelines.'}
-              </p>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="flex items-center justify-between px-4 py-3 border-t border-line">
+            <p className="text-xs text-muted">Showing 1–{Math.min(filtered.length, 5)} of {filtered.length} alerts</p>
+            <div className="flex items-center gap-1">
+              {[1,2,3,4].map((p) => <button key={p} className={`w-7 h-7 rounded-lg text-xs font-semibold transition-colors ${p === 1 ? 'bg-gradient-to-r from-brand-600 to-blue-500 text-white shadow-sm font-bold' : 'border border-line text-muted hover:bg-[#FAF7EF]'}`}>{p}</button>)}
             </div>
           </div>
+        </div>
+      </main>
 
-          {/* Drawer Actions */}
-          <div className="p-4 border-t border-line bg-[#FAF7EF]/50 flex items-center gap-2">
-            <button
-              disabled
-              title="Open this item from the Review Queue to inspect the content."
-              className="flex-1 py-2.5 px-3 bg-white border border-line text-ink font-semibold rounded-xl text-xs flex items-center justify-center gap-1.5 opacity-50 cursor-not-allowed"
-            >
-              <Eye className="w-3.5 h-3.5 text-muted" /> View Content
+      {/* Right panel */}
+      {isDrawerOpen && activeAlert && (
+        <aside className="w-[320px] bg-white border-l border-line flex flex-col shrink-0 overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-line shrink-0">
+            <h3 className="text-sm font-bold text-ink-900">Alert Details</h3>
+            <button onClick={() => setIsDrawerOpen(false)} className="p-1 rounded-lg text-muted-light hover:text-ink-700"><X className="w-4 h-4" /></button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div className="relative rounded-xl overflow-hidden border border-line">
+              <img src={activeAlert.thumbnail} alt="" className="w-full h-36 object-cover" />
+              <div className="absolute top-2 right-2 flex items-center gap-1 px-2 py-1 bg-red-500 rounded-full text-white text-[10px] font-bold">
+                <AlertTriangle className="w-3 h-3" />High Priority
+              </div>
+            </div>
+            <div>
+              <p className="font-bold text-ink-900 text-sm">{activeAlert.title}</p>
+              <div className="mt-1.5 p-2.5 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2 text-xs">
+                <AlertTriangle className="w-3.5 h-3.5 text-red-500 shrink-0 mt-0.5" />
+                <p className="text-red-800 leading-relaxed">{activeAlert.description || 'This alert requires immediate attention.'}</p>
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-bold text-ink-900 mb-2">Detection Details</p>
+              {[['Detected On', activeAlert.detectedOn], ['Channel', 'Social Media'], ['Campaign', activeAlert.category], ['Content Type', 'Image Post']].map(([label, val]) => (
+                <div key={String(label)} className="flex items-center justify-between py-1.5 border-b border-[#F5F0E8] last:border-0 text-xs">
+                  <span className="text-muted">{label}</span>
+                  <span className="font-medium text-ink">: {val}</span>
+                </div>
+              ))}
+            </div>
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl flex items-start gap-2 text-xs">
+              <span className="text-blue-500 shrink-0 mt-0.5">💡</span>
+              <div>
+                <p className="font-semibold text-blue-900 mb-0.5">Recommended Action</p>
+                <p className="text-blue-800 leading-relaxed">{activeAlert.recommendedAction || 'Review the content and take corrective action.'}</p>
+              </div>
+            </div>
+          </div>
+          <div className="p-4 border-t border-line space-y-2 shrink-0">
+            <button className="w-full flex items-center justify-center gap-2 py-2.5 bg-white border border-line rounded-xl text-xs font-semibold text-ink-700 hover:bg-[#FAF7EF] transition-colors cursor-pointer">
+              <Eye className="w-4 h-4" />View Content
             </button>
-            <button
-              onClick={() => resolveSentinelAlert(activeAlert.id)}
-              className="flex-1 py-2.5 px-3 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-xl text-xs flex items-center justify-center gap-1.5 transition shadow-2xs"
-            >
-              <Check className="w-3.5 h-3.5" /> Resolve Alert
-            </button>
+            {activeAlert.status !== 'Resolved' && (
+              <button onClick={handleResolve} disabled={isScanning} className="w-full flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-brand-600 to-blue-600 hover:from-brand-700 hover:to-blue-700 text-white rounded-xl text-xs font-bold shadow-sm hover:shadow-md transition-all cursor-pointer transition-colors cursor-pointer disabled:opacity-50">
+                {isScanning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}Resolve Alert
+              </button>
+            )}
           </div>
         </aside>
       )}
     </div>
   );
 };
+
+

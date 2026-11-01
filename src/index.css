@@ -309,3 +309,94 @@
     transform: none;
   }
 }
+
+/* ============================================================
+   Global UI Enhancement — extra polish on top of v2.css
+   ============================================================ */
+
+/* Smooth page transitions */
+* { -webkit-tap-highlight-color: transparent; }
+
+/* Richer selection color */
+::selection {
+  background: #BFD3B2;
+  color: #1B1F20;
+}
+
+/* Better focus rings */
+:focus-visible {
+  outline: 2px solid #4E7A3D;
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Enhanced checkbox */
+input[type='checkbox'] {
+  accent-color: #4E7A3D;
+  border-radius: 4px;
+}
+
+/* Smooth all interactive transitions */
+button, a, input, select, textarea {
+  transition-property: color, background-color, border-color, box-shadow, transform, opacity;
+  transition-duration: 150ms;
+  transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Colored scrollbar for the whole page */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: #9DB98C #F7F3EA;
+}
+html::-webkit-scrollbar { width: 8px; height: 8px; }
+html::-webkit-scrollbar-track { background: #F7F3EA; }
+html::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #9DB98C 0%, #74975F 100%);
+  border-radius: 999px;
+  border: 2px solid #F7F3EA;
+}
+
+/* Improve select element appearance */
+select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236F6A5C' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  -webkit-appearance: none;
+  appearance: none;
+  padding-right: 28px !important;
+}
+
+/* Colorful placeholder text */
+input::placeholder, textarea::placeholder { color: #948E7E; opacity: 1; }
+
+/* Image hover effects */
+img { transition: transform 0.3s cubic-bezier(0.16,1,0.3,1); }
+
+/* Badge/pill transition */
+span[class*="rounded-full"] {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* Toast enhanced */
+.toast-success { background: linear-gradient(135deg, #4E7A3D, #3D6330) !important; }
+.toast-error   { background: linear-gradient(135deg, #dc2626, #b91c1c) !important; }
+.toast-info    { background: linear-gradient(135deg, #1d4ed8, #1e40af) !important; }
+.toast-warn    { background: linear-gradient(135deg, #d97706, #b45309) !important; }
+
+/* Better table styling */
+table { border-collapse: collapse; }
+
+/* Input autofill override */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px #ffffff inset;
+  -webkit-text-fill-color: #23282A;
+  caret-color: #23282A;
+}
+
+/* Page background gradient */
+#root {
+  background: linear-gradient(180deg, #fdfaf4 0%, #F7F3EA 100%);
+  min-height: 100vh;
+}

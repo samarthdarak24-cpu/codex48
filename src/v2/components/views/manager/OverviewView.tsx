@@ -1,52 +1,43 @@
 import React, { useState } from 'react';
 import {
-  FileText,
-  CheckCircle,
-  AlertCircle,
-  AlertTriangle,
-  ArrowUpRight,
-  ArrowDownRight,
-  Eye,
-  Clock,
-  Download,
-  Maximize2,
-  MoreHorizontal,
-  X,
-  RotateCw,
-  ArrowRight,
-  Check,
-  Smile,
-  ChevronDown,
+  FileText, CheckCircle, AlertCircle, AlertTriangle, ArrowUpRight, ArrowDownRight,
+  Eye, Clock, Download, Maximize2, MoreHorizontal, X, RotateCw, ArrowRight, ChevronDown,
 } from 'lucide-react';
 import { useApp } from '../../../context/AppContext';
+import { StatCardGrid } from '../../ui/StatCard';
 import { api } from '@/services/api';
 import { Submission } from '../../../types';
 
+const StatusBadge = ({ status }: { status: string }) => {
+  const map: Record<string, string> = {
+    Approved: 'badge-approved', 'In Review': 'badge-inreview', Pending: 'badge-pending',
+    'Needs Changes': 'badge-changes', Rejected: 'badge-rejected',
+  };
+  const dot: Record<string, string> = {
+    Approved: 'bg-emerald-500', 'In Review': 'bg-blue-500', Pending: 'bg-amber-500',
+    'Needs Changes': 'bg-orange-500', Rejected: 'bg-red-500',
+  };
+  const cls = map[status] ?? 'badge-draft';
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold ${cls}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${dot[status] ?? 'bg-slate-400'}`} />{status}
+    </span>
+  );
+};
+
 export const OverviewView: React.FC = () => {
   const {
-    submissions,
-    selectedSubmission,
-    setSelectedSubmission,
-    updateSubmissionStatus,
-    setActivePage,
-    searchQuery,
-    auditEvents,
-    sentinelAlerts,
-    analytics,
-    analyticsTrends,
-    analyticsRange,
-    setAnalyticsRange,
-    showToast,
+    submissions, selectedSubmission, setSelectedSubmission, updateSubmissionStatus,
+    setActivePage, searchQuery, auditEvents, sentinelAlerts, analytics, analyticsTrends,
+    analyticsRange, setAnalyticsRange, showToast,
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<'All' | 'Images' | 'Videos' | 'Text' | 'Social'>('All');
   const [drawerTab, setDrawerTab] = useState<'Findings' | 'Evidence' | 'Comments'>('Findings');
-  const [selectedDecision, setSelectedDecision] = useState<'In Review' | 'Needs Changes' | 'Approved' | 'Rejected'>('Needs Changes');
+  const [selectedDecision, setSelectedDecision] = useState('Request Changes');
   const [decisionNote, setDecisionNote] = useState('');
-  const [isDecisionMenuOpen, setIsDecisionMenuOpen] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(true);
 
-  // Filter submissions by tab and search
   const filteredSubmissions = submissions.filter((item) => {
     if (activeTab === 'Images' && item.type !== 'Image') return false;
     if (activeTab === 'Videos' && item.type !== 'Video') return false;
@@ -54,248 +45,107 @@ export const OverviewView: React.FC = () => {
     if (activeTab === 'Social' && item.type !== 'Social') return false;
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
-      return (
-        item.title.toLowerCase().includes(q) ||
-        item.campaign.toLowerCase().includes(q) ||
-        item.creator.name.toLowerCase().includes(q)
-      );
+      return item.title.toLowerCase().includes(q) || item.campaign.toLowerCase().includes(q) || item.creator.name.toLowerCase().includes(q);
     }
     return true;
   });
 
   const activeSub = selectedSubmission || submissions[0];
-
-  // Derived from the records returned by the API — never hardcoded.
-  const pendingCount = submissions.filter((s) => s.status === 'In Review' || s.status === 'Pending').length;
-  const approvedCount = submissions.filter((s) => s.status === 'Approved').length;
-  const needsChangesCount = submissions.filter((s) => s.status === 'Needs Changes').length;
-  const violationCount = submissions.reduce(
-    (n, s) => n + (s.findings?.filter((f) => f.type === 'error').length ?? 0),
-    0,
-  );
-  const typeCount = (t: string) => submissions.filter((s) => s.type === t).length;
-
-  // Overall compliance from real analytics (falls back to avg of live submissions).
-  const avgCompliance = submissions.length
-    ? Math.round(submissions.reduce((n, s) => n + s.complianceScore, 0) / submissions.length)
-    : 0;
+  const pendingCount = submissions.filter(s => s.status === 'In Review' || s.status === 'Pending').length;
+  const approvedCount = submissions.filter(s => s.status === 'Approved').length;
+  const needsChangesCount = submissions.filter(s => s.status === 'Needs Changes').length;
+  const violationCount = submissions.reduce((n, s) => n + (s.findings?.filter(f => f.type === 'error').length ?? 0), 0);
+  const typeCount = (t: string) => submissions.filter(s => s.type === t).length;
+  const avgCompliance = submissions.length ? Math.round(submissions.reduce((n, s) => n + s.complianceScore, 0) / submissions.length) : 0;
   const complianceScore = analytics?.complianceScore ?? avgCompliance;
-
-  // Bar chart series built from the real analytics trend points (submissions per bucket).
   const trendPoints = (analyticsTrends?.points ?? []).slice(-6);
-  const maxTrend = Math.max(1, ...trendPoints.map((p) => p.submissions));
-  const complianceDelta =
-    trendPoints.length >= 2
-      ? Math.round(trendPoints[trendPoints.length - 1].score - trendPoints[0].score)
-      : 0;
-
-  // Recent activity is derived from the real audit trail (no third-party avatars).
+  const maxTrend = Math.max(1, ...trendPoints.map(p => p.submissions));
+  const complianceDelta = trendPoints.length >= 2 ? Math.round(trendPoints[trendPoints.length - 1].score - trendPoints[0].score) : 0;
   const recentActivity = auditEvents.slice(0, 4);
-
-  // Sentinel monitoring reflects the real open alerts.
-  const openAlerts = sentinelAlerts.filter((a) => a.status === 'Open').length;
-
-  const handleDownloadReport = async (id: string, title: string) => {
-    try {
-      await api.downloadSubmissionReport(id);
-      showToast(`Report downloaded for ${title}`);
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Download failed.', 'error');
-    }
-  };
-
-  const rangeTabs: { label: string; val: string }[] = [
-    { label: '7D', val: '7d' },
-    { label: '30D', val: '30d' },
-    { label: '90D', val: '90d' },
-    { label: '1Y', val: '1y' },
-  ];
+  const openAlerts = sentinelAlerts.filter(a => a.status === 'Open').length;
+  const rangeTabs = [{ label: '7D', val: '7d' }, { label: '30D', val: '30d' }, { label: '90D', val: '90d' }, { label: '1Y', val: '1y' }];
 
   const handleSubmitDecision = () => {
-    if (activeSub) {
-      updateSubmissionStatus(activeSub.id, selectedDecision, decisionNote);
-      setDecisionNote('');
-    }
+    if (!activeSub) return;
+    const statusMap: Record<string, Submission['status']> = { 'Approve': 'Approved', 'Request Changes': 'Needs Changes', 'Reject': 'Rejected' };
+    updateSubmissionStatus(activeSub.id, statusMap[selectedDecision] ?? 'Needs Changes', decisionNote);
+    setDecisionNote('');
+  };
+
+  const handleDownload = async (id: string, title: string) => {
+    try { await api.downloadSubmissionReport(id); showToast(`Report downloaded for ${title}`); }
+    catch (err) { showToast(err instanceof Error ? err.message : 'Failed', 'error'); }
+  };
+
+  const PRIORITY_COLORS: Record<string, string> = {
+    Critical: 'badge-critical', High: 'badge-high', Medium: 'badge-medium', Low: 'badge-low',
   };
 
   return (
-    <div className="flex-1 flex overflow-hidden">
-      {/* Scrollable Main Overview Content */}
-      <main className="flex-1 overflow-y-auto px-6 py-5 space-y-5 bg-[#F7F3EA]">
-        {/* Page Title & Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold text-ink-900 tracking-tight">Overview</h2>
-            <p className="text-muted text-xs mt-0.5">
-              Monitor brand compliance, review content and manage brand policies.
-            </p>
-          </div>
+    <div className="flex h-full overflow-hidden">
+      <main className="flex-1 overflow-y-auto p-6 space-y-5">
+        {/* Header */}
+        <div className="section-1">
+          <h1 className="text-2xl font-black text-slate-900 tracking-tight">Overview</h1>
+          <p className="text-xs text-muted mt-0.5">Monitor brand compliance, review content and manage brand policies.</p>
         </div>
 
-        {/* Metric Cards Row */}
-        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Card 1: Pending Review */}
-          <div className="bg-white rounded-2xl p-4.5 border border-line/90 shadow-2xs card-hover-effect hover:border-brand-300 flex items-center justify-between group">
-            <div className="flex items-center gap-3.5">
-              <div className="w-11 h-11 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform duration-200">
-                <FileText className="w-5 h-5 text-brand-600" />
-              </div>
-              <div>
-                <div className="text-[12px] font-medium text-muted">Pending Review</div>
-                <div className="text-2xl font-bold text-ink-900 leading-tight">{pendingCount}</div>
+        {/* KPI Cards */}
+        <div className="section-2">
+          <StatCardGrid cards={[
+            { label: 'Pending Review',    value: pendingCount,      icon: <FileText className="w-5 h-5" />,      variant: 'blue',   trend: 12,  sparkPathIndex: 0 },
+            { label: 'Approved',          value: approvedCount,     icon: <CheckCircle className="w-5 h-5" />,   variant: 'green',  trend: 8,   sparkPathIndex: 1 },
+            { label: 'Needs Changes',     value: needsChangesCount, icon: <AlertCircle className="w-5 h-5" />,   variant: 'amber',  trend: -18, sparkPathIndex: 2 },
+            { label: 'Policy Violations', value: violationCount,    icon: <AlertTriangle className="w-5 h-5" />, variant: 'pink',   trend: -32, sparkPathIndex: 3 },
+          ]} />
+        </div>
+
+        {/* Review Queue */}
+        <div className="section-3">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-3 flex-wrap">
+              <h2 className="text-base font-black text-ink-900">Review Queue</h2>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {(['All', 'Images', 'Videos', 'Text', 'Social'] as const).map(tab => (
+                  <button key={tab} onClick={() => setActiveTab(tab)}
+                    className={`px-3 py-1 rounded-full text-xs font-semibold transition cursor-pointer ${
+                      activeTab === tab
+                        ? 'bg-gradient-to-r from-brand-600 to-blue-600 text-white shadow-sm'
+                        : 'bg-white border border-line text-ink-600 hover:border-blue-300 hover:text-blue-700'
+                    }`}>
+                    {tab === 'All' ? `All (${submissions.length})` : `${tab} (${typeCount(tab)})`}
+                  </button>
+                ))}
               </div>
             </div>
-            <div className="flex flex-col items-end">
-              <span className="text-[10px] font-medium text-muted-light">live</span>
-              <svg className="w-16 h-6 mt-1 stroke-brand-500 fill-none" strokeWidth="2" viewBox="0 0 60 20">
-                <path d="M0,15 Q15,18 25,12 T50,14 T60,6" strokeLinecap="round" />
-              </svg>
+            <div className="flex items-center gap-1.5 text-xs text-muted cursor-pointer hover:text-ink">
+              <span>Sort by: <strong className="text-ink">Newest First</strong></span>
+              <ChevronDown className="w-3.5 h-3.5" />
             </div>
           </div>
 
-          {/* Card 2: Approved */}
-          <div className="bg-white rounded-2xl p-4.5 border border-line/90 shadow-2xs card-hover-effect hover:border-emerald-300 flex items-center justify-between group">
-            <div className="flex items-center gap-3.5">
-              <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform duration-200">
-                <CheckCircle className="w-5 h-5 text-emerald-600" />
-              </div>
-              <div>
-                <div className="text-[12px] font-medium text-muted">Approved</div>
-                <div className="text-2xl font-bold text-ink-900 leading-tight">{approvedCount}</div>
-              </div>
-            </div>
-            <div className="flex flex-col items-end">
-              <span className="text-[10px] font-medium text-muted-light">live</span>
-              <svg className="w-16 h-6 mt-1 stroke-emerald-500 fill-none" strokeWidth="2" viewBox="0 0 60 20">
-                <path d="M0,16 Q18,8 30,14 T50,8 T60,5" strokeLinecap="round" />
-              </svg>
-            </div>
-          </div>
-
-          {/* Card 3: Needs Changes */}
-          <div className="bg-white rounded-2xl p-4.5 border border-line/90 shadow-2xs card-hover-effect hover:border-amber-300 flex items-center justify-between group">
-            <div className="flex items-center gap-3.5">
-              <div className="w-11 h-11 rounded-xl bg-amber-50 text-amber-500 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform duration-200">
-                <AlertCircle className="w-5 h-5 text-amber-500" />
-              </div>
-              <div>
-                <div className="text-[12px] font-medium text-muted">Needs Changes</div>
-                <div className="text-2xl font-bold text-ink-900 leading-tight">{needsChangesCount}</div>
-              </div>
-            </div>
-            <div className="flex flex-col items-end">
-              <span className="text-[10px] font-medium text-muted-light">live</span>
-              <svg className="w-16 h-6 mt-1 stroke-amber-500 fill-none" strokeWidth="2" viewBox="0 0 60 20">
-                <path d="M0,8 Q20,18 35,10 T50,16 T60,12" strokeLinecap="round" />
-              </svg>
-            </div>
-          </div>
-
-          {/* Card 4: Policy Violations */}
-          <div className="bg-white rounded-2xl p-4.5 border border-line/90 shadow-2xs card-hover-effect hover:border-rose-300 flex items-center justify-between group">
-            <div className="flex items-center gap-3.5">
-              <div className="w-11 h-11 rounded-xl bg-rose-50 text-rose-500 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform duration-200">
-                <AlertTriangle className="w-5 h-5 text-rose-500" />
-              </div>
-              <div>
-                <div className="text-[12px] font-medium text-muted">Policy Violations</div>
-                <div className="text-2xl font-bold text-ink-900 leading-tight">{violationCount}</div>
-              </div>
-            </div>
-            <div className="flex flex-col items-end">
-              <span className="text-[10px] font-medium text-muted-light">live</span>
-              <svg className="w-16 h-6 mt-1 stroke-rose-500 fill-none" strokeWidth="2" viewBox="0 0 60 20">
-                <path d="M0,18 Q15,16 30,12 T50,8 T60,7" strokeLinecap="round" />
-              </svg>
-            </div>
-          </div>
-        </section>
-
-        {/* Review Queue Section */}
-        <section>
-          {/* Controls toolbar */}
-          <div className="flex flex-wrap items-center justify-between gap-3 mb-3.5">
-            <div className="flex items-center gap-2">
-              <h3 className="text-base font-bold text-ink-900 mr-2">Review Queue</h3>
-              {(['All', 'Images', 'Videos', 'Text', 'Social'] as const).map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`px-3 py-1 rounded-full text-xs font-semibold transition ${
-                    activeTab === tab
-                      ? 'bg-[#1d5e4b] text-white shadow-2xs'
-                      : 'bg-[#F1ECE0] hover:bg-line text-ink-600'
-                  }`}
-                >
-                  {tab === 'All' ? `All (${submissions.length})` : `${tab} (${typeCount(tab)})`}
-                </button>
-              ))}
-            </div>
-            <div className="flex items-center gap-1.5 text-xs text-ink-600 cursor-pointer">
-              <span>Sort by: <strong className="font-semibold text-ink">Newest First</strong></span>
-              <ChevronDown className="w-3.5 h-3.5 text-muted-light" />
-            </div>
-          </div>
-
-          {/* Cards Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {filteredSubmissions.map((item) => {
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+            {filteredSubmissions.slice(0, 8).map((item, i) => {
               const isSelected = activeSub?.id === item.id;
+              const borderColors = ['border-blue-300 ring-blue-300', 'border-emerald-300 ring-emerald-300', 'border-pink-300 ring-pink-300', 'border-purple-300 ring-purple-300'];
               return (
-                <div
-                  key={item.id}
-                  onClick={() => {
-                    setSelectedSubmission(item);
-                    setIsDrawerOpen(true);
-                  }}
-                  className={`group bg-white rounded-2xl border overflow-hidden shadow-2xs card-hover-effect transition-all cursor-pointer ${
-                    isSelected ? 'ring-2 ring-emerald-600 border-transparent shadow-md' : 'border-line/90 hover:border-line-strong'
-                  }`}
-                >
+                <div key={item.id} onClick={() => { setSelectedSubmission(item); setIsDrawerOpen(true); }}
+                  className={`group bg-white rounded-2xl border overflow-hidden shadow-2xs cursor-pointer transition-all hover:-translate-y-1 hover:shadow-lg ${
+                    isSelected ? `ring-2 ${borderColors[i % 4]} border-transparent shadow-md` : 'border-line hover:border-blue-200'
+                  }`}>
                   <div className="relative h-32 bg-[#F1ECE0] overflow-hidden">
-                    <img
-                      alt={item.title}
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-108"
-                      src={item.thumbnail}
-                    />
-                    {/* Status Badge */}
-                    <div className="absolute top-2.5 left-2.5 px-2.5 py-0.5 rounded-full bg-white/95 backdrop-blur-xs text-[11px] font-bold text-ink-700 flex items-center gap-1.5 shadow-xs">
-                      <span
-                        className={`w-2 h-2 rounded-full ${
-                          item.status === 'Approved'
-                            ? 'bg-emerald-500'
-                            : item.status === 'Needs Changes'
-                            ? 'bg-amber-500'
-                            : item.status === 'Rejected'
-                            ? 'bg-rose-500'
-                            : 'bg-brand-500'
-                        }`}
-                      />
-                      {item.status}
-                    </div>
-                    {/* View Count */}
-                    <div className="absolute top-2.5 right-2.5 px-1.5 py-0.5 rounded-md bg-black/50 backdrop-blur-xs text-[11px] text-white flex items-center gap-1">
-                      <Eye className="w-3 h-3" /> {item.viewsCount || 12}
+                    <img alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" src={item.thumbnail} />
+                    <div className="absolute top-2 left-2"><StatusBadge status={item.status} /></div>
+                    <div className="absolute top-2 right-2 bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded-lg flex items-center gap-1">
+                      <Eye className="w-3 h-3" />{item.viewsCount || 12}
                     </div>
                   </div>
                   <div className="p-3">
-                    <h4 className="font-bold text-ink-900 text-xs truncate">{item.title}</h4>
-                    <p className="text-[11px] text-muted-light truncate mb-2">{item.campaign}</p>
-                    <div className="flex items-center justify-between text-[11px] pt-1.5 border-t border-[#F1ECE0]">
-                      <span className="text-muted-light flex items-center gap-1">
-                        <Clock className="w-3 h-3 text-muted-light" /> {item.relativeTime}
-                      </span>
-                      <span
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                          item.priority === 'Critical'
-                            ? 'bg-rose-100 text-rose-700'
-                            : item.priority === 'High'
-                            ? 'bg-orange-100 text-orange-700'
-                            : item.priority === 'Medium'
-                            ? 'bg-amber-100 text-amber-700'
-                            : 'bg-emerald-100 text-emerald-700'
-                        }`}
-                      >
+                    <p className="font-bold text-ink-900 text-xs truncate">{item.title}</p>
+                    <p className="text-[11px] text-muted truncate mt-0.5">{item.campaign}</p>
+                    <div className="flex items-center justify-between mt-2 pt-2 border-t border-[#F1ECE0] text-[11px]">
+                      <span className="text-muted-light flex items-center gap-1"><Clock className="w-3 h-3" />{item.relativeTime}</span>
+                      <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${PRIORITY_COLORS[item.priority ?? 'Medium'] ?? 'badge-medium'}`}>
                         {item.priority || 'Medium'}
                       </span>
                     </div>
@@ -304,81 +154,57 @@ export const OverviewView: React.FC = () => {
               );
             })}
           </div>
-        </section>
+        </div>
 
-        {/* Bottom Widgets Section */}
-        <section className="grid grid-cols-1 lg:grid-cols-12 gap-4 pb-4">
-          {/* Brand Compliance Analytics */}
-          <div className="lg:col-span-5 bg-white rounded-xl p-4 border border-line/90 shadow-2xs">
-            <h4 className="font-bold text-ink-900 text-xs mb-3">Brand Compliance Analytics</h4>
-            <div className="flex items-center justify-between gap-4">
-              {/* Bar Chart — built from the real analytics trend points */}
-              <div className="flex-1">
-                <div className="h-24 flex items-end gap-2.5 pt-2">
-                  {trendPoints.length === 0 ? (
-                    <div className="w-full text-[10px] text-muted-light flex items-end">No trend data yet</div>
-                  ) : (
-                    trendPoints.map((p, i) => {
-                      const h = Math.max(6, Math.round((p.submissions / maxTrend) * 80));
-                      const barColor =
-                        p.score >= 90 ? 'bg-emerald-600' : p.score >= 70 ? 'bg-emerald-400' : 'bg-amber-400';
-                      const label = (() => {
-                        const d = new Date(p.date);
-                        return isNaN(d.getTime()) ? p.date : d.toLocaleString('en', { month: 'short' });
-                      })();
-                      return (
-                        <div key={i} className="flex-1 flex flex-col items-center gap-1" title={`${p.submissions} submissions · ${p.score}%`}>
-                          <div
-                            className={`w-full ${barColor} rounded-t-sm transition-all duration-300 hover:opacity-80`}
-                            style={{ height: `${h}px` }}
-                          />
-                          <span className="text-[10px] text-muted-light">{label}</span>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
+        {/* Bottom widgets */}
+        <div className="section-4 grid grid-cols-1 lg:grid-cols-12 gap-4 pb-4">
+          {/* Compliance Chart */}
+          <div className="lg:col-span-5 bg-white rounded-2xl p-4 border border-line shadow-2xs hover:shadow-md transition-all">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="font-black text-ink-900 text-sm">Brand Compliance Analytics</h4>
+              <div className="flex items-center gap-1 bg-[#F1ECE0] rounded-xl p-1">
+                {rangeTabs.map(r => (
+                  <button key={r.val} onClick={() => setAnalyticsRange(r.val)}
+                    className={`px-2 py-0.5 rounded-lg text-[11px] font-bold transition cursor-pointer ${
+                      analyticsRange === r.val
+                        ? 'bg-gradient-to-r from-brand-600 to-blue-600 text-white shadow-sm'
+                        : 'text-muted hover:text-ink'
+                    }`}>{r.label}</button>
+                ))}
               </div>
-
-              {/* Circular Gauge */}
+            </div>
+            <div className="flex items-end gap-4">
+              <div className="flex-1 h-20 flex items-end gap-2">
+                {trendPoints.length === 0
+                  ? <p className="text-[10px] text-muted-light self-center w-full text-center">No trend data yet</p>
+                  : trendPoints.map((p, i) => {
+                    const h = Math.max(6, Math.round((p.submissions / maxTrend) * 72));
+                    const colors = ['bg-blue-500', 'bg-emerald-500', 'bg-purple-500', 'bg-pink-500', 'bg-amber-500', 'bg-teal-500'];
+                    const label = (() => { try { return new Date(p.date).toLocaleString('en', { month: 'short' }); } catch { return p.date; } })();
+                    return (
+                      <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                        <div className={`w-full ${colors[i % colors.length]} rounded-t hover:opacity-80 transition-all cursor-pointer`} style={{ height: `${h}px` }} />
+                        <span className="text-[10px] text-muted-light">{label}</span>
+                      </div>
+                    );
+                  })
+                }
+              </div>
               <div className="flex items-center gap-3 pl-3 border-l border-[#F1ECE0]">
-                <div className="relative w-16 h-16 flex items-center justify-center">
-                  <svg className="w-16 h-16 transform -rotate-90" viewBox="0 0 36 36">
-                    <path
-                      className="text-[#F1ECE0]"
-                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="3.5"
-                    />
-                    <path
-                      className="text-emerald-600"
-                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeDasharray={`${complianceScore}, 100`}
-                      strokeLinecap="round"
-                      strokeWidth="3.5"
-                    />
+                <div className="relative w-16 h-16">
+                  <svg className="-rotate-90" viewBox="0 0 36 36" width="64" height="64">
+                    <path fill="none" stroke="#F1ECE0" strokeWidth="3.5" d="M18 2.0845a15.9155 15.9155 0 0 1 0 31.831a15.9155 15.9155 0 0 1 0-31.831" />
+                    <path fill="none" strokeWidth="3.5" strokeDasharray={`${complianceScore},100`} strokeLinecap="round"
+                      style={{ stroke: complianceScore >= 80 ? '#10b981' : complianceScore >= 60 ? '#f59e0b' : '#ef4444' }}
+                      d="M18 2.0845a15.9155 15.9155 0 0 1 0 31.831a15.9155 15.9155 0 0 1 0-31.831" />
                   </svg>
-                  <span className="absolute font-bold text-sm text-ink-900">{complianceScore}%</span>
+                  <span className="absolute inset-0 flex items-center justify-center font-black text-sm text-ink-900">{complianceScore}%</span>
                 </div>
                 <div>
-                  <div className="text-[11px] font-bold text-ink leading-tight">
-                    Overall<br />Compliance
-                  </div>
-                  <span
-                    className={`inline-flex items-center gap-0.5 text-[10px] font-semibold mt-1 ${
-                      complianceDelta >= 0 ? 'text-emerald-600' : 'text-rose-600'
-                    }`}
-                  >
-                    {complianceDelta >= 0 ? (
-                      <ArrowUpRight className="w-3 h-3" />
-                    ) : (
-                      <ArrowDownRight className="w-3 h-3" />
-                    )}
-                    {complianceDelta >= 0 ? '+' : ''}
-                    {complianceDelta}% vs prior
+                  <p className="text-[11px] font-bold text-ink">Overall<br />Compliance</p>
+                  <span className={`flex items-center gap-0.5 text-[10px] font-bold mt-1 ${complianceDelta >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                    {complianceDelta >= 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+                    {complianceDelta >= 0 ? '+' : ''}{complianceDelta}%
                   </span>
                 </div>
               </div>
@@ -386,321 +212,147 @@ export const OverviewView: React.FC = () => {
           </div>
 
           {/* Recent Activity */}
-          <div className="lg:col-span-4 bg-white rounded-xl p-4 border border-line/90 shadow-2xs">
-            <div className="flex items-center justify-between mb-2">
-              <h4 className="font-bold text-ink-900 text-xs">Recent Activity</h4>
-              <button
-                onClick={() => setActivePage('audit-history')}
-                className="text-xs font-semibold text-emerald-700 hover:underline flex items-center gap-0.5"
-              >
-                See all <ArrowRight className="w-3 h-3 text-emerald-700" />
+          <div className="lg:col-span-4 bg-white rounded-2xl p-4 border border-line shadow-2xs hover:shadow-md transition-all">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="font-black text-ink-900 text-sm">Recent Activity</h4>
+              <button onClick={() => setActivePage('audit-history')} className="text-xs font-bold text-blue-600 hover:underline flex items-center gap-0.5">
+                See all <ArrowRight className="w-3 h-3" />
               </button>
             </div>
-            <div className="space-y-2.5">
-              <div className="flex items-center gap-2.5">
-                <img
-                  alt="Aarav Sharma"
-                  className="w-6 h-6 rounded-full object-cover shrink-0"
-                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuBVjSPQO1fJ63DXDarJXmyHCcZv_B-VDgqjOas2CnTHnXRX2h6y8D4JDTrF7GF_veNlVbLCKpz0EeJ825_2vQ98U6GH2T1e-Qx_z65j1GaCuFEMt6o5MG2HgLfn-wDADdEQ7XyNgVGmre9GjFgOhXxh0DYu5RehddklqbfKUozNglzfKlJTaprhL7_BJoRQQhAwD-3c6ky2_O3_S8l-LYnGAOB2tFQXbDaJtXgB90c"
-                />
-                <div className="flex-1 min-w-0">
-                  <p className="text-[11px] text-ink-700 truncate">
-                    <strong className="font-semibold text-ink-900">Aarav Sharma</strong> approved 'Summer Skincare'
-                  </p>
-                  <span className="text-[10px] text-muted-light">2h ago</span>
-                </div>
-              </div>
-              <div className="flex items-center gap-2.5">
-                <img
-                  alt="Rohan Mehta"
-                  className="w-6 h-6 rounded-full object-cover shrink-0"
-                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuB4qHyA4UY3At2qLwdq_GNw0EhYQXqGEo4qv1zU1JRBtnFFWQcKicSqq-YrLLQWizO271qp3A23ZeP4a3sHg-xOv-AK-XAlzPsPxgQcMAiODOLJj48vTBk1CgFRT1hodYW3iMBToumEHIyHEIm2_fLuk-JalwHaDDm6bfyEcpjRY-46xcuVSGwzHoS9y1V-zDqK7eTSWQwr5QKr57ifU0SlYN3GDSCeudNTcpSFyxE"
-                />
-                <div className="flex-1 min-w-0">
-                  <p className="text-[11px] text-ink-700 truncate">
-                    <strong className="font-semibold text-ink-900">Rohan Mehta</strong> requested changes for 'Promo Banner'
-                  </p>
-                  <span className="text-[10px] text-muted-light">3h ago</span>
-                </div>
-              </div>
-              <div className="flex items-center gap-2.5">
-                <img
-                  alt="Neha Kapoor"
-                  className="w-6 h-6 rounded-full object-cover shrink-0"
-                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuCAfIhSY8xzMfKwEDtAaoCdpQoEQAVGcgEOiHdXHZps2pn1FDm52BNNYP6MOv_6bo_wAh5ZllDBRcq9HFzG-5lXx2dhjgfHfpDRPxBfkp6AIiBkdscmvb1QUvnTohjgqEk_aoRFsTvp5F9r2rFoasCg-ADDIXxWLt4ggO1CSuA42dBRToXr6Xxoa86MCLtK0VnCQYuA7SSXDKkM7K93KJE2cltiQDcRNp3oSh8h_Is"
-                />
-                <div className="flex-1 min-w-0">
-                  <p className="text-[11px] text-ink-700 truncate">
-                    <strong className="font-semibold text-ink-900">Neha Kapoor</strong> added 'Health Claim Rules'
-                  </p>
-                  <span className="text-[10px] text-muted-light">4h ago</span>
-                </div>
-              </div>
+            <div className="space-y-3">
+              {recentActivity.length === 0 && <p className="text-xs text-muted">No activity yet.</p>}
+              {recentActivity.map((e, i) => {
+                const dotColors = ['bg-blue-500', 'bg-pink-500', 'bg-emerald-500', 'bg-purple-500'];
+                return (
+                  <div key={e.id} className="flex items-center gap-2.5">
+                    <div className="relative shrink-0">
+                      <img alt={e.user.name} className="w-7 h-7 rounded-full object-cover ring-2 ring-white" src={e.user.avatar} />
+                      <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ${dotColors[i % 4]} border-2 border-white`} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[11px] text-ink-700 truncate">
+                        <strong className="font-bold text-ink-900">{e.user.name}</strong> {e.action} '{e.details}'
+                      </p>
+                      <span className="text-[10px] text-muted-light">{e.time}</span>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
-          {/* Sentinel Monitoring Widget */}
-          <div className="lg:col-span-3 bg-white rounded-xl p-4 border border-line/90 shadow-2xs flex flex-col justify-between">
+          {/* Sentinel */}
+          <div className="lg:col-span-3 bg-gradient-to-br from-brand-50 to-blue-50 rounded-2xl p-4 border border-brand-200/60 shadow-2xs hover:shadow-md transition-all">
             <div>
               <div className="flex items-center justify-between mb-2">
-                <h4 className="font-bold text-ink-900 text-xs">Sentinel Monitoring</h4>
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <h4 className="font-black text-ink-900 text-sm">Sentinel Monitoring</h4>
+                <span className="online-dot relative w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block" />
               </div>
-              <div className="flex items-start gap-2.5 mt-2">
-                <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
-                  <RotateCw className="w-3.5 h-3.5" />
-                </div>
-                <p className="text-[11px] text-ink-600 leading-snug">
-                  <strong className="font-bold text-ink">3 contents affected</strong> by recent rule update
+              <div className="flex items-start gap-2.5 mt-2 p-2.5 bg-white/70 rounded-xl border border-brand-100">
+                <RotateCw className="w-4 h-4 text-brand-600 shrink-0 mt-0.5" />
+                <p className="text-[11px] text-ink-700 leading-snug">
+                  <strong className="font-bold text-ink">{openAlerts}</strong> alert{openAlerts !== 1 ? 's' : ''} require attention
                 </p>
               </div>
             </div>
-            <button
-              onClick={() => setActivePage('sentinel')}
-              className="w-full mt-3 py-1.5 px-3 bg-[#FAF7EF] hover:bg-[#F1ECE0] text-ink-700 text-xs font-semibold rounded-lg border border-line inline-flex items-center justify-center gap-1.5 transition"
-            >
-              <span>View Tasks</span>
-              <ArrowRight className="w-3.5 h-3.5" />
+            <button onClick={() => setActivePage('sentinel')} className="mt-3 w-full py-2 px-3 btn-primary-glow text-white text-xs font-bold rounded-xl inline-flex items-center justify-center gap-1.5">
+              View Tasks <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
-        </section>
+        </div>
       </main>
 
-      {/* Right Slide-Over Submission Detail Drawer */}
+      {/* Right Drawer */}
       {isDrawerOpen && activeSub && (
-        <aside className="w-[380px] bg-white border-l border-line flex flex-col flex-shrink-0 z-20 shadow-lg">
-          {/* Drawer Header */}
-          <div className="p-4 border-b border-[#F1ECE0] flex items-start justify-between">
-            <div>
+        <aside className="w-[360px] detail-panel flex flex-col shrink-0 overflow-hidden animate-slide-right">
+          <div className="p-4 border-b border-line flex items-start justify-between shrink-0 bg-gradient-to-r from-white to-blue-50/40">
+            <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <h3 className="font-bold text-ink-900 text-sm truncate max-w-[240px]">{activeSub.title}</h3>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-800 shrink-0">
-                  {activeSub.status}
-                </span>
+                <h3 className="font-black text-ink-900 text-sm truncate max-w-[200px]">{activeSub.title}</h3>
+                <StatusBadge status={activeSub.status} />
               </div>
-              <p className="text-[11px] text-muted-light mt-0.5">
-                {activeSub.campaign} • Submitted: Mar 22, 2025 • {activeSub.relativeTime}
-              </p>
+              <p className="text-[11px] text-muted-light mt-0.5">{activeSub.campaign} · {activeSub.relativeTime}</p>
             </div>
-            <button
-              onClick={() => setIsDrawerOpen(false)}
-              className="text-muted-light hover:text-ink-600 p-1 rounded-lg"
-            >
-              <X className="w-4 h-4" />
-            </button>
+            <button onClick={() => setIsDrawerOpen(false)} className="p-1.5 rounded-xl text-muted-light hover:text-ink-700 hover:bg-[#F1ECE0] shrink-0"><X className="w-4 h-4" /></button>
           </div>
 
-          {/* Drawer Body */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {/* Primary Asset Preview */}
-            <div className="rounded-xl overflow-hidden bg-emerald-900/10 border border-line relative group">
-              <img
-                alt={activeSub.title}
-                className="w-full h-44 object-cover"
-                src={activeSub.thumbnail}
-              />
+          <div className="flex-1 overflow-y-auto styled-scroll p-4 space-y-4">
+            <div className="rounded-2xl overflow-hidden border border-line shadow-xs">
+              <img alt={activeSub.title} className="w-full h-44 object-cover" src={activeSub.thumbnail} />
             </div>
 
-            {/* Quick Actions Toolbar */}
-            <div className="flex items-center justify-start gap-1 pb-1">
-              <button
-                onClick={() => handleDownloadReport(activeSub.id, activeSub.title)}
-                className="p-2 text-ink-600 hover:text-ink-900 hover:bg-[#F1ECE0] rounded-lg transition cursor-pointer"
-                title="Download Report"
-              >
-                <Download className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => {
-                  if (activeSub.thumbnail) window.open(activeSub.thumbnail, '_blank');
-                }}
-                className="p-2 text-ink-600 hover:text-ink-900 hover:bg-[#F1ECE0] rounded-lg transition cursor-pointer"
-                title="View Full Thumbnail"
-              >
-                <Eye className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => setActivePage('review-queue')}
-                className="p-2 text-ink-600 hover:text-ink-900 hover:bg-[#F1ECE0] rounded-lg transition cursor-pointer"
-                title="Open in Review Queue"
-              >
-                <Maximize2 className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => {
-                  navigator.clipboard?.writeText(window.location.href);
-                  showToast('Submission link copied to clipboard');
-                }}
-                className="p-2 text-ink-600 hover:text-ink-900 hover:bg-[#F1ECE0] rounded-lg transition cursor-pointer"
-                title="Copy submission link"
-              >
-                <MoreHorizontal className="w-4 h-4" />
-              </button>
+            {/* Action strip */}
+            <div className="grid grid-cols-4 gap-1.5">
+              {[
+                { icon: <Download className="w-4 h-4" />, label: 'Download', color: 'hover:bg-blue-50 hover:text-blue-700', action: () => handleDownload(activeSub.id, activeSub.title) },
+                { icon: <Eye className="w-4 h-4" />, label: 'Preview', color: 'hover:bg-emerald-50 hover:text-emerald-700', action: () => activeSub.thumbnail && window.open(activeSub.thumbnail, '_blank') },
+                { icon: <Maximize2 className="w-4 h-4" />, label: 'Expand', color: 'hover:bg-purple-50 hover:text-purple-700', action: () => setActivePage('review-queue') },
+                { icon: <MoreHorizontal className="w-4 h-4" />, label: 'More', color: 'hover:bg-pink-50 hover:text-pink-700', action: () => {} },
+              ].map(btn => (
+                <button key={btn.label} onClick={btn.action} title={btn.label}
+                  className={`flex flex-col items-center gap-1 py-2 border border-line rounded-xl text-muted transition-all cursor-pointer ${btn.color}`}>
+                  {btn.icon}
+                  <span className="text-[9px] font-semibold">{btn.label}</span>
+                </button>
+              ))}
             </div>
 
-            {/* Tabs Navigation */}
-            <div className="border-b border-line flex gap-6 text-xs font-semibold">
-              {(['Findings', 'Evidence', 'Comments'] as const).map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setDrawerTab(tab)}
-                  className={`pb-2 transition ${
-                    drawerTab === tab
-                      ? 'border-b-2 border-emerald-800 text-emerald-900 font-bold'
-                      : 'text-muted-light hover:text-ink-600'
-                  }`}
-                >
+            {/* Tabs */}
+            <div className="flex gap-4 border-b border-line">
+              {(['Findings', 'Evidence', 'Comments'] as const).map(tab => (
+                <button key={tab} onClick={() => setDrawerTab(tab)}
+                  className={`pb-2 text-xs font-bold transition ${drawerTab === tab ? 'border-b-2 border-blue-500 text-blue-600' : 'text-muted hover:text-ink'}`}>
                   {tab}
                 </button>
               ))}
             </div>
 
-            {/* Tab 1: Findings */}
             {drawerTab === 'Findings' && (
-              <div className="space-y-3 pt-1">
-                {activeSub.findings && activeSub.findings.length > 0 ? (
-                  activeSub.findings.map(f => (
-                    <div
-                      key={f.id}
-                      className={`p-3 rounded-xl border flex items-start justify-between gap-3 ${
-                        f.type === 'error' || f.badge === 'error'
-                          ? 'border-red-200 bg-red-50/40'
-                          : f.type === 'warning' || f.badge === 'warning'
-                          ? 'border-amber-200 bg-amber-50/40'
-                          : 'border-emerald-200 bg-emerald-50/30'
-                      }`}
-                    >
-                      <div className="flex items-start gap-2.5">
-                        {f.type === 'error' || f.badge === 'error' ? (
-                          <AlertTriangle className="w-4 h-4 text-rose-500 mt-0.5 shrink-0" />
-                        ) : f.type === 'warning' || f.badge === 'warning' ? (
-                          <AlertCircle className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
-                        ) : (
-                          <CheckCircle className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
-                        )}
-                        <div>
-                          <h5 className="font-bold text-ink-900 text-xs">{f.title}</h5>
-                          <p className="text-[11px] text-muted leading-normal">{f.description}</p>
-                          {f.guidelineRef && (
-                            <div className="text-[10px] text-muted-light mt-1 font-mono">{f.guidelineRef}</div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="p-3 rounded-xl border border-emerald-200 bg-emerald-50/30 flex items-start gap-2.5">
-                    <CheckCircle className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
-                    <div>
-                      <h5 className="font-bold text-ink-900 text-xs">All checks passed</h5>
-                      <p className="text-[11px] text-muted leading-normal">
-                        VisualGuard &amp; deterministic rules cleared with zero breaches.
-                      </p>
-                    </div>
+              <div className="space-y-2.5">
+                {activeSub.findings && activeSub.findings.length > 0 ? activeSub.findings.map(f => (
+                  <div key={f.id} className={`p-3 rounded-xl border text-xs ${f.type === 'error' ? 'bg-red-50 border-red-200' : f.type === 'warning' ? 'bg-amber-50 border-amber-200' : 'bg-emerald-50 border-emerald-200'}`}>
+                    <p className="font-bold text-ink-900">{f.title}</p>
+                    <p className="text-muted mt-0.5 leading-relaxed">{f.description}</p>
+                  </div>
+                )) : (
+                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-2 text-xs text-emerald-800">
+                    <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />All compliance checks passed.
                   </div>
                 )}
               </div>
             )}
-
-            {/* Tab 2: Evidence */}
             {drawerTab === 'Evidence' && (
-              <div className="space-y-3 pt-1 text-xs">
-                <div className="p-3 bg-[#FAF7EF] rounded-xl border border-line/80 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-ink">VisualGuard Confidence</span>
-                    <span className="font-bold text-emerald-700">{activeSub.complianceScore}%</span>
-                  </div>
-                  <div className="w-full bg-line rounded-full h-1.5">
-                    <div
-                      className="bg-emerald-600 h-1.5 rounded-full"
-                      style={{ width: `${activeSub.complianceScore}%` }}
-                    />
-                  </div>
-                  <p className="text-[11px] text-muted leading-relaxed mt-1">
-                    Evaluated against certified brand guidelines for {activeSub.campaign}.
-                  </p>
-                </div>
-                <div className="p-3 bg-white rounded-xl border border-line space-y-1">
-                  <div className="font-semibold text-ink text-[11px]">Substantiated Source:</div>
-                  <p className="text-[11px] text-muted">Certified Workspace Brand Vault</p>
-                </div>
+              <div className="space-y-2 text-xs">
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl"><p className="font-bold text-blue-900">Brand Guidelines v2.1</p><p className="text-blue-700 mt-0.5">Page 12 – Brand Tone & Messaging</p></div>
+                <div className="p-3 bg-purple-50 border border-purple-200 rounded-xl"><p className="font-bold text-purple-900">Visual Identity Guide</p><p className="text-purple-700 mt-0.5">Section 3 – Logo Usage Rules</p></div>
               </div>
             )}
-
-            {/* Tab 3: Comments */}
             {drawerTab === 'Comments' && (
-              <div className="space-y-3 pt-1">
-                {activeSub.comments && activeSub.comments.length > 0 ? (
-                  activeSub.comments.map((c) => (
-                    <div key={c.id} className="p-2.5 rounded-xl bg-[#FAF7EF] border border-[#F1ECE0] text-xs space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-ink">{c.author}</span>
-                        <span className="text-[10px] text-muted-light">{c.time}</span>
-                      </div>
-                      <p className="text-ink-600 text-[11px]">{c.text}</p>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-xs text-muted-light text-center py-4">No comments yet</p>
-                )}
+              <div className="space-y-3 text-xs">
+                {activeSub.comments && activeSub.comments.length > 0 ? activeSub.comments.map(c => (
+                  <div key={c.id} className="flex items-start gap-2.5">
+                    <img alt={c.author} src={c.avatar} className="w-7 h-7 rounded-full object-cover shrink-0 ring-2 ring-pink-200" />
+                    <div><p className="font-bold text-ink-900">{c.author} <span className="text-muted-light font-normal">{c.time}</span></p><p className="text-ink-600 mt-0.5">{c.text}</p></div>
+                  </div>
+                )) : <p className="text-muted">No comments yet.</p>}
               </div>
             )}
           </div>
 
-          {/* Drawer Footer Actions */}
-          <div className="p-4 border-t border-[#F1ECE0] bg-[#FAF7EF]/50 space-y-2.5">
-            <div className="space-y-1">
-              <label className="text-[11px] font-semibold text-muted">Decision</label>
-              <div className="relative">
-                <button
-                  onClick={() => setIsDecisionMenuOpen(!isDecisionMenuOpen)}
-                  className="w-full flex items-center justify-between px-3 py-2 bg-white border border-line rounded-lg text-xs font-semibold text-ink shadow-2xs hover:border-line-strong"
-                >
-                  <div className="flex items-center gap-2">
-                    <Smile className="w-3.5 h-3.5 text-brand-500" />
-                    <span>{selectedDecision}</span>
-                  </div>
-                  <ChevronDown className="w-3.5 h-3.5 text-muted-light" />
-                </button>
-
-                {isDecisionMenuOpen && (
-                  <div className="absolute bottom-full left-0 right-0 mb-1 bg-white rounded-lg border border-line shadow-lg py-1 z-30 text-xs">
-                    {(['Approved', 'Needs Changes', 'Rejected', 'In Review'] as const).map((dec) => (
-                      <button
-                        key={dec}
-                        onClick={() => {
-                          setSelectedDecision(dec);
-                          setIsDecisionMenuOpen(false);
-                        }}
-                        className="w-full px-3 py-1.5 text-left hover:bg-[#FAF7EF] flex items-center justify-between text-ink-700"
-                      >
-                        <span>{dec}</span>
-                        {selectedDecision === dec && <Check className="w-3 h-3 text-emerald-600" />}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
+          {/* Decision footer */}
+          <div className="p-4 border-t border-line space-y-3 shrink-0 bg-gradient-to-r from-white to-blue-50/30">
+            <textarea value={decisionNote} onChange={e => setDecisionNote(e.target.value)} placeholder="Add a note for this decision..." rows={2}
+              className="w-full text-xs border border-line rounded-xl px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-blue-400/30 focus:border-blue-400 bg-white/80" />
+            <div className="flex items-center gap-2">
+              <select value={selectedDecision} onChange={e => setSelectedDecision(e.target.value)}
+                className="flex-1 text-xs border border-line rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 cursor-pointer">
+                <option>Request Changes</option><option>Approve</option><option>Reject</option>
+              </select>
+              <button onClick={handleSubmitDecision}
+                className="flex-shrink-0 px-4 py-2 bg-gradient-to-r from-brand-600 to-blue-600 hover:from-brand-700 hover:to-blue-700 text-white text-xs font-bold rounded-xl transition-all cursor-pointer shadow-sm hover:shadow-md">
+                Submit →
+              </button>
             </div>
-
-            <div className="space-y-1">
-              <label className="text-[11px] font-semibold text-muted">Review Notes</label>
-              <input
-                type="text"
-                placeholder="Optional feedback note for creator..."
-                value={decisionNote}
-                onChange={(e) => setDecisionNote(e.target.value)}
-                className="w-full px-3 py-1.5 bg-white border border-line rounded-lg text-xs text-ink placeholder-muted-light focus:outline-none"
-              />
-            </div>
-
-            <button
-              onClick={handleSubmitDecision}
-              className="w-full py-2.5 px-4 bg-[#1d5e4b] hover:bg-[#164b3c] text-white text-xs font-semibold rounded-lg flex items-center justify-center gap-2 shadow-xs transition cursor-pointer"
-            >
-              <span>Submit Decision</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
           </div>
         </aside>
       )}

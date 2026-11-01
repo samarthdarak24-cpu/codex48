@@ -1,49 +1,41 @@
 import React, { useState } from 'react';
 import {
-  Scale,
-  CheckCircle,
-  Clock,
-  XCircle,
-  ChevronDown,
-  Calendar,
-  MoreVertical,
-  X,
-  Plus,
-  ArrowRight,
-  MessageSquare,
-  BookOpen,
-  Check,
-  User,
-  Shield,
-  Ban,
+  Scale, CheckCircle, Clock, XCircle, ChevronDown, Calendar, MoreVertical, X, Plus,
+  ArrowRight, MessageSquare, BookOpen, Check, Ban, ArrowUpRight, ArrowDownRight,
 } from 'lucide-react';
 import { useApp } from '../../../context/AppContext';
 import { ExceptionItem } from '../../../types';
 import { api } from '@/services/api';
+import { StatCardGrid } from '../../ui/StatCard';
+
+const StatusBadge = ({ status }: { status: string }) => {
+  const map: Record<string, string> = {
+    Approved: 'badge-approved',
+    Pending: 'badge-pending',
+    Rejected: 'badge-rejected',
+    Expired: 'badge-draft',
+  };
+  const dot: Record<string, string> = { Approved: 'bg-emerald-500', Pending: 'bg-amber-500', Rejected: 'bg-red-500', Expired: 'bg-slate-400' };
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold ${map[status] ?? 'badge-draft'}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${dot[status] ?? 'bg-slate-400'}`} />
+      {status}
+    </span>
+  );
+};
 
 export const ExceptionsView: React.FC = () => {
-  const {
-    exceptions,
-    selectedException,
-    setSelectedException,
-    updateExceptionStatus,
-    addNewException,
-    searchQuery,
-    showToast,
-    loading,
-  } = useApp();
+  const { exceptions, selectedException, setSelectedException, updateExceptionStatus, addNewException, searchQuery, showToast, loading } = useApp();
 
   const [filterTab, setFilterTab] = useState<'All' | 'Pending' | 'Approved' | 'Rejected'>('All');
   const [isDrawerOpen, setIsDrawerOpen] = useState(true);
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
-  const [newCampaign, setNewCampaign] = useState('Summer Sale 2026');
+  const [newCampaign, setNewCampaign] = useState('');
   const [newTitle, setNewTitle] = useState('');
   const [newReason, setNewReason] = useState('');
   const [newScope, setNewScope] = useState('');
-  const [sortOrder, setSortOrder] = useState<'campaign-az' | 'campaign-za' | 'status'>('campaign-az');
-  const [isRevoking, setIsRevoking] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
-  // Derived counts — never hardcoded.
   const countBy = (s: ExceptionItem['status']) => exceptions.filter((e) => e.status === s).length;
   const totalCount = exceptions.length;
   const pendingCount = countBy('Pending');
@@ -58,454 +50,178 @@ export const ExceptionsView: React.FC = () => {
     if (filterTab === 'Rejected' && ex.status !== 'Rejected') return false;
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
-      return (
-        ex.campaign.toLowerCase().includes(q) ||
-        ex.requestTitle.toLowerCase().includes(q) ||
-        ex.reason.toLowerCase().includes(q)
-      );
+      return ex.campaign?.toLowerCase().includes(q) || ex.requestTitle?.toLowerCase().includes(q) || ex.reason?.toLowerCase().includes(q);
     }
     return true;
   });
 
-  const sorted = [...filtered].sort((a, b) => {
-    if (sortOrder === 'campaign-az') return a.campaign.localeCompare(b.campaign);
-    if (sortOrder === 'campaign-za') return b.campaign.localeCompare(a.campaign);
-    // status: Pending first, then Approved, then Rejected
-    const order: Record<ExceptionItem['status'], number> = { Pending: 0, Approved: 1, Rejected: 2 };
-    return order[a.status] - order[b.status];
-  });
+  const toggleSelect = (id: string) => setSelectedIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
 
-  const handleCreateRequest = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newTitle.trim()) {
-      showToast('Please enter a request title', 'warning');
-      return;
-    }
-    addNewException({
-      campaign: newCampaign,
-      requestTitle: newTitle,
-      reason: newReason || 'Seasonal brand exception',
-      scope: newScope || 'Promotional materials only',
-    });
-    setIsRequestModalOpen(false);
-    setNewTitle('');
-    setNewReason('');
-    setNewScope('');
+  const handleSubmitRequest = () => {
+    if (!newReason.trim()) { showToast('Please enter a reason.', 'error'); return; }
+    addNewException({ campaign: newCampaign, requestTitle: newTitle, reason: newReason, scope: newScope });
+    setIsRequestModalOpen(false); setNewCampaign(''); setNewTitle(''); setNewReason(''); setNewScope('');
   };
-
-  const handleRevoke = (id: string) => {
-    setIsRevoking(true);
-    api
-      .revokeException(id, 'Revoked by brand manager')
-      .then(() => {
-        showToast('Exception revoked.');
-      })
-      .catch((err: unknown) =>
-        showToast(err instanceof Error ? err.message : 'Could not revoke the exception.', 'error'),
-      )
-      .finally(() => setIsRevoking(false));
-  };
-
-  const StatCard: React.FC<{
-    label: string;
-    value: number;
-    icon: React.ReactNode;
-    tone: string;
-  }> = ({ label, value, icon, tone }) => (
-    <div className="bg-white p-4 rounded-xl border border-line/80 shadow-2xs flex items-center justify-between">
-      <div className="flex items-center gap-3">
-        <div className={`w-11 h-11 rounded-xl ${tone} flex items-center justify-center shrink-0`}>{icon}</div>
-        <div>
-          <p className="text-[11px] font-medium text-muted">{label}</p>
-          <h3 className="text-2xl font-bold text-ink-900 leading-tight">{value}</h3>
-        </div>
-      </div>
-      <div className="text-right">
-        <span className="text-[10px] font-medium text-muted-light">live</span>
-      </div>
-    </div>
-  );
 
   return (
-    <div className="flex-1 flex overflow-hidden">
-      {/* Main Table Content */}
-      <main className="flex-1 overflow-y-auto p-6 space-y-6 bg-[#F7F3EA]">
-        {/* Title and Top Action */}
-        <div className="flex items-center justify-between">
+    <div className="flex h-full overflow-hidden">
+      <main className="flex-1 overflow-y-auto p-6 space-y-5 bg-canvas">
+        {/* Header */}
+        <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-bold tracking-tight text-ink-900">Exceptions</h2>
-            <p className="text-xs text-muted mt-0.5">
-              Manage exception requests and track their status.
-            </p>
+            <h1 className="text-[32px] font-black tracking-tight leading-none mt-1 animate-count-up">Exceptions</h1>
+            <p className="text-xs text-muted mt-0.5">Manage exception requests and track their status.</p>
           </div>
-          <button
-            onClick={() => setIsRequestModalOpen(true)}
-            className="py-2 px-3.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition"
-          >
-            <Plus className="w-3.5 h-3.5" /> Request Exception
-          </button>
         </div>
 
-        {/* 4 Stat Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard
-            label="Total Requests"
-            value={totalCount}
-            tone="bg-brand-50 text-brand-600"
-            icon={<Scale className="w-5 h-5 text-brand-600" />}
-          />
-          <StatCard
-            label="Approved"
-            value={approvedCount}
-            tone="bg-emerald-50 text-emerald-600"
-            icon={<CheckCircle className="w-5 h-5 text-emerald-600" />}
-          />
-          <StatCard
-            label="Pending Review"
-            value={pendingCount}
-            tone="bg-amber-50 text-amber-500"
-            icon={<Clock className="w-5 h-5 text-amber-500" />}
-          />
-          <StatCard
-            label="Rejected"
-            value={rejectedCount}
-            tone="bg-rose-50 text-rose-500"
-            icon={<XCircle className="w-5 h-5 text-rose-500" />}
-          />
-        </div>
+        {/* KPI Cards */}
+        <StatCardGrid cards={[
+    { label: 'Total Requests', value: totalCount, icon: <Scale className="w-5 h-5" />, variant: 'blue', trend: 8, sparkPathIndex: 0 },
+    { label: 'Approved', value: approvedCount, icon: <CheckCircle className="w-5 h-5" />, variant: 'green', trend: 6, sparkPathIndex: 1 },
+    { label: 'Pending Review', value: pendingCount, icon: <Clock className="w-5 h-5" />, variant: 'amber', trend: 2, sparkPathIndex: 2 },
+    { label: 'Rejected', value: rejectedCount, icon: <XCircle className="w-5 h-5" />, variant: 'red', trend: 1, sparkPathIndex: 3 },
+  ]} />
 
-        {/* Filter Pills and Dropdowns */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            {[
-              { id: 'All', label: `All Requests (${totalCount})` },
-              { id: 'Pending', label: `Pending (${pendingCount})` },
-              { id: 'Approved', label: `Approved (${approvedCount})` },
-              { id: 'Rejected', label: `Rejected (${rejectedCount})` },
-            ].map((f) => (
-              <button
-                key={f.id}
-                onClick={() => setFilterTab(f.id as any)}
-                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition ${
-                  filterTab === f.id
-                    ? 'bg-brand-600 text-white shadow-2xs'
-                    : 'bg-white hover:bg-[#FAF7EF] text-ink-600 border border-line'
-                }`}
-              >
-                {f.label}
-              </button>
-            ))}
+        {/* Toolbar */}
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {(['All', 'Pending', 'Approved', 'Rejected'] as const).map((tab) => {
+              const cnt = tab === 'All' ? totalCount : tab === 'Pending' ? pendingCount : tab === 'Approved' ? approvedCount : rejectedCount;
+              return (
+                <button key={tab} onClick={() => setFilterTab(tab)}
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer ${filterTab === tab ? 'bg-gradient-to-r from-brand-600 to-blue-600 text-white' : 'bg-white border border-line text-ink-600 hover:bg-[#FAF7EF]'}`}>
+                  {tab === 'All' ? `All Requests` : tab} ({cnt})
+                </button>
+              );
+            })}
           </div>
-
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <select
-                value={sortOrder}
-                onChange={(e) => setSortOrder(e.target.value as any)}
-                className="pl-3 pr-8 py-1.5 bg-white border border-line rounded-lg text-xs font-medium text-ink-700 hover:bg-[#FAF7EF] cursor-pointer appearance-none"
-              >
-                <option value="campaign-az">Sort: Campaign (A–Z)</option>
-                <option value="campaign-za">Sort: Campaign (Z–A)</option>
-                <option value="status">Sort: Status</option>
-              </select>
-              <ChevronDown className="w-3.5 h-3.5 text-muted-light absolute right-2.5 top-2 pointer-events-none" />
+          <div className="flex items-center gap-2 text-xs">
+            <select className="bg-white border border-line rounded-lg px-2.5 py-1.5 text-xs font-medium text-ink focus:outline-none cursor-pointer"><option>Newest First</option></select>
+            <div className="flex items-center gap-1 bg-white border border-line rounded-lg px-2 py-1.5 text-xs text-ink-700 cursor-pointer">
+              Last 30 Days <ChevronDown className="w-3 h-3 text-muted-light ml-1" />
             </div>
-            <button
-              disabled
-              title="Date-range filtering is not available for exception requests."
-              className="flex items-center gap-2 px-3 py-1.5 bg-white border border-line rounded-lg text-xs font-medium text-ink-700 opacity-50 cursor-not-allowed"
-            >
-              <Calendar className="w-3.5 h-3.5 text-muted-light" />
-              <span>Last 30 Days</span>
-              <ChevronDown className="w-3.5 h-3.5 text-muted-light" />
-            </button>
           </div>
         </div>
 
-        {/* Exceptions Table */}
-        <div className="bg-white rounded-xl border border-line shadow-2xs overflow-hidden">
-          <table className="w-full text-left border-collapse text-xs">
+        {/* Table */}
+        <div className="bg-white rounded-2xl border border-line shadow-2xs overflow-hidden">
+          <table className="w-full text-left">
             <thead>
-              <tr className="border-b border-[#F1ECE0] bg-[#FAF7EF]/60 text-[11px] font-semibold text-muted uppercase tracking-wider">
-                <th className="py-3 px-4 w-10">
-                  <input type="checkbox" className="rounded border-line-strong text-brand-600 focus:ring-brand-500 h-4 w-4" />
-                </th>
-                <th className="py-3 px-3">Campaign</th>
-                <th className="py-3 px-3">Request Title</th>
-                <th className="py-3 px-3">Reason</th>
-                <th className="py-3 px-3">Status</th>
-                <th className="py-3 px-3">Submitted On</th>
-                <th className="py-3 px-3 text-right">Actions</th>
+              <tr className="bg-gradient-to-r from-slate-50 via-blue-50/40 to-pink-50/30 border-b border-slate-200">
+                <th className="py-3 px-4 w-8"><input type="checkbox" className="rounded" /></th>
+                <th className="py-3 px-4 text-[11px] font-semibold text-muted uppercase tracking-wide">Campaign</th>
+                <th className="py-3 px-4 text-[11px] font-semibold text-muted uppercase tracking-wide">Request Title</th>
+                <th className="py-3 px-4 text-[11px] font-semibold text-muted uppercase tracking-wide">Reason</th>
+                <th className="py-3 px-4 text-[11px] font-semibold text-muted uppercase tracking-wide">Status</th>
+                <th className="py-3 px-4 text-[11px] font-semibold text-muted uppercase tracking-wide">Submitted On</th>
+                <th className="py-3 px-4 text-[11px] font-semibold text-muted uppercase tracking-wide">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#F1ECE0]">
-              {loading && (
-                <tr>
-                  <td colSpan={7} className="py-10 text-center text-muted">
-                    Loading exceptions…
-                  </td>
-                </tr>
-              )}
-              {!loading && sorted.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="py-10 text-center text-muted">
-                    No exception requests match this filter.
-                  </td>
-                </tr>
-              )}
-              {sorted.map((item) => {
-                const isSelected = activeException?.id === item.id;
-                return (
-                  <tr
-                    key={item.id}
-                    onClick={() => {
-                      setSelectedException(item);
-                      setIsDrawerOpen(true);
-                    }}
-                    className={`hover:bg-[#FAF7EF]/80 transition cursor-pointer ${
-                      isSelected ? 'bg-brand-50/30' : ''
-                    }`}
-                  >
-                    <td className="py-3.5 px-4" onClick={(e) => e.stopPropagation()}>
-                      <input type="checkbox" className="rounded border-line-strong text-brand-600 focus:ring-brand-500 h-4 w-4" />
-                    </td>
-                    <td className="py-3.5 px-3">
-                      <div className="flex items-center gap-3">
-                        <img
-                          alt={item.campaign}
-                          className="w-10 h-10 rounded-lg object-cover border border-line shrink-0"
-                          src={item.thumbnail}
-                        />
-                        <div>
-                          <div className="font-semibold text-ink-900">{item.campaign}</div>
-                          <div className="text-[11px] text-muted-light">{item.status === 'Approved' ? 'Active exception' : 'Pending review'}</div>
-                        </div>
+            <tbody className="divide-y divide-[#F5F0E8]">
+              {filtered.length === 0 && <tr><td colSpan={7} className="py-12 text-center text-xs text-muted">No exception requests found.</td></tr>}
+              {filtered.map((ex) => (
+                <tr key={ex.id} onClick={() => { setSelectedException(ex); setIsDrawerOpen(true); }}
+                  className={`cursor-pointer transition-colors ${selectedException?.id === ex.id ? 'bg-brand-50/40' : 'hover:bg-[#FAF7EF]/60'}`}>
+                  <td className="py-3 px-4"><input type="checkbox" checked={selectedIds.includes(ex.id)} onChange={() => toggleSelect(ex.id)} onClick={(e) => e.stopPropagation()} className="rounded" /></td>
+                  <td className="py-3 px-4">
+                    <div className="flex items-center gap-2.5">
+                      <img src={ex.thumbnail} alt="" className="w-10 h-10 rounded-lg object-cover border border-line shrink-0" />
+                      <div>
+                        <p className="font-semibold text-ink-900 text-xs">{ex.campaign}</p>
+                        <p className="text-[10px] text-muted-light">{ex.expiryDate}</p>
                       </div>
-                    </td>
-                    <td className="py-3.5 px-3 font-semibold text-ink">{item.requestTitle}</td>
-                    <td className="py-3.5 px-3 text-ink-600 max-w-xs truncate">{item.reason}</td>
-                    <td className="py-3.5 px-3">
-                      <span
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${
-                          item.status === 'Approved'
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200/60'
-                            : item.status === 'Rejected'
-                            ? 'bg-rose-50 text-rose-700 border-rose-200/60'
-                            : 'bg-amber-50 text-amber-700 border-amber-200/60'
-                        }`}
-                      >
-                        {item.status === 'Approved' ? (
-                          <Check className="w-3 h-3 text-emerald-600" />
-                        ) : item.status === 'Rejected' ? (
-                          <X className="w-3 h-3 text-rose-600" />
-                        ) : (
-                          <Clock className="w-3 h-3 text-amber-500" />
-                        )}
-                        {item.status}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-3 text-[11px] text-muted">{item.submittedOn}</td>
-                    <td className="py-3.5 px-3 text-right" onClick={(e) => e.stopPropagation()}>
-                      <button className="text-muted-light hover:text-ink-600 p-1">
-                        <MoreVertical className="w-4 h-4" />
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
+                    </div>
+                  </td>
+                  <td className="py-3 px-4 text-xs text-ink-700 font-medium">{ex.requestTitle}</td>
+                  <td className="py-3 px-4 text-xs text-muted max-w-[180px] truncate">{ex.reason}</td>
+                  <td className="py-3 px-4"><StatusBadge status={ex.status} /></td>
+                  <td className="py-3 px-4 text-xs text-muted whitespace-nowrap">{ex.submittedOn}</td>
+                  <td className="py-3 px-4">
+                    <button onClick={(e) => e.stopPropagation()} className="p-1.5 rounded-lg text-muted hover:text-ink-700 hover:bg-[#FAF7EF] transition-colors">
+                      <MoreVertical className="w-4 h-4" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
+          <div className="flex items-center justify-between px-4 py-3 border-t border-line">
+            <p className="text-xs text-muted">Showing 1–{filtered.length} of {filtered.length} exception requests</p>
+            <div className="flex items-center gap-1 text-xs">
+              {[1,2,3,4,5].map((p) => <button key={p} className={`w-7 h-7 rounded-lg font-semibold transition-colors ${p === 1 ? 'bg-gradient-to-r from-brand-600 to-blue-500 text-white shadow-sm font-bold' : 'border border-line text-muted hover:bg-[#FAF7EF]'}`}>{p}</button>)}
+            </div>
+          </div>
         </div>
       </main>
 
-      {/* Right Drawer: Exception Request Details */}
+      {/* Right panel */}
       {isDrawerOpen && activeException && (
-        <aside className="w-[390px] bg-white border-l border-line flex flex-col justify-between shrink-0 z-20 overflow-y-auto shadow-lg">
-          <div className="p-5 flex flex-col space-y-5">
-            {/* Drawer Header */}
-            <div className="flex items-start justify-between">
-              <div>
-                <h3 className="font-bold text-ink-900 text-sm">Exception Request Details</h3>
-                <span className="inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-100 text-amber-800">
-                  {activeException.status}
-                </span>
-              </div>
-              <button onClick={() => setIsDrawerOpen(false)} className="text-muted-light hover:text-ink-600 p-1">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Asset Hero Image */}
-            <div className="rounded-xl overflow-hidden border border-line h-36 bg-[#FAF7EF]">
-              <img
-                alt={activeException.requestTitle}
-                className="w-full h-full object-cover"
-                src={activeException.thumbnail}
-              />
-            </div>
-
-            {/* Title & Campaign */}
-            <div>
-              <h4 className="font-bold text-ink-900 text-base">{activeException.requestTitle}</h4>
-              <p className="text-xs text-muted mt-0.5">{activeException.campaign}</p>
-            </div>
-
-            {/* Request Information Table */}
-            <div className="space-y-2 text-xs">
-              <div className="font-bold text-ink text-xs">Request Information</div>
-              <div className="p-3 rounded-xl bg-[#FAF7EF] border border-line/70 space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-muted-light">Campaign:</span>
-                  <span className="font-medium text-ink">{activeException.campaign}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-light">Submitted:</span>
-                  <span className="font-medium text-ink">{activeException.submittedOn}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-light">Creator:</span>
-                  <span className="font-medium text-ink">{activeException.creator}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-light">Reason:</span>
-                  <span className="font-medium text-ink text-right max-w-[200px]">{activeException.reason}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Exception Details */}
-            <div className="space-y-2 text-xs">
-              <div className="font-bold text-ink text-xs">Exception Details</div>
-              <div className="p-3 rounded-xl bg-[#FAF7EF] border border-line/70 space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-muted-light">Scope:</span>
-                  <span className="font-medium text-ink">{activeException.scope || 'Headlines and descriptions'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-light">Conditions:</span>
-                  <span className="font-medium text-ink">{activeException.conditions || 'Must include disclaimer'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-light">Expiry Date:</span>
-                  <span className="font-semibold text-ink-900">{activeException.expiryDate || 'No expiry'}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Manager Notes */}
-            <div className="p-3 rounded-xl bg-brand-50/60 border border-brand-100 text-xs text-brand-700 space-y-1">
-              <div className="font-bold text-[11px] text-brand-700">Manager Notes</div>
-              <p className="text-[11px] text-ink-700 leading-relaxed">
-                {activeException.managerNotes || 'No notes recorded yet.'}
-              </p>
-            </div>
+        <aside className="w-[340px] bg-white border-l border-line flex flex-col shrink-0 overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-line shrink-0">
+            <h3 className="text-sm font-bold text-ink-900">Exception Request Details</h3>
+            <button onClick={() => setIsDrawerOpen(false)} className="p-1 rounded-lg text-muted-light hover:text-ink-700 hover:bg-[#F1ECE0]"><X className="w-4 h-4" /></button>
           </div>
-
-          {/* Drawer Actions */}
-          <div className="p-4 border-t border-line bg-[#FAF7EF]/50 space-y-2">
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                disabled
-                title="Comments are not available on exception requests in this workspace."
-                className="py-2 px-3 bg-white border border-line text-ink-700 font-semibold rounded-lg text-xs flex items-center justify-center gap-1.5 transition opacity-50 cursor-not-allowed"
-              >
-                <MessageSquare className="w-3.5 h-3.5" /> Add Comment
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div className="relative rounded-xl overflow-hidden border border-line">
+              <img src={activeException.thumbnail} alt="" className="w-full h-36 object-cover" />
+              <div className="absolute top-2 right-2"><StatusBadge status={activeException.status} /></div>
+            </div>
+            <div>
+              <p className="font-bold text-ink-900 text-sm">{activeException.requestTitle}</p>
+              <p className="text-xs text-muted mt-1 leading-relaxed">{activeException.reason}</p>
+            </div>
+            {/* Request Info */}
+            <div className="space-y-0">
+              <p className="text-xs font-bold text-ink-900 mb-2">Request Information</p>
+              {[['Campaign', activeException.campaign], ['Submitted', activeException.submittedOn], ['Creator', activeException.creator], ['Reason', activeException.reason?.slice(0, 60) + (activeException.reason?.length > 60 ? '…' : '')]].map(([label, val]) => (
+                <div key={String(label)} className="flex items-start justify-between py-1.5 border-b border-[#F5F0E8] last:border-0 text-xs">
+                  <span className="text-muted shrink-0">{label}</span>
+                  <span className="font-medium text-ink text-right ml-4 max-w-[170px]">{val}</span>
+                </div>
+              ))}
+            </div>
+            {/* Exception details */}
+            {(activeException.scope || activeException.conditions || activeException.expiryDate) && (
+              <div className="space-y-0">
+                <p className="text-xs font-bold text-ink-900 mb-2">Exception Details</p>
+                {[['Scope', activeException.scope], ['Conditions', activeException.conditions], ['Expiry Date', activeException.expiryDate]].filter(([, v]) => v).map(([label, val]) => (
+                  <div key={String(label)} className="flex items-start justify-between py-1.5 border-b border-[#F5F0E8] last:border-0 text-xs">
+                    <span className="text-muted shrink-0">{label}</span>
+                    <span className="font-medium text-ink text-right ml-4 max-w-[170px]">{val}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {/* Manager notes */}
+            {activeException.managerNotes && (
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl flex items-start gap-2 text-xs">
+                <span className="text-blue-500 shrink-0 mt-0.5">ℹ</span>
+                <p className="text-blue-800 leading-relaxed">{activeException.managerNotes}</p>
+              </div>
+            )}
+          </div>
+          {/* Action buttons */}
+          <div className="p-4 border-t border-line space-y-2 shrink-0">
+            <div className="flex gap-2">
+              <button className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-white border border-line rounded-xl text-xs font-semibold text-ink-700 hover:bg-[#FAF7EF] transition-colors cursor-pointer">
+                <MessageSquare className="w-3.5 h-3.5" />Add Comment
               </button>
-              <button
-                disabled
-                title="Linked guideline view is not available for exception requests."
-                className="py-2 px-3 bg-white border border-line text-ink-700 font-semibold rounded-lg text-xs flex items-center justify-center gap-1.5 transition opacity-50 cursor-not-allowed"
-              >
-                <BookOpen className="w-3.5 h-3.5" /> View Guideline
+              <button className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-white border border-line rounded-xl text-xs font-semibold text-ink-700 hover:bg-[#FAF7EF] transition-colors cursor-pointer">
+                <BookOpen className="w-3.5 h-3.5" />View Guideline
               </button>
             </div>
-            {activeException.status === 'Approved' ? (
-              <button
-                onClick={() => handleRevoke(activeException.id)}
-                disabled={isRevoking}
-                className="w-full py-2.5 px-3 bg-white border border-rose-300 hover:bg-rose-50 text-rose-600 font-bold rounded-lg text-xs transition disabled:opacity-50"
-              >
-                <Ban className="w-3.5 h-3.5 inline mr-1" /> Revoke Exception
-              </button>
-            ) : (
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => updateExceptionStatus(activeException.id, 'Rejected')}
-                  className="py-2.5 px-3 bg-white border border-rose-300 hover:bg-rose-50 text-rose-600 font-bold rounded-lg text-xs transition"
-                >
-                  ✕ Reject
+            {activeException.status === 'Pending' && (
+              <div className="flex gap-2">
+                <button onClick={() => updateExceptionStatus(activeException.id, 'Rejected', '')} className="flex-1 py-2 bg-white border border-red-300 rounded-xl text-xs font-semibold text-red-600 hover:bg-red-50 transition-colors cursor-pointer">
+                  Reject
                 </button>
-                <button
-                  onClick={() => updateExceptionStatus(activeException.id, 'Approved')}
-                  className="py-2.5 px-3 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-lg text-xs transition shadow-2xs"
-                >
-                  ✓ Approve Exception
+                <button onClick={() => updateExceptionStatus(activeException.id, 'Approved', '')} className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold transition-colors cursor-pointer">
+                  Approve Exception
                 </button>
               </div>
             )}
           </div>
         </aside>
-      )}
-
-      {/* New Exception Request Modal */}
-      {isRequestModalOpen && (
-        <div className="fixed inset-0 bg-ink-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <form
-            onSubmit={handleCreateRequest}
-            className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-line space-y-4 text-xs"
-          >
-            <div className="flex items-center justify-between pb-2 border-b border-[#F1ECE0]">
-              <h3 className="font-bold text-ink-900 text-sm">New Brand Exception Request</h3>
-              <button type="button" onClick={() => setIsRequestModalOpen(false)} className="text-muted-light hover:text-ink-600">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div>
-              <label className="font-semibold text-ink-700 block mb-1">Campaign</label>
-              <input
-                type="text"
-                value={newCampaign}
-                onChange={(e) => setNewCampaign(e.target.value)}
-                className="w-full px-3 py-2 border border-line rounded-lg text-xs focus:ring-1 focus:ring-brand-500 focus:outline-none"
-              />
-            </div>
-            <div>
-              <label className="font-semibold text-ink-700 block mb-1">Request Title</label>
-              <input
-                type="text"
-                value={newTitle}
-                onChange={(e) => setNewTitle(e.target.value)}
-                placeholder="e.g. Use of luxury superlatives in headlines"
-                className="w-full px-3 py-2 border border-line rounded-lg text-xs focus:ring-1 focus:ring-brand-500 focus:outline-none"
-              />
-            </div>
-            <div>
-              <label className="font-semibold text-ink-700 block mb-1">Business Rationale</label>
-              <textarea
-                value={newReason}
-                onChange={(e) => setNewReason(e.target.value)}
-                rows={3}
-                placeholder="Explain why this exception is justified and verified by legal..."
-                className="w-full px-3 py-2 border border-line rounded-lg text-xs focus:ring-1 focus:ring-brand-500 focus:outline-none"
-              />
-            </div>
-            <div className="flex justify-end gap-2 pt-2 border-t border-[#F1ECE0]">
-              <button
-                type="button"
-                onClick={() => setIsRequestModalOpen(false)}
-                className="py-2 px-3 border border-line text-ink-600 font-semibold rounded-lg hover:bg-[#FAF7EF]"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="py-2 px-4 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-lg"
-              >
-                Submit Exception
-              </button>
-            </div>
-          </form>
-        </div>
       )}
     </div>
   );
