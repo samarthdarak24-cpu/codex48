@@ -66,3 +66,23 @@ Sentinel protects brand equity after publication, monitoring shipped campaign co
 - **AI Privacy Shield & AI Trust Panel (N5):** Redacts PII (emails, phone numbers, digit sequences, personal names) before prompt dispatch. Real-time observability dashboard reporting call volume, latency, token spend, and rejected hallucinations.
 - **What We Could Not Check (N7):** Explicit panel explaining unmeasured facts and guiding reviewers on resolving uncertainty.
 - **Blast-Radius Preview (N9):** Real-time breakdown in Rule Impact Sandbox showing Compliant / Needs Review / Non-Compliant assets across historical content.
+
+---
+
+## 4. Stretch Innovations Completed (Per Codex Specification)
+
+- **ProofPass™ Approval Passport (F1):**
+  - Cryptographic SHA-256 digest computed on exact manager approval.
+  - Perceptual pHash / dHash generated for visual assets to detect near-matches and compression drift with honest caveats.
+  - Signed certificate tokens with public verification at `/verify` and `/verify/:id`.
+  - Brand Manager revocation workflow with audit logging.
+- **Review Crew Multi-Agent Bounded System (Section 6 & Table 5):**
+  - Typed multi-agent architecture using PydanticAI / Pydantic schemas.
+  - 5 sequential read-only agents: Intake Agent, Visual Agent, Retrieval Agent, Evidence Verifier, Summary Agent.
+  - Bounded 10-step orchestrator with timeout protection, execution step traces persisted in `agent_traces` table.
+  - Dedicated interactive Review Crew audit trace panel in Content Feedback UI.
+- **Approved Snippets Vault (N10):**
+  - Pre-approved compliant marketing copy library for creators.
+- **Finding Feedback & False-Positive Flagging (N11):**
+  - Creator-to-manager feedback channel for flagged violations to improve rule precision.
+
