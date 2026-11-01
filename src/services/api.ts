@@ -634,6 +634,45 @@ export const api = {
 
   fetchCrewTrace: (submissionId: string) =>
     request<any>(`/submissions/${encodeURIComponent(submissionId)}/crew-trace`),
+
+  crewSummary: () =>
+    request<{
+      workspace: string
+      totalRuns: number
+      completedRuns: number
+      avgDurationMs: number
+      agents: { id: string; name: string; role: string; status: string; badge: string; desc: string }[]
+      recentTraces: {
+        id: string
+        submissionId: string
+        versionNum: number
+        status: string
+        summary: string
+        durationMs: number
+        createdAt: string
+        stepsCount: number
+      }[]
+    }>('/crew/summary'),
+
+  listPassports: () =>
+    request<{
+      id: string
+      submissionId: string
+      versionNumber: number
+      brand: string
+      title: string
+      sha256: string
+      phash: string | null
+      token: string
+      approvedBy: string
+      status: string
+      revocationReason: string | null
+      createdAt: string
+      expiresAt: string
+    }[]>('/passport'),
+
+  listAnalyses: (limit = 50) =>
+    request<(AssetAnalysis & { submissionTitle?: string; submissionCode?: string })[]>(`/analysis?limit=${limit}`),
 }
 
 export type Api = typeof api

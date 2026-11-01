@@ -16,6 +16,95 @@ from ..services.crew import CrewReviewTrace, get_latest_crew_trace, run_review_c
 router = APIRouter(prefix="", tags=["review-crew"])
 
 
+@router.get("/crew/summary")
+def get_crew_summary(
+    db: Session = Depends(get_db),
+    user: models.User = Depends(get_current_user),
+):
+    """Retrieve workspace-wide Review Crew multi-agent orchestration summary and health."""
+    ws = getattr(user, "workspace", "PureGlow") or "PureGlow"
+    traces = (
+        db.query(models.AgentTraceRecord)
+        .filter(models.AgentTraceRecord.workspace == ws)
+        .order_by(models.AgentTraceRecord.created_at.desc())
+        .limit(20)
+        .all()
+    )
+    total_runs = db.query(models.AgentTraceRecord).filter(models.AgentTraceRecord.workspace == ws).count()
+    completed_runs = db.query(models.AgentTraceRecord).filter(
+        models.AgentTraceRecord.workspace == ws,
+        models.AgentTraceRecord.orchestrator_status == "completed",
+    ).count()
+
+    avg_duration = 0
+    if traces:
+        durations = [t.total_duration_ms for t in traces if t.total_duration_ms]
+        if durations:
+            avg_duration = sum(durations) // len(durations)
+
+    return {
+        "workspace": ws,
+        "totalRuns": total_runs,
+        "completedRuns": completed_runs,
+        "avgDurationMs": avg_duration,
+        "agents": [
+            {
+                "id": "intake",
+                "name": "Intake Agent",
+                "role": "Asset & Metadata Parser",
+                "status": "active",
+                "badge": "Healthy",
+                "desc": "Validates file magic bytes, extracts plain copy & dimensions",
+            },
+            {
+                "id": "visual",
+                "name": "VisualGuard Agent",
+                "role": "OCR & Visual Compliance",
+                "status": "active",
+                "badge": "Healthy",
+                "desc": "Performs multi-lingual OCR, OpenCV logo match & contrast checks",
+            },
+            {
+                "id": "retrieval",
+                "name": "Retrieval Agent",
+                "role": "Dense + BM25 Hybrid Search",
+                "status": "active",
+                "badge": "Healthy",
+                "desc": "Executes vector + lexical search across active guideline documents",
+            },
+            {
+                "id": "verifier",
+                "name": "Evidence Verifier",
+                "role": "Hallucination Defense Gate",
+                "status": "active",
+                "badge": "Healthy",
+                "desc": "Enforces strict passage grounding with 0 tolerance for hallucination",
+            },
+            {
+                "id": "summary",
+                "name": "Synthesis Agent",
+                "role": "Advisory Summary & Fixes",
+                "status": "active",
+                "badge": "Healthy",
+                "desc": "Generates structured feedback and 1-click minimal-edit suggestions",
+            },
+        ],
+        "recentTraces": [
+            {
+                "id": t.id,
+                "submissionId": t.submission_id,
+                "versionNum": t.version_num,
+                "status": t.orchestrator_status,
+                "summary": t.summary_text,
+                "durationMs": t.total_duration_ms,
+                "createdAt": t.created_at.isoformat() if t.created_at else None,
+                "stepsCount": len(t.steps_json) if isinstance(t.steps_json, list) else 0,
+            }
+            for t in traces[:6]
+        ],
+    }
+
+
 @router.post("/submissions/{sub_id}/crew-review", response_model=CrewReviewTrace)
 def trigger_crew_review(
     sub_id: str,

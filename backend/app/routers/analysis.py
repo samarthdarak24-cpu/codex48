@@ -136,6 +136,33 @@ def upload_poster(
     }
 
 
+@router.get("")
+def list_analyses(
+    limit: int = 50,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """List visual analyses for the current workspace."""
+    ws = getattr(current_user, "workspace", "PureGlow") or "PureGlow"
+    analyses = (
+        db.query(models.AssetAnalysis)
+        .filter(models.AssetAnalysis.workspace == ws)
+        .order_by(models.AssetAnalysis.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+    result = []
+    for a in analyses:
+        d = visual.analysis_to_dict(a)
+        if a.submission_id:
+            sub = db.get(models.Submission, a.submission_id)
+            if sub:
+                d["submissionTitle"] = sub.title
+                d["submissionCode"] = getattr(sub, "code", "")
+        result.append(d)
+    return result
+
+
 @router.get("/{analysis_id}")
 def get_analysis(
     analysis_id: str,

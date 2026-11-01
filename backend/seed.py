@@ -4,7 +4,9 @@ Mirrors the fictional dataset in src/lib/demo-data.ts with a 2-user workspace.
 Run with:  python seed.py
 """
 import os
+import json
 import shutil
+from jose import jwt
 from datetime import datetime, timedelta, timezone
 
 from app.config import settings
@@ -867,6 +869,550 @@ def main() -> None:
                 created_at=now() - timedelta(hours=3),
             )
             db.add(fb)
+        db.commit()
+
+        # ------------------------------------------------------------------
+        # Round 3 & Multi-Agent System Seeding:
+        # AssetAnalysis, AiFinding, AiCallLog, ApprovalPassport, AgentTraceRecord,
+        # Publications & Sentinel ReassessmentTasks
+        # ------------------------------------------------------------------
+        print("  Seeding Round 3 Innovations & Review Crew multi-agent data...")
+
+        # 1. AssetAnalysis records
+        demo_asset_path = os.path.join(settings.uploads_dir, "demo_poster_diwali.png")
+        if not os.path.exists(demo_asset_path) and os.path.exists(os.path.join(settings.uploads_dir, "demo_poster.png")):
+            demo_asset_path = os.path.join(settings.uploads_dir, "demo_poster.png")
+
+        analysis_01 = models.AssetAnalysis(
+            id=new_id("aa"),
+            workspace="PureGlow",
+            submission_id=created_subs[0].id,
+            file_path=demo_asset_path,
+            status="completed",
+            error=None,
+            width=1080,
+            height=1080,
+            ocr_text="PureGlow Festive Radiance\n100% natural and safe with organic saffron\nFlat 20% off with code GLOW20\nदिवाली स्पेशल ऑफर\nTerms & conditions apply",
+            text_blocks=[
+                {"box": [80, 120, 920, 210], "text": "PureGlow Festive Radiance", "conf": 0.98},
+                {"box": [80, 240, 950, 310], "text": "100% natural and safe with organic saffron", "conf": 0.94},
+                {"box": [80, 340, 800, 410], "text": "Flat 20% off with code GLOW20", "conf": 0.96},
+                {"box": [80, 440, 600, 510], "text": "दिवाली स्पेशल ऑफर", "conf": 0.93},
+                {"box": [80, 920, 650, 970], "text": "Terms & conditions apply", "conf": 0.95},
+            ],
+            dominant_colors=[
+                {"hex": "#7AB93B", "percent": 44.2, "name": "PureGlow Green"},
+                {"hex": "#F4EFE3", "percent": 34.6, "name": "Sand Neutral"},
+                {"hex": "#2E7D8F", "percent": 15.1, "name": "Teal Accent"},
+            ],
+            logo_matches=[
+                {"box": [64, 48, 240, 108], "template": "logo_pureglow_main", "score": 0.95, "clear_space_pass": True}
+            ],
+            layout_metrics={"aspect_ratio": "1:1", "clear_space_ratio": 0.24, "typeface": "Inter Display", "primary_color": "#7AB93B"},
+            contrast_findings=[
+                {"box": [80, 120, 920, 210], "text_color": "#FFFFFF", "bg_color": "#7AB93B", "contrast_ratio": 4.82, "wcag_aa_pass": True, "wcag_aaa_pass": False}
+            ],
+            analyzer_versions={"ocr": "tesseract-5.3+rapidocr", "colors": "opencv-kmeans", "logo": "orb-matcher"},
+            unreadable=False,
+            created_by_id=emily.id,
+            created_at=now() - timedelta(days=3),
+            completed_at=now() - timedelta(days=3, minutes=-2),
+        )
+
+        analysis_02 = models.AssetAnalysis(
+            id=new_id("aa"),
+            workspace="PureGlow",
+            submission_id=created_subs[1].id,
+            file_path=demo_asset_path,
+            status="completed",
+            error=None,
+            width=1080,
+            height=1350,
+            ocr_text="PureGlow Clinical Care\nDermatologically Tested Under ISO-22716\nActive 15% Vitamin C Complex\n30ml e 1.0 fl oz",
+            text_blocks=[
+                {"box": [60, 80, 800, 150], "text": "PureGlow Clinical Care", "conf": 0.99},
+                {"box": [60, 180, 920, 250], "text": "Dermatologically Tested Under ISO-22716", "conf": 0.97},
+                {"box": [60, 280, 850, 340], "text": "Active 15% Vitamin C Complex", "conf": 0.98},
+            ],
+            dominant_colors=[
+                {"hex": "#F4EFE3", "percent": 55.4, "name": "Sand Neutral"},
+                {"hex": "#7AB93B", "percent": 28.2, "name": "PureGlow Green"},
+            ],
+            logo_matches=[
+                {"box": [50, 40, 210, 96], "template": "logo_pureglow_main", "score": 0.97, "clear_space_pass": True}
+            ],
+            layout_metrics={"aspect_ratio": "4:5", "clear_space_ratio": 0.28, "typeface": "Inter Display", "primary_color": "#F4EFE3"},
+            contrast_findings=[
+                {"box": [60, 80, 800, 150], "text_color": "#1C2024", "bg_color": "#F4EFE3", "contrast_ratio": 12.4, "wcag_aa_pass": True, "wcag_aaa_pass": True}
+            ],
+            analyzer_versions={"ocr": "tesseract-5.3+rapidocr", "colors": "opencv-kmeans", "logo": "orb-matcher"},
+            unreadable=False,
+            created_by_id=emily.id,
+            created_at=now() - timedelta(days=5),
+            completed_at=now() - timedelta(days=5, minutes=-2),
+        )
+
+        analysis_03 = models.AssetAnalysis(
+            id=new_id("aa"),
+            workspace="PureGlow",
+            submission_id=created_subs[4].id,
+            file_path=demo_asset_path,
+            status="completed",
+            error=None,
+            width=1200,
+            height=628,
+            ocr_text="PureGlow Daily Moisture\n100% Recyclable Glass Packaging\nNo Artificial Fragrance Added",
+            text_blocks=[
+                {"box": [80, 60, 820, 130], "text": "PureGlow Daily Moisture", "conf": 0.98},
+                {"box": [80, 160, 900, 220], "text": "100% Recyclable Glass Packaging", "conf": 0.96},
+            ],
+            dominant_colors=[
+                {"hex": "#7AB93B", "percent": 58.0, "name": "PureGlow Green"},
+                {"hex": "#FFFFFF", "percent": 30.5, "name": "White"},
+            ],
+            logo_matches=[
+                {"box": [60, 50, 220, 105], "template": "logo_pureglow_main", "score": 0.94, "clear_space_pass": True}
+            ],
+            layout_metrics={"aspect_ratio": "1.91:1", "clear_space_ratio": 0.25, "typeface": "Inter Display", "primary_color": "#7AB93B"},
+            contrast_findings=[
+                {"box": [80, 60, 820, 130], "text_color": "#FFFFFF", "bg_color": "#7AB93B", "contrast_ratio": 4.95, "wcag_aa_pass": True, "wcag_aaa_pass": False}
+            ],
+            analyzer_versions={"ocr": "tesseract-5.3+rapidocr", "colors": "opencv-kmeans", "logo": "orb-matcher"},
+            unreadable=False,
+            created_by_id=emily.id,
+            created_at=now() - timedelta(days=7),
+            completed_at=now() - timedelta(days=7, minutes=-2),
+        )
+
+        analysis_04 = models.AssetAnalysis(
+            id=new_id("aa"),
+            workspace="PureGlow",
+            submission_id=created_subs[6].id,
+            file_path=demo_asset_path,
+            status="completed",
+            error=None,
+            width=1080,
+            height=1080,
+            ocr_text="PureGlow Equinox Awakening\nCelebrate renewal with botanical essentials\nShop the Autumn Collection",
+            text_blocks=[
+                {"box": [70, 90, 850, 160], "text": "PureGlow Equinox Awakening", "conf": 0.97},
+                {"box": [70, 180, 920, 240], "text": "Celebrate renewal with botanical essentials", "conf": 0.95},
+            ],
+            dominant_colors=[
+                {"hex": "#2E7D8F", "percent": 49.0, "name": "Teal Accent"},
+                {"hex": "#F4EFE3", "percent": 36.0, "name": "Sand Neutral"},
+            ],
+            logo_matches=[
+                {"box": [70, 50, 240, 110], "template": "logo_pureglow_main", "score": 0.92, "clear_space_pass": True}
+            ],
+            layout_metrics={"aspect_ratio": "1:1", "clear_space_ratio": 0.22, "typeface": "Inter Display", "primary_color": "#2E7D8F"},
+            contrast_findings=[
+                {"box": [70, 90, 850, 160], "text_color": "#FFFFFF", "bg_color": "#2E7D8F", "contrast_ratio": 5.4, "wcag_aa_pass": True, "wcag_aaa_pass": True}
+            ],
+            analyzer_versions={"ocr": "tesseract-5.3+rapidocr", "colors": "opencv-kmeans", "logo": "orb-matcher"},
+            unreadable=False,
+            created_by_id=emily.id,
+            created_at=now() - timedelta(days=9),
+            completed_at=now() - timedelta(days=9, minutes=-2),
+        )
+
+        db.add_all([analysis_01, analysis_02, analysis_03, analysis_04])
+        db.commit()
+
+        # 2. AiFinding records
+        v0 = db.query(models.ContentVersion).filter_by(submission_id=created_subs[0].id).first()
+        v1 = db.query(models.ContentVersion).filter_by(submission_id=created_subs[1].id).first()
+        v3 = db.query(models.ContentVersion).filter_by(submission_id=created_subs[3].id).first()
+        v4 = db.query(models.ContentVersion).filter_by(submission_id=created_subs[4].id).first()
+
+        ai_findings_data = [
+            models.AiFinding(
+                id=new_id("aif"),
+                workspace="PureGlow",
+                submission_id=created_subs[0].id,
+                submission_version_id=v0.id if v0 else None,
+                rule_code="CL-03",
+                rule_title="Only approved product claims",
+                passage_id="doc_claims_p5",
+                source_type="guideline_passage",
+                confidence=0.96,
+                similarity=0.89,
+                rationale="The headline asserts '100% natural and safe' which does not appear in the Approved Claims list.",
+                minimal_edit="Replace '100% natural and safe' with approved claim 'Formulated with 100% certified organic ingredients'.",
+                quote="Section 4.1 — Claims. Only claims recorded in the Approved Claims List may appear in external communication. Use the exact wording listed.",
+                citation_verified=True,
+                rejected_reason=None,
+                model="gpt-4o",
+                prompt_version="2.1",
+                created_at=now() - timedelta(days=3),
+            ),
+            models.AiFinding(
+                id=new_id("aif"),
+                workspace="PureGlow",
+                submission_id=created_subs[0].id,
+                submission_version_id=v0.id if v0 else None,
+                rule_code="MK-02",
+                rule_title="Discount claims must be verifiable",
+                passage_id="doc_claims_p22",
+                source_type="guideline_passage",
+                confidence=0.92,
+                similarity=0.86,
+                rationale="The promotional code GLOW20 offers 20% off but lacks the mandatory expiration window on the visual asset.",
+                minimal_edit="Add promotional footer line: 'Valid until Nov 14, 2026. T&Cs apply.'",
+                quote="Section 6.2 — Promotional claims. Any \"% off\" statement must be tied to a dated campaign window and a reference price.",
+                citation_verified=True,
+                rejected_reason=None,
+                model="gpt-4o",
+                prompt_version="2.1",
+                created_at=now() - timedelta(days=3),
+            ),
+            models.AiFinding(
+                id=new_id("aif"),
+                workspace="PureGlow",
+                submission_id=created_subs[3].id,
+                submission_version_id=v3.id if v3 else None,
+                rule_code="PA-05",
+                rule_title="Paid partnership disclosure",
+                passage_id="doc_claims_p15",
+                source_type="guideline_passage",
+                confidence=0.98,
+                similarity=0.93,
+                rationale="Influencer caption lacks the explicit paid disclosure line within the first two lines of text.",
+                minimal_edit="Prefix caption with: 'Paid partnership with PureGlow.'",
+                quote='Section 5.1 — Disclosure. Every paid partnership asset must include the line \"Paid partnership with {brand}\" in the first two lines of caption.',
+                citation_verified=True,
+                rejected_reason=None,
+                model="gpt-4o",
+                prompt_version="2.1",
+                created_at=now() - timedelta(days=4),
+            ),
+            models.AiFinding(
+                id=new_id("aif"),
+                workspace="PureGlow",
+                submission_id=created_subs[4].id,
+                submission_version_id=v4.id if v4 else None,
+                rule_code="CL-04",
+                rule_title="No unqualified superlatives",
+                passage_id="doc_claims_p9",
+                source_type="guideline_passage",
+                confidence=0.88,
+                similarity=0.84,
+                rationale="Copy references packaging recyclability without citing the audited certification batch on the carton.",
+                minimal_edit="Add packaging citation: '(Packaging Certification §4.2, FSC-C104231)'.",
+                quote='Section 2.4 — Superlatives. Terms including \"100% safe\", \"guaranteed\" and \"no risk\" must be supported by a substantiation reference on the same asset, or removed.',
+                citation_verified=True,
+                rejected_reason=None,
+                model="gpt-4o",
+                prompt_version="2.1",
+                created_at=now() - timedelta(days=7),
+            ),
+        ]
+        db.add_all(ai_findings_data)
+        db.commit()
+
+        # 3. AiCallLog records (18 records spread across 14 days)
+        call_logs = []
+        purposes = ["retrieval", "semantic_review", "minimal_edit", "visual_ocr"]
+        for i in range(18):
+            purp = purposes[i % len(purposes)]
+            call_logs.append(
+                models.AiCallLog(
+                    id=new_id("log"),
+                    workspace="PureGlow",
+                    purpose=purp,
+                    model="gpt-4o",
+                    prompt_version="2.1",
+                    latency_ms=135 + (i * 11) % 140,
+                    tokens_in=480 + (i * 47) % 550,
+                    tokens_out=110 + (i * 19) % 220,
+                    status="success",
+                    error=None,
+                    citations_verified=3 + (i % 4),
+                    citations_rejected=0,
+                    redaction_count=0,
+                    created_at=now() - timedelta(days=14 - (i * 0.75)),
+                )
+            )
+        db.add_all(call_logs)
+        db.commit()
+
+        # 4. ApprovalPassport records (Cryptographic passports for approved items)
+        passport_01 = models.ApprovalPassport(
+            id="pass_pg_hydragel",
+            workspace="PureGlow",
+            submission_id=created_subs[4].id,
+            version_id=v4.id if v4 else "v_04",
+            version_number=1,
+            brand="PureGlow",
+            title=created_subs[4].title,
+            sha256="e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            phash="a8f4c2b1e0d93765",
+            dhash="7b2c9a1f3e8d0452",
+            token=jwt.encode(
+                {"sub": created_subs[4].id, "ver": 1, "iss": "precedent-proofpass", "exp": int((now() + timedelta(days=85)).timestamp())},
+                settings.secret_key,
+                algorithm="HS256",
+            ),
+            approved_by=david.name,
+            status="active",
+            revocation_reason=None,
+            created_at=now() - timedelta(days=5),
+            expires_at=now() + timedelta(days=85),
+        )
+
+        passport_02 = models.ApprovalPassport(
+            id="pass_pg_vitc",
+            workspace="PureGlow",
+            submission_id=created_subs[1].id,
+            version_id=v1.id if v1 else "v_01",
+            version_number=1,
+            brand="PureGlow",
+            title=created_subs[1].title,
+            sha256="9f83c24d9e851639cfa3204c3caf7319e02d8696ec47a885cb14dada79666f47",
+            phash="b4d2e8c1f0a93876",
+            dhash="6c1b8a2e4d9f0563",
+            token=jwt.encode(
+                {"sub": created_subs[1].id, "ver": 1, "iss": "precedent-proofpass", "exp": int((now() + timedelta(days=78)).timestamp())},
+                settings.secret_key,
+                algorithm="HS256",
+            ),
+            approved_by=david.name,
+            status="active",
+            revocation_reason=None,
+            created_at=now() - timedelta(days=12),
+            expires_at=now() + timedelta(days=78),
+        )
+
+        passport_03 = models.ApprovalPassport(
+            id="pass_pg_awareness",
+            workspace="PureGlow",
+            submission_id=created_subs[5].id,
+            version_id="v_05",
+            version_number=1,
+            brand="PureGlow",
+            title=created_subs[5].title,
+            sha256="d5a83b2e7c4f1906a2e4b8d1c7f0a93b5e8c1d4a7f2e0b9c3d6a8f1b4e7c0d2a",
+            phash="c1e9a2b8d4f03765",
+            dhash="5a9b2c1e7f0d4832",
+            token=jwt.encode(
+                {"sub": created_subs[5].id, "ver": 1, "iss": "precedent-proofpass", "exp": int((now() + timedelta(days=72)).timestamp())},
+                settings.secret_key,
+                algorithm="HS256",
+            ),
+            approved_by=david.name,
+            status="active",
+            revocation_reason=None,
+            created_at=now() - timedelta(days=18),
+            expires_at=now() + timedelta(days=72),
+        )
+
+        db.add_all([passport_01, passport_02, passport_03])
+        db.commit()
+
+        # 5. AgentTraceRecord (Review Crew 5-Agent Execution Traces)
+        crew_traces_data = [
+            models.AgentTraceRecord(
+                id=new_id("trc"),
+                workspace="PureGlow",
+                submission_id=created_subs[0].id,
+                version_num=1,
+                orchestrator_status="completed",
+                total_duration_ms=2180,
+                summary_text="Review Crew 5-Agent Pipeline: Intake validated copy; VisualGuard OCR identified 5 text blocks with 95% logo match; Hybrid retrieval matched 4 guideline passages; Verifier confirmed 100% citation grounding; Summary recommended 1 minimal-edit for unapproved claim.",
+                steps_json=json.dumps([
+                    {
+                        "agent": "intake",
+                        "agent_name": "Intake Agent",
+                        "status": "success",
+                        "duration_ms": 210,
+                        "output": {"text_extracted": True, "word_count": 68, "aspect_ratio": "1:1", "language": "en+hi", "channel": "Social Media"},
+                    },
+                    {
+                        "agent": "visual",
+                        "agent_name": "VisualGuard Agent",
+                        "status": "success",
+                        "duration_ms": 640,
+                        "output": {"ocr_blocks": 5, "logo_matched": True, "logo_confidence": 0.95, "contrast_pass": True, "dominant_color": "#7AB93B"},
+                    },
+                    {
+                        "agent": "retrieval",
+                        "agent_name": "Retrieval Agent",
+                        "status": "success",
+                        "duration_ms": 380,
+                        "output": {"method": "rrf_hybrid", "passages_retrieved": 4, "top_passage": "Claims & Compliance Playbook v1.3 §4.1"},
+                    },
+                    {
+                        "agent": "verifier",
+                        "agent_name": "Evidence Verifier",
+                        "status": "success",
+                        "duration_ms": 420,
+                        "output": {"citations_tested": 2, "verified_grounded": 2, "hallucinations": 0, "status": "grounded"},
+                    },
+                    {
+                        "agent": "summary",
+                        "agent_name": "Synthesis Agent",
+                        "status": "success",
+                        "duration_ms": 530,
+                        "output": {"findings_count": 2, "suggested_fixes": 2, "risk_level": "medium", "recommended_action": "Request Changes"},
+                    },
+                ]),
+                created_at=now() - timedelta(days=3),
+            ),
+            models.AgentTraceRecord(
+                id=new_id("trc"),
+                workspace="PureGlow",
+                submission_id=created_subs[1].id,
+                version_num=1,
+                orchestrator_status="completed",
+                total_duration_ms=1960,
+                summary_text="Review Crew 5-Agent Pipeline: Verified ISO-22716 study code PG-2026-B. Verifier confirmed full evidence grounding.",
+                steps_json=json.dumps([
+                    {
+                        "agent": "intake",
+                        "agent_name": "Intake Agent",
+                        "status": "success",
+                        "duration_ms": 190,
+                        "output": {"text_extracted": True, "word_count": 42, "aspect_ratio": "4:5", "language": "en"},
+                    },
+                    {
+                        "agent": "visual",
+                        "agent_name": "VisualGuard Agent",
+                        "status": "success",
+                        "duration_ms": 580,
+                        "output": {"ocr_blocks": 4, "logo_matched": True, "logo_confidence": 0.97, "contrast_pass": True, "dominant_color": "#F4EFE3"},
+                    },
+                    {
+                        "agent": "retrieval",
+                        "agent_name": "Retrieval Agent",
+                        "status": "success",
+                        "duration_ms": 350,
+                        "output": {"method": "rrf_hybrid", "passages_retrieved": 3, "top_passage": "Claims & Compliance Playbook v1.3 §3.2"},
+                    },
+                    {
+                        "agent": "verifier",
+                        "agent_name": "Evidence Verifier",
+                        "status": "success",
+                        "duration_ms": 390,
+                        "output": {"citations_tested": 2, "verified_grounded": 2, "hallucinations": 0, "status": "grounded"},
+                    },
+                    {
+                        "agent": "summary",
+                        "agent_name": "Synthesis Agent",
+                        "status": "success",
+                        "duration_ms": 450,
+                        "output": {"findings_count": 0, "suggested_fixes": 0, "risk_level": "low", "recommended_action": "Approve"},
+                    },
+                ]),
+                created_at=now() - timedelta(days=5),
+            ),
+            models.AgentTraceRecord(
+                id=new_id("trc"),
+                workspace="PureGlow",
+                submission_id=created_subs[4].id,
+                version_num=1,
+                orchestrator_status="completed",
+                total_duration_ms=1850,
+                summary_text="Review Crew 5-Agent Pipeline: All checks passed. 0 deterministic violations, 1 advisory packaging note with verified citation.",
+                steps_json=json.dumps([
+                    {
+                        "agent": "intake",
+                        "agent_name": "Intake Agent",
+                        "status": "success",
+                        "duration_ms": 180,
+                        "output": {"text_extracted": True, "word_count": 35, "aspect_ratio": "1.91:1", "language": "en"},
+                    },
+                    {
+                        "agent": "visual",
+                        "agent_name": "VisualGuard Agent",
+                        "status": "success",
+                        "duration_ms": 520,
+                        "output": {"ocr_blocks": 3, "logo_matched": True, "logo_confidence": 0.94, "contrast_pass": True, "dominant_color": "#7AB93B"},
+                    },
+                    {
+                        "agent": "retrieval",
+                        "agent_name": "Retrieval Agent",
+                        "status": "success",
+                        "duration_ms": 330,
+                        "output": {"method": "rrf_hybrid", "passages_retrieved": 3, "top_passage": "Packaging Guide §4.2"},
+                    },
+                    {
+                        "agent": "verifier",
+                        "agent_name": "Evidence Verifier",
+                        "status": "success",
+                        "duration_ms": 380,
+                        "output": {"citations_tested": 1, "verified_grounded": 1, "hallucinations": 0, "status": "grounded"},
+                    },
+                    {
+                        "agent": "summary",
+                        "agent_name": "Synthesis Agent",
+                        "status": "success",
+                        "duration_ms": 440,
+                        "output": {"findings_count": 1, "suggested_fixes": 1, "risk_level": "low", "recommended_action": "Approve with Notes"},
+                    },
+                ]),
+                created_at=now() - timedelta(days=7),
+            ),
+        ]
+        db.add_all(crew_traces_data)
+        db.commit()
+
+        # 6. Additional Sentinel Publications and Reassessment Tasks
+        pub_02 = models.Publication(
+            id=new_id("pub"),
+            workspace="PureGlow",
+            submission_id=created_subs[1].id,
+            submission_version_id=v1.id if v1 else None,
+            channel="Website",
+            published_at=now() - timedelta(days=10),
+            published_by=david.id,
+            status="published",
+        )
+        pub_03 = models.Publication(
+            id=new_id("pub"),
+            workspace="PureGlow",
+            submission_id=created_subs[5].id,
+            submission_version_id=None,
+            channel="LinkedIn",
+            published_at=now() - timedelta(days=15),
+            published_by=david.id,
+            status="published",
+        )
+        db.add_all([pub_02, pub_03])
+
+        task_02 = models.ReassessmentTask(
+            id=new_id("rt"),
+            workspace="PureGlow",
+            submission_id=created_subs[1].id,
+            submission_version_id=v1.id if v1 else None,
+            trigger_type="claim_withdrawn",
+            trigger_ref="clm_iso22716",
+            reason="Approved clinical safety claim wording updated in Claims Playbook §3.2. Published packaging requires re-validation.",
+            affected_rule_codes=["CL-03", "CL-06"],
+            assignee_id=emily.id,
+            status="open",
+            due_at=now() + timedelta(days=5),
+            created_at=now() - timedelta(hours=14),
+        )
+
+        task_03 = models.ReassessmentTask(
+            id=new_id("rt"),
+            workspace="PureGlow",
+            submission_id=created_subs[5].id,
+            submission_version_id=None,
+            trigger_type="exception_expired",
+            trigger_ref="exc_2039",
+            reason="Seasonal color exemption EXC-2039 expired on active social banner.",
+            affected_rule_codes=["BR-01"],
+            assignee_id=david.id,
+            status="resolved",
+            due_at=now() - timedelta(days=1),
+            resolution="reapproved",
+            resolution_note="Emily updated asset background to approved Brand Sand #F4EFE3.",
+            resolved_by_id=david.id,
+            resolved_at=now() - timedelta(hours=5),
+            created_at=now() - timedelta(days=3),
+        )
+        db.add_all([task_02, task_03])
         db.commit()
 
         # ------------------------------------------------------------------

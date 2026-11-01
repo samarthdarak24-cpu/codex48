@@ -61,6 +61,39 @@ def issue_passport(
     }
 
 
+@router.get("")
+def list_passports(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """List all approval passports for the current workspace."""
+    ws = getattr(current_user, "workspace", "PureGlow") or "PureGlow"
+    passports = (
+        db.query(models.ApprovalPassport)
+        .filter(models.ApprovalPassport.workspace == ws)
+        .order_by(models.ApprovalPassport.created_at.desc())
+        .all()
+    )
+    return [
+        {
+            "id": p.id,
+            "submissionId": p.submission_id,
+            "versionNumber": p.version_number,
+            "brand": p.brand,
+            "title": p.title,
+            "sha256": p.sha256,
+            "phash": p.phash,
+            "token": p.token,
+            "approvedBy": p.approved_by,
+            "status": p.status,
+            "revocationReason": p.revocation_reason,
+            "createdAt": p.created_at.isoformat() if p.created_at else None,
+            "expiresAt": p.expires_at.isoformat() if p.expires_at else None,
+        }
+        for p in passports
+    ]
+
+
 @router.get("/{passport_id}")
 def get_passport(
     passport_id: str,
