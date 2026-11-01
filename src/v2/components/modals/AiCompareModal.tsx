@@ -34,6 +34,10 @@ export const AiCompareModal: React.FC = () => {
     );
   }
 
+  const findings = current.findings ?? [];
+  const failedFindings = findings.filter(f => f.type === 'error' || f.type === 'warning');
+  const currentScore = current.complianceScore ?? 0;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
       <div className="bg-white w-full max-w-5xl rounded-2xl shadow-2xl border border-line overflow-hidden flex flex-col max-h-[90vh]">
@@ -46,7 +50,7 @@ export const AiCompareModal: React.FC = () => {
             <div>
               <h2 className="text-base font-bold text-ink-900">AI Visual Diff &amp; Revision Comparison</h2>
               <p className="text-xs text-muted">
-                Comparing Version 1.0 (Flagged) vs Version 1.1 (Revised) for {current.title}
+                Comparing flagged vs resolved view for {current.title}
               </p>
             </div>
           </div>
@@ -87,11 +91,11 @@ export const AiCompareModal: React.FC = () => {
           <div className="flex items-center gap-3 text-xs">
             <span className="flex items-center gap-1.5 text-rose-600 font-semibold">
               <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
-              Before (Score 72%)
+              Before · {failedFindings.length} flagged
             </span>
             <span className="flex items-center gap-1.5 text-emerald-600 font-semibold">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-              After (Score 98%)
+              After · Score {currentScore}%
             </span>
           </div>
         </div>
@@ -105,10 +109,10 @@ export const AiCompareModal: React.FC = () => {
                 <div className="flex items-center justify-between text-xs text-white">
                   <span className="font-bold flex items-center gap-1.5 text-rose-400">
                     <AlertTriangle className="w-4 h-4" />
-                    Original Revision (Margin 8px, Off-palette)
+                    {failedFindings.length > 0 ? `Original Version · ${failedFindings.length} flagged` : 'Original Version'}
                   </span>
                   <span className="px-2 py-0.5 rounded bg-rose-900/60 text-rose-300 text-[10px] font-bold">
-                    Score: 72%
+                    Open: {failedFindings.length}
                   </span>
                 </div>
                 <div className="relative rounded-xl overflow-hidden border-2 border-rose-500/60 bg-black aspect-video flex items-center justify-center">
@@ -118,7 +122,7 @@ export const AiCompareModal: React.FC = () => {
                     className="w-full h-full object-cover opacity-85"
                   />
                   <div className="absolute top-3 left-3 border border-rose-500 bg-rose-950/80 px-2 py-1 rounded text-[10px] text-rose-200 font-mono">
-                    Padding: 8px (Violation)
+                    {failedFindings[0]?.title ?? 'No detected issues'}
                   </div>
                 </div>
               </div>
@@ -128,10 +132,10 @@ export const AiCompareModal: React.FC = () => {
                 <div className="flex items-center justify-between text-xs text-white">
                   <span className="font-bold flex items-center gap-1.5 text-emerald-400">
                     <CheckCircle2 className="w-4 h-4" />
-                    Revised Revision (Margin 16px, Forest #15803d)
+                    Revised Version · Score {currentScore}%
                   </span>
                   <span className="px-2 py-0.5 rounded bg-emerald-900/60 text-emerald-300 text-[10px] font-bold">
-                    Score: 98%
+                    Score: {currentScore}%
                   </span>
                 </div>
                 <div className="relative rounded-xl overflow-hidden border-2 border-emerald-500 bg-black aspect-video flex items-center justify-center">
@@ -141,7 +145,7 @@ export const AiCompareModal: React.FC = () => {
                     className="w-full h-full object-cover"
                   />
                   <div className="absolute top-3 left-3 border border-emerald-500 bg-emerald-950/80 px-2 py-1 rounded text-[10px] text-emerald-200 font-mono">
-                    Padding: 16px (Compliant)
+                    Compliance: {currentScore}%
                   </div>
                 </div>
               </div>
