@@ -441,57 +441,55 @@ const PILLARS = [
   {
     title: 'Reviews that cite their sources',
     body: 'Every finding links to the page and passage it came from. No citation, no claim — unverified passages are flagged for a human.',
-    icon: FileSearch,
+    icon: FileText,
     badge: '100% Traceable',
+    image: '/images/brand/lifestyle.webp',
+    imageTag: 'Grounded Passage Retrieval',
     visual: (
-      <div className="mt-4 rounded-xl border border-emerald-200/80 bg-emerald-50/60 p-3.5 text-[11px] shadow-2xs">
-        <div className="flex items-center justify-between text-emerald-900 font-semibold mb-1.5 pb-1.5 border-b border-emerald-200/50">
-          <span className="flex items-center gap-1.5">
-            <FileText className="h-3.5 w-3.5 text-emerald-600" />
-            PureGlow_Guidelines.pdf
-          </span>
-          <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[9.5px] font-bold text-emerald-800 border border-emerald-200">
-            p.14 §3.2
-          </span>
-        </div>
-        <p className="italic text-emerald-950 font-serif text-[11.5px] leading-snug">
-          “Primary claims must cite verified batch clinical laboratory results.”
-        </p>
-        <div className="mt-2.5 flex items-center justify-between text-[10px] text-emerald-700 font-bold pt-1">
-          <span className="flex items-center gap-1">
-            <CheckCircle2 className="h-3 w-3 text-emerald-600" />
-            Deterministic Citation Anchor
-          </span>
-          <span className="text-emerald-800 font-mono">BR-01</span>
+      <div className="relative mt-4 overflow-hidden rounded-xl border border-emerald-200/80 bg-emerald-950/5 shadow-2xs group">
+        <div className="relative h-32 w-full overflow-hidden">
+          <img src="/images/brand/lifestyle.webp" alt="Passage citation preview" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
+          <div className="absolute top-2 left-2 flex items-center gap-1.5 rounded-full bg-emerald-600/90 px-2 py-0.5 text-[9.5px] font-bold text-white shadow-sm backdrop-blur-md">
+            <span className="h-1.5 w-1.5 rounded-full bg-white animate-ping" />
+            PyMuPDF · Page 14 §3.2
+          </div>
+          <div className="absolute bottom-2 inset-x-2 rounded-lg border border-white/20 bg-black/60 p-2 backdrop-blur-md text-white">
+            <p className="text-[10px] font-bold text-emerald-400">PureGlow_Guidelines.pdf</p>
+            <p className="text-[10px] italic text-white/90 truncate">“Primary claims must cite verified batch clinical laboratory results.”</p>
+            <div className="mt-1 flex items-center justify-between text-[8.5px] text-white/70">
+              <span>Rule BR-01 Grounded</span>
+              <span className="text-emerald-300 font-bold">Zero Hallucination</span>
+            </div>
+          </div>
         </div>
       </div>
     ),
   },
   {
     title: 'Approvals that respect versions',
-    body: 'A decision attaches to a specific content version. Edit the asset and the old approval doesn’t quietly follow it.',
+    body: 'A decision attaches to a specific content version. Edit the asset, and the old approval does not quietly follow it.',
     icon: Layers,
     badge: 'SHA-256 Sealed',
+    image: '/images/brand/summer.webp',
+    imageTag: 'Version-Locked Audit Trail',
     visual: (
-      <div className="mt-4 rounded-xl border border-blue-200/80 bg-blue-50/60 p-3.5 text-[11px] shadow-2xs">
-        <div className="flex items-center justify-between font-mono text-[10px] pb-1.5 border-b border-blue-200/50">
-          <span className="rounded bg-emerald-100 text-emerald-800 px-2 py-0.5 font-bold flex items-center gap-1 border border-emerald-200">
-            <Check className="h-2.5 w-2.5" /> v1.2 Approved
-          </span>
-          <span className="text-blue-500 font-bold">── edit ──►</span>
-          <span className="rounded bg-amber-100 text-amber-800 px-2 py-0.5 font-bold flex items-center gap-1 border border-amber-200">
-            <Lock className="h-2.5 w-2.5" /> v1.3 Review
-          </span>
-        </div>
-        <p className="mt-2 text-[11px] text-blue-950 font-medium leading-snug">
-          Content edit detected. Cryptographic approval seal automatically invalidated.
-        </p>
-        <div className="mt-2.5 flex items-center justify-between text-[10px] text-blue-700 font-bold pt-1">
-          <span className="flex items-center gap-1">
-            <History className="h-3 w-3 text-blue-600" />
-            Version-Locked Audit Trail
-          </span>
-          <span className="text-blue-800 font-mono">v1.2 ≠ v1.3</span>
+      <div className="relative mt-4 overflow-hidden rounded-xl border border-blue-200/80 bg-blue-950/5 shadow-2xs group">
+        <div className="relative h-32 w-full overflow-hidden">
+          <img src="/images/brand/summer.webp" alt="Version locked asset" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
+          <div className="absolute top-2 left-2 flex items-center gap-1.5 rounded-full bg-blue-600/90 px-2 py-0.5 text-[9.5px] font-bold text-white shadow-sm backdrop-blur-md">
+            <ShieldCheck className="h-3 w-3" />
+            Immutable Passport
+          </div>
+          <div className="absolute bottom-2 inset-x-2 rounded-lg border border-white/20 bg-black/60 p-2 backdrop-blur-md text-white">
+            <div className="flex items-center justify-between text-[10px] font-mono">
+              <span className="rounded bg-emerald-500/80 text-white px-1.5 py-0.5 font-bold">v1.2 Approved</span>
+              <span className="text-blue-300 font-bold">── edit ──►</span>
+              <span className="rounded bg-amber-500/80 text-white px-1.5 py-0.5 font-bold">v1.3 Review</span>
+            </div>
+            <p className="mt-1 text-[9.5px] text-white/80 truncate">Edit detected · Cryptographic seal invalidated</p>
+          </div>
         </div>
       </div>
     ),
@@ -501,26 +499,24 @@ const PILLARS = [
     body: 'Scope, reason and expiry are recorded. Out-of-scope or expired exceptions are rejected by the backend, not just hidden in the UI.',
     icon: Clock3,
     badge: 'Code Enforced',
+    image: '/images/brand/gift.webp',
+    imageTag: 'Auto-Expiring Exception',
     visual: (
-      <div className="mt-4 rounded-xl border border-purple-200/80 bg-purple-50/60 p-3.5 text-[11px] shadow-2xs">
-        <div className="flex items-center justify-between text-[10px] font-semibold text-purple-900 mb-1.5 pb-1.5 border-b border-purple-200/50">
-          <span className="font-mono bg-purple-100 px-2 py-0.5 rounded text-purple-800 font-bold border border-purple-200">
-            EX-2024-09
-          </span>
-          <span className="text-purple-700 font-bold flex items-center gap-1">
-            <Clock3 className="h-3 w-3" /> Auto-expires
-          </span>
-        </div>
-        <div className="flex items-center justify-between text-[11px] text-purple-950 font-medium bg-white/80 rounded-lg p-2 border border-purple-100">
-          <span>Scope: Festival Campaigns</span>
-          <span className="text-purple-700 font-bold">Dec 31, 2026</span>
-        </div>
-        <div className="mt-2.5 flex items-center justify-between text-[10px] text-purple-700 font-bold pt-1">
-          <span className="flex items-center gap-1">
-            <ShieldAlert className="h-3 w-3 text-purple-600" />
-            Backend Scope Rejection
-          </span>
-          <span className="text-purple-800 font-mono">EX-09 Active</span>
+      <div className="relative mt-4 overflow-hidden rounded-xl border border-purple-200/80 bg-purple-950/5 shadow-2xs group">
+        <div className="relative h-32 w-full overflow-hidden">
+          <img src="/images/brand/gift.webp" alt="Seasonal holiday exception" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
+          <div className="absolute top-2 left-2 flex items-center gap-1.5 rounded-full bg-purple-600/90 px-2 py-0.5 text-[9.5px] font-bold text-white shadow-sm backdrop-blur-md">
+            <Clock3 className="h-3 w-3" />
+            Auto-Expires: 31 Dec
+          </div>
+          <div className="absolute bottom-2 inset-x-2 rounded-lg border border-white/20 bg-black/60 p-2 backdrop-blur-md text-white">
+            <div className="flex items-center justify-between text-[10px]">
+              <span className="font-bold text-purple-300">EX-2024-09 · Festive Scope</span>
+              <span className="text-purple-200 bg-purple-500/40 px-1 rounded font-mono text-[9px]">Active</span>
+            </div>
+            <p className="mt-0.5 text-[9.5px] text-white/80 truncate">Scoped to Holiday Packaging · Backend enforced</p>
+          </div>
         </div>
       </div>
     ),
@@ -1010,24 +1006,31 @@ function ChallengeShowcase() {
       tone: 'bg-emerald-50 text-emerald-800 border-emerald-200/60',
       icon: FileSearch,
       visual: (
-        <div className="mt-5 rounded-2xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50/80 via-white to-emerald-50/30 p-3.5 shadow-2xs">
-          <div className="flex items-center justify-between pb-2 border-b border-emerald-100 text-[10px] text-emerald-800 font-bold">
-            <span className="flex items-center gap-1.5">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-ping" />
-              Source Citation
-            </span>
-            <span className="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-semibold border border-emerald-200">
-              Verified · p.12
-            </span>
-          </div>
-          <div className="mt-2.5 border-l-2 border-emerald-500 pl-2.5">
-            <p className="text-[11.5px] italic text-emerald-950 font-serif leading-[17px]">
-              “Primary green (#7AB93B) and neutral sand (#F4EFE3) are the only approved campaign background colours.”
-            </p>
-          </div>
-          <div className="mt-2 flex items-center justify-between text-[10px] text-emerald-700 pt-1">
-            <span>Color Palette Guide v1.0</span>
-            <span className="font-semibold text-emerald-800">Rule BR-01</span>
+        <div className="relative mt-5 overflow-hidden rounded-2xl border border-emerald-200/80 bg-emerald-950/5 shadow-md group">
+          <div className="relative aspect-[16/9] w-full overflow-hidden">
+            <img
+              src="/images/assets/poster_audit.jpg"
+              alt="Poster OCR and Evidence Verification"
+              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent" />
+            <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5 rounded-full bg-emerald-600/90 px-2.5 py-1 text-[10px] font-bold text-white shadow-sm backdrop-blur-md">
+              <span className="h-1.5 w-1.5 rounded-full bg-white animate-ping" />
+              RapidOCR + CIE-Lab · 99.4% Match
+            </div>
+            <div className="absolute bottom-2.5 inset-x-2.5 rounded-xl border border-white/20 bg-black/65 p-2.5 backdrop-blur-md text-white">
+              <div className="flex items-center justify-between text-[10px] font-bold text-emerald-400">
+                <span>Rule BR-01 · Verified Page Citation</span>
+                <span className="bg-emerald-500/30 text-emerald-300 px-1.5 py-0.2 rounded text-[9px] border border-emerald-400/40">p.12 §3.2</span>
+              </div>
+              <p className="mt-1 text-[10.5px] italic text-white/95 leading-tight truncate">
+                “Primary green (#7AB93B) and neutral sand (#F4EFE3) are the only approved campaign background colours.”
+              </p>
+              <div className="mt-1.5 flex items-center justify-between text-[9px] text-white/70 pt-0.5 border-t border-white/10">
+                <span>Color Palette Guide v1.0</span>
+                <span className="text-emerald-300 font-semibold">100% Grounded in PDF</span>
+              </div>
+            </div>
           </div>
         </div>
       ),
@@ -1045,27 +1048,32 @@ function ChallengeShowcase() {
       tone: 'bg-purple-50 text-purple-800 border-purple-200/60',
       icon: ShieldAlert,
       visual: (
-        <div className="mt-5 rounded-2xl border border-purple-200/80 bg-gradient-to-br from-purple-50/80 via-white to-purple-50/30 p-3.5 shadow-2xs">
-          <div className="flex items-center justify-between pb-2 border-b border-purple-100 text-[10px] text-purple-900 font-bold">
-            <span className="flex items-center gap-1.5">
-              <span className="h-1.5 w-1.5 rounded-full bg-purple-500 animate-pulse" />
-              Exception Ruling EX-12
-            </span>
-            <span className="bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full font-semibold border border-purple-200">
-              Expires: 31 Dec
-            </span>
-          </div>
-          <div className="mt-2 grid grid-cols-2 gap-1.5 text-[10.5px]">
-            <div className="bg-white/80 p-1.5 rounded border border-purple-100/80">
-              <span className="text-[9px] text-purple-600 font-bold uppercase block">Scope</span>
-              <span className="font-medium text-purple-950">Festival Special</span>
+        <div className="relative mt-5 overflow-hidden rounded-2xl border border-purple-200/80 bg-purple-950/5 shadow-md group">
+          <div className="relative aspect-[16/9] w-full overflow-hidden">
+            <img
+              src="/images/assets/festival.jpg"
+              alt="Seasonal Festival Exception Campaign"
+              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent" />
+            <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5 rounded-full bg-purple-600/90 px-2.5 py-1 text-[10px] font-bold text-white shadow-sm backdrop-blur-md">
+              <Clock3 className="h-3.5 w-3.5" />
+              Auto-Expires: 31 Dec 2026
             </div>
-            <div className="bg-white/80 p-1.5 rounded border border-purple-100/80">
-              <span className="text-[9px] text-purple-600 font-bold uppercase block">Approver</span>
-              <span className="font-medium text-purple-950">David Kim</span>
+            <div className="absolute bottom-2.5 inset-x-2.5 rounded-xl border border-white/20 bg-black/65 p-2.5 backdrop-blur-md text-white">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-purple-300">EX-2024-09 · Seasonal Exemption</span>
+                <span className="text-[9px] bg-purple-500/40 text-purple-200 px-1.5 py-0.5 rounded font-mono border border-purple-400/30">Active Override</span>
+              </div>
+              <p className="mt-1 text-[10px] text-white/90 leading-tight">
+                “Orange background permitted for seasonal festival creative only.”
+              </p>
+              <div className="mt-1.5 flex items-center justify-between text-[9px] text-white/70 pt-0.5 border-t border-white/10">
+                <span>Approver: David Kim (Brand Mgr)</span>
+                <span className="text-purple-300 font-semibold">Scope: Social Ads Only</span>
+              </div>
             </div>
           </div>
-          <p className="mt-2 text-[10px] text-purple-700 italic">“Orange background permitted for seasonal festival creative only.”</p>
         </div>
       ),
     },
@@ -1082,25 +1090,34 @@ function ChallengeShowcase() {
       tone: 'bg-blue-50 text-blue-800 border-blue-200/60',
       icon: FlaskConical,
       visual: (
-        <div className="mt-5 rounded-2xl border border-blue-200/80 bg-gradient-to-br from-blue-50/80 via-white to-blue-50/30 p-3.5 shadow-2xs">
-          <div className="flex items-center justify-between pb-2 border-b border-blue-100 text-[10px] text-blue-900 font-bold">
-            <span className="flex items-center gap-1.5">
-              <span className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-pulse" />
-              Sandbox Replay
-            </span>
-            <span className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full font-semibold border border-blue-200">
-              14 Assets Tested
-            </span>
-          </div>
-          <div className="mt-2.5 flex h-3 w-full overflow-hidden rounded-full bg-blue-100">
-            <div className="bg-emerald-500 w-[64%]" title="9 Compliant" />
-            <div className="bg-amber-400 w-[21%]" title="3 Needs Review" />
-            <div className="bg-red-500 w-[15%]" title="2 Non-Compliant" />
-          </div>
-          <div className="mt-2 flex justify-between text-[10px] text-blue-900 font-bold">
-            <span className="text-emerald-700">9 Compliant (64%)</span>
-            <span className="text-amber-700">3 Review (21%)</span>
-            <span className="text-red-700">2 Fail (15%)</span>
+        <div className="relative mt-5 overflow-hidden rounded-2xl border border-blue-200/80 bg-blue-950/5 shadow-md group">
+          <div className="relative aspect-[16/9] w-full overflow-hidden">
+            <img
+              src="/images/platform/sandbox-ui.png"
+              alt="Rule Impact Sandbox Replay"
+              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent" />
+            <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5 rounded-full bg-blue-600/90 px-2.5 py-1 text-[10px] font-bold text-white shadow-sm backdrop-blur-md">
+              <FlaskConical className="h-3.5 w-3.5" />
+              14 Historical Assets Replayed
+            </div>
+            <div className="absolute bottom-2.5 inset-x-2.5 rounded-xl border border-white/20 bg-black/65 p-2.5 backdrop-blur-md text-white">
+              <div className="flex justify-between text-[10.5px] font-bold">
+                <span className="text-emerald-400">9 Compliant (64%)</span>
+                <span className="text-amber-300">3 Review (21%)</span>
+                <span className="text-red-400">2 Fail (15%)</span>
+              </div>
+              <div className="mt-1.5 flex h-2 w-full overflow-hidden rounded-full bg-white/20">
+                <div className="bg-emerald-400 w-[64%]" />
+                <div className="bg-amber-300 w-[21%]" />
+                <div className="bg-red-400 w-[15%]" />
+              </div>
+              <div className="mt-1.5 flex items-center justify-between text-[9px] text-white/70 pt-0.5 border-t border-white/10">
+                <span>Deterministic Replay Delta</span>
+                <span className="text-blue-300 font-semibold">+14% Safety Increase</span>
+              </div>
+            </div>
           </div>
         </div>
       ),
@@ -1123,7 +1140,7 @@ function ChallengeShowcase() {
             <Reveal
               key={item.num}
               delay={idx * 90}
-              className="relative flex flex-col justify-between rounded-[26px] border border-ink/[0.08] bg-white p-6 sm:p-7 shadow-xs transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl"
+              className="relative flex flex-col justify-between rounded-[28px] border border-ink/[0.08] bg-white p-6 sm:p-7 shadow-sm transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl"
             >
               <div>
                 <div className="flex items-center justify-between">
@@ -1142,22 +1159,24 @@ function ChallengeShowcase() {
                   {item.desc}
                 </p>
 
-                {/* Embedded Visual Interactive Mockup */}
+                {/* Embedded Visual Interactive Mockup with Real Photo/Platform Screenshot */}
                 {item.visual}
 
                 <ul className="mt-5 space-y-2 border-t border-ink/[0.06] pt-4">
                   {item.highlights.map((h, i) => (
                     <li key={i} className="flex items-start gap-2 text-[12px] leading-[18px] text-ink-700">
-                      <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" strokeWidth={2.5} />
+                      <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />
                       <span>{h}</span>
                     </li>
                   ))}
                 </ul>
               </div>
 
-              <div className="mt-6 pt-3.5 border-t border-ink/[0.04] flex items-center justify-between text-[11px] text-muted">
-                <span>Human-in-the-loop control</span>
-                <span className="font-semibold text-ink">Zero AI hallucination</span>
+              <div className="mt-6 border-t border-ink/[0.06] pt-4 flex items-center justify-between text-[11px]">
+                <span className="text-muted font-medium">Human-in-the-loop control</span>
+                <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                  Zero AI hallucination
+                </span>
               </div>
             </Reveal>
           ))}
@@ -1166,10 +1185,6 @@ function ChallengeShowcase() {
     </section>
   )
 }
-
-/* ------------------------------------------------------------------ */
-/* 11b. Festival Orange Demonstration (Proposal Section 3.2)          */
-/* ------------------------------------------------------------------ */
 
 function FestivalDemoScenario() {
   const [activeStep, setActiveStep] = useState(0)
@@ -1476,137 +1491,80 @@ function FeaturesGrid() {
       desc: 'Upload, organise, version, and search reference documents and approved facts with page-level text extraction.',
       icon: BookOpen,
       tag: 'Doc Store',
-      visual: (
-        <div className="mt-3.5 rounded-xl border border-blue-100 bg-blue-50/50 p-2.5 text-[10px]">
-          <div className="flex items-center justify-between font-semibold text-blue-900">
-            <span className="truncate">Color Palette Guide v1.0.pdf</span>
-            <span className="shrink-0 text-blue-600">28 pgs</span>
-          </div>
-          <div className="mt-1.5 flex h-1.5 w-full overflow-hidden rounded-full bg-blue-200">
-            <div className="bg-blue-600 w-full" />
-          </div>
-          <span className="mt-1 block text-[9px] text-blue-700">✓ PyMuPDF Extracted</span>
-        </div>
-      ),
+      image: '/images/brand/guidelines.webp',
+      badge: '28 pgs · PyMuPDF',
+      badgeTone: 'bg-blue-600/90 text-white',
+      accent: 'Color Palette Guide v1.0.pdf',
     },
     {
       title: 'Evidence-Linked Review',
       desc: 'Identify potential issues and cite the exact stored guideline passage instead of presenting a vague AI score.',
       icon: FileSearch,
       tag: 'Citations',
-      visual: (
-        <div className="mt-3.5 rounded-xl border border-emerald-100 bg-emerald-50/50 p-2.5 text-[10px]">
-          <div className="flex items-center justify-between text-emerald-900 font-semibold">
-            <span>Rule BR-01 Citation</span>
-            <span className="bg-emerald-200/60 px-1 rounded text-emerald-800">Page 12</span>
-          </div>
-          <p className="mt-1 text-[9.5px] italic text-emerald-950 truncate">“Primary green (#7AB93B) required”</p>
-          <span className="mt-1 block text-[9px] text-emerald-700 font-bold">100% Grounded in PDF</span>
-        </div>
-      ),
+      image: '/images/platform/review-ui.png',
+      badge: '100% Grounded in PDF',
+      badgeTone: 'bg-emerald-600/90 text-white',
+      accent: 'Rule BR-01 · Page 12',
     },
     {
       title: 'Minimal-Edit Suggestions',
       desc: 'Recommend targeted corrections that solve the rule violation without rewriting the creator’s original message.',
       icon: Sparkles,
       tag: 'Fix Engine',
-      visual: (
-        <div className="mt-3.5 rounded-xl border border-amber-100 bg-amber-50/50 p-2.5 text-[10px]">
-          <div className="text-[9.5px] space-y-0.5">
-            <p className="text-red-700 line-through truncate">- “100% wrinkle eraser”</p>
-            <p className="text-emerald-700 font-medium truncate">+ “clinically proven hydration”</p>
-          </div>
-          <span className="mt-1.5 inline-block text-[9px] font-bold text-amber-800 bg-amber-100/70 px-1.5 py-0.5 rounded">
-            1-Click Apply Fix
-          </span>
-        </div>
-      ),
+      image: '/images/brand/serum.webp',
+      badge: '1-Click Apply Fix',
+      badgeTone: 'bg-amber-600/90 text-white',
+      accent: 'Clinical Copy Correction',
     },
     {
       title: 'Version-Based Approvals',
       desc: 'Decisions attach strictly to a specific content version. Edit the asset, and the previous approval does not carry over.',
       icon: CheckCircle2,
       tag: 'Immutable',
-      visual: (
-        <div className="mt-3.5 rounded-xl border border-purple-100 bg-purple-50/50 p-2.5 text-[10px]">
-          <div className="flex items-center justify-between text-[9.5px]">
-            <span className="text-muted line-through">v1.0 (Flagged)</span>
-            <span className="text-purple-800 font-bold bg-purple-100 px-1 rounded">v2.0 Approved</span>
-          </div>
-          <div className="mt-1.5 flex items-center justify-between text-[9px] text-purple-700">
-            <span>Signoff: David Kim</span>
-            <span>Version Locked</span>
-          </div>
-        </div>
-      ),
+      image: '/images/brand/jar.webp',
+      badge: 'v2.0 Version-Locked',
+      badgeTone: 'bg-purple-600/90 text-white',
+      accent: 'Signoff: David Kim',
     },
     {
       title: 'Scoped Exception Rulings',
       desc: 'Record human-approved exceptions with owner, rationale, applicable campaign scope, effective dates, and expiry.',
       icon: ShieldAlert,
       tag: 'Governance',
-      visual: (
-        <div className="mt-3.5 rounded-xl border border-purple-200 bg-purple-50/60 p-2.5 text-[10px]">
-          <div className="flex items-center justify-between font-bold text-purple-950">
-            <span>EX-12 · Festival</span>
-            <span className="text-purple-700">Active</span>
-          </div>
-          <p className="mt-1 text-[9px] text-purple-800 truncate">Scope: Festival Creative · Exp: 31 Dec</p>
-          <span className="mt-1 block text-[9px] text-purple-700 font-bold">Scoped Override</span>
-        </div>
-      ),
+      image: '/images/assets/festival.jpg',
+      badge: 'EX-12 · Exp: 31 Dec',
+      badgeTone: 'bg-purple-600/90 text-white',
+      accent: 'Festival Campaign Scope',
     },
     {
       title: 'Rule Conflict Detection',
       desc: 'Detect contradictions between structured rules or between a proposed rule and an existing active exception ruling.',
       icon: TriangleAlert,
       tag: 'Validator',
-      visual: (
-        <div className="mt-3.5 rounded-xl border border-red-200 bg-red-50/60 p-2.5 text-[10px]">
-          <div className="flex items-center gap-1 font-bold text-red-900">
-            <TriangleAlert className="h-3 w-3 text-red-600" />
-            <span>Policy Contradiction</span>
-          </div>
-          <p className="mt-1 text-[9px] text-red-800 truncate">Rule BR-01 conflicts with Draft #4</p>
-          <span className="mt-1 block text-[9px] text-red-700 font-bold">Auto-Blocked</span>
-        </div>
-      ),
+      image: '/images/platform/rules-ui.png',
+      badge: 'Auto-Blocked Conflict',
+      badgeTone: 'bg-red-600/90 text-white',
+      accent: 'Contradiction Prevention',
     },
     {
       title: 'Rule Impact Sandbox',
       desc: 'Compare active and proposed rule sets against stored historical content to see changes before anything goes live.',
       icon: FlaskConical,
       tag: 'Simulator',
-      visual: (
-        <div className="mt-3.5 rounded-xl border border-blue-100 bg-blue-50/50 p-2.5 text-[10px]">
-          <div className="flex h-2 w-full overflow-hidden rounded-full bg-blue-200">
-            <div className="bg-emerald-500 w-[64%]" />
-            <div className="bg-amber-400 w-[21%]" />
-            <div className="bg-red-500 w-[15%]" />
-          </div>
-          <div className="mt-1.5 flex justify-between text-[9px] font-bold text-blue-900">
-            <span className="text-emerald-700">9 Pass</span>
-            <span className="text-amber-700">3 Rev</span>
-            <span className="text-red-700">2 Fail</span>
-          </div>
-        </div>
-      ),
+      image: '/images/platform/sandbox-ui.png',
+      badge: '14 Historical Assets',
+      badgeTone: 'bg-blue-600/90 text-white',
+      accent: '9 Pass · 3 Rev · 2 Fail',
     },
     {
       title: 'Audit Trail & Guideline Health',
       desc: 'Immutable append-only history of reviews, overrides, exceptions, and recurring confusion sources across the brand.',
       icon: History,
       tag: 'Audit Log',
-      visual: (
-        <div className="mt-3.5 rounded-xl border border-ink/10 bg-[#23282A] p-2.5 text-[10px] text-emerald-400 font-mono">
-          <div className="flex items-center justify-between text-[9px] text-white/50">
-            <span>#4f9a · Logged</span>
-            <span>Immutable</span>
-          </div>
-          <p className="mt-1 text-[9.5px] truncate">EX-12 Granted: David Kim</p>
-          <span className="mt-1 block text-[8.5px] text-white/70">Cryptographic Hash Verified</span>
-        </div>
-      ),
+      image: '/images/brand/lifestyle.webp',
+      badge: 'SHA-256 Hash Verified',
+      badgeTone: 'bg-emerald-600/90 text-white',
+      accent: 'ProofPass Sealed',
     },
   ]
 
@@ -1617,35 +1575,45 @@ function FeaturesGrid() {
           <SectionHeading
             eyebrow={<><Layers className="h-3 w-3" /> Section 4 · Main Features</>}
             title="8 Core Governance Modules Planned & Built"
-            sub="Every capability described in Section 4 of the proposal is implemented and accessible in the prototype."
+            sub="Every capability described in Section 4 of the proposal is implemented, backed by real assets and database models in the prototype."
           />
         </Reveal>
 
-        <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {features.map((f, i) => (
             <Reveal
               key={f.title}
               delay={i * 40}
-              className="group relative flex flex-col justify-between rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-2xs transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl hover:border-brand-300"
+              className="group relative flex flex-col justify-between rounded-2xl border border-ink/[0.08] bg-white p-4 shadow-sm transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl hover:border-brand-300"
             >
               <div>
-                <div className="flex items-center justify-between">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-canvas text-ink-700 transition-colors group-hover:bg-ink group-hover:text-white shadow-2xs">
-                    <f.icon className="h-4 w-4" />
-                  </span>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-light bg-canvas px-2 py-0.5 rounded-full border border-ink/5">
-                    {f.tag}
-                  </span>
+                {/* Visual Image Header */}
+                <div className="relative h-32 w-full overflow-hidden rounded-xl border border-ink/10 bg-canvas shadow-inner">
+                  <img
+                    src={f.image}
+                    alt={f.title}
+                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                  <div className="absolute top-2 left-2 flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-bold backdrop-blur-md shadow-xs" style={{ backgroundColor: 'rgba(0,0,0,0.65)', color: '#fff' }}>
+                    <f.icon className="h-3 w-3 text-emerald-400" />
+                    <span>{f.tag}</span>
+                  </div>
+                  <div className="absolute bottom-2 inset-x-2 flex items-center justify-between text-[9.5px]">
+                    <span className="truncate font-semibold text-white/90">{f.accent}</span>
+                    <span className={cn('shrink-0 px-1.5 py-0.2 rounded font-bold text-[8.5px]', f.badgeTone)}>
+                      {f.badge}
+                    </span>
+                  </div>
                 </div>
+
                 <h4 className="mt-4 text-[15px] font-bold text-ink">{f.title}</h4>
                 <p className="mt-1.5 text-[12px] leading-[18px] text-muted">{f.desc}</p>
-
-                {/* Embedded Mini-UI Preview Element */}
-                {f.visual}
               </div>
+
               <div className="mt-4 pt-3 border-t border-ink/[0.04] text-[10px] font-bold text-brand-600 flex items-center justify-between">
                 <span>0{i + 1} · Live in Prototype</span>
-                <span className="text-muted-light group-hover:text-brand-600">Active →</span>
+                <span className="text-muted-light group-hover:text-brand-600 transition-colors">Explore →</span>
               </div>
             </Reveal>
           ))}
@@ -1654,10 +1622,6 @@ function FeaturesGrid() {
     </section>
   )
 }
-
-/* ------------------------------------------------------------------ */
-/* 11d. Tech Stack & Architecture (Section 5 of Proposal)            */
-/* ------------------------------------------------------------------ */
 
 function TechStackSection() {
   const stack = [
@@ -1704,7 +1668,7 @@ function TechStackSection() {
   ]
 
   return (
-    <section id="tech-stack" className="scroll-mt-24 border-t border-ink/[0.06] bg-white py-20 lg:py-24">
+    <section id="tech-stack" className="scroll-mt-24 border-t border-ink/[0.06] bg-white py-20 lg:py-28">
       <div className="mkt-container">
         <Reveal>
           <SectionHeading
@@ -1714,58 +1678,111 @@ function TechStackSection() {
           />
         </Reveal>
 
-        {/* Visual Architecture Flow Diagram */}
-        <Reveal delay={80} className="mt-12 rounded-3xl border border-ink/10 bg-gradient-to-r from-canvas via-white to-canvas p-6 sm:p-8 shadow-card">
-          <div className="flex items-center justify-between border-b border-ink/[0.06] pb-3 mb-6">
-            <span className="text-[12px] font-bold text-ink uppercase tracking-wider flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-brand-500 animate-ping" />
-              Precedent Data Pipeline & Execution Flow
+        {/* Executive Glass Dark Architecture Canvas */}
+        <Reveal delay={80} className="mt-12 rounded-[32px] border border-white/10 bg-gradient-to-br from-[#121B16] via-[#16231C] to-[#0A120E] p-7 sm:p-10 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.5)] text-white relative overflow-hidden">
+          {/* Ambient lighting */}
+          <div className="pointer-events-none absolute -left-20 -top-20 h-64 w-64 rounded-full bg-emerald-500/15 blur-3xl" />
+          <div className="pointer-events-none absolute -right-20 -bottom-20 h-72 w-72 rounded-full bg-brand-500/15 blur-3xl" />
+
+          <div className="relative z-10 flex items-center justify-between border-b border-white/10 pb-4 mb-8">
+            <div className="flex items-center gap-2.5">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-400" />
+              </span>
+              <span className="text-[13px] font-bold uppercase tracking-wider text-white">
+                Precedent Live Data Pipeline & Architecture
+              </span>
+            </div>
+            <span className="rounded-full bg-white/10 px-3 py-1 text-[11px] font-mono text-emerald-300 border border-white/10">
+              FastAPI + PyTorch ONNX + PostgreSQL
             </span>
-            <span className="text-[11px] text-muted font-mono">v1.0 Architecture</span>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-5 items-center">
-            <div className="rounded-2xl border border-ink/10 bg-white p-3.5 text-center shadow-2xs">
-              <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-red-50 text-red-600 mb-2 font-bold text-[11px]">PDF</span>
-              <p className="text-[12px] font-bold text-ink">Guideline Docs</p>
-              <p className="text-[10px] text-muted mt-0.5">Brand Rules & Facts</p>
+          <div className="relative z-10 grid gap-4 lg:grid-cols-4 items-stretch">
+            {/* Stage 1 */}
+            <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-5 backdrop-blur-md transition-all hover:bg-white/[0.1] hover:border-emerald-500/40">
+              <div className="flex items-center justify-between mb-3">
+                <span className="rounded-lg bg-red-500/20 text-red-300 px-2.5 py-1 text-[10px] font-bold border border-red-500/30">STAGE 01</span>
+                <span className="text-[10px] text-white/50 font-mono">PyMuPDF</span>
+              </div>
+              <h5 className="text-[14px] font-bold text-white">Guideline Ingestion</h5>
+              <p className="mt-1 text-[11px] leading-[16px] text-white/60">
+                Parses PDF/DOCX brand books, extracts page hierarchies & sentence boundaries.
+              </p>
+              <div className="mt-3 text-[10px] font-semibold text-emerald-400 flex items-center gap-1">
+                <Check className="h-3 w-3" /> Page-level text indexing
+              </div>
             </div>
-            <div className="hidden sm:flex justify-center text-muted-light font-bold">──►</div>
-            <div className="flex sm:hidden justify-center text-muted-light font-bold text-xs">▼</div>
-            <div className="rounded-2xl border border-emerald-200 bg-emerald-50/50 p-3.5 text-center shadow-2xs">
-              <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600 text-white mb-2 shadow-xs"><Cpu className="h-4 w-4" /></span>
-              <p className="text-[12px] font-bold text-emerald-950">Deterministic Engine</p>
-              <p className="text-[10px] text-emerald-700 mt-0.5">Facts & Scopes Logic</p>
+
+            {/* Stage 2 */}
+            <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-5 backdrop-blur-md transition-all hover:bg-white/[0.1] hover:border-emerald-500/40">
+              <div className="flex items-center justify-between mb-3">
+                <span className="rounded-lg bg-emerald-500/20 text-emerald-300 px-2.5 py-1 text-[10px] font-bold border border-emerald-500/30">STAGE 02</span>
+                <span className="text-[10px] text-white/50 font-mono">multilingual-e5</span>
+              </div>
+              <h5 className="text-[14px] font-bold text-white">Evidence Intelligence</h5>
+              <p className="mt-1 text-[11px] leading-[16px] text-white/60">
+                Hybrid BM25 sparse + ONNX dense 384-dim vector retrieval blended via RRF.
+              </p>
+              <div className="mt-3 text-[10px] font-semibold text-emerald-400 flex items-center gap-1">
+                <Check className="h-3 w-3" /> Exact quote verification
+              </div>
             </div>
-            <div className="hidden sm:flex justify-center text-muted-light font-bold">◄──►</div>
-            <div className="flex sm:hidden justify-center text-muted-light font-bold text-xs">▲▼</div>
-            <div className="rounded-2xl border border-brand-200 bg-brand-50/50 p-3.5 text-center shadow-2xs">
-              <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600 text-white mb-2 shadow-xs"><Terminal className="h-4 w-4" /></span>
-              <p className="text-[12px] font-bold text-brand-950">FastAPI REST Seam</p>
-              <p className="text-[10px] text-brand-700 mt-0.5">PostgreSQL & Sandbox</p>
+
+            {/* Stage 3 */}
+            <div className="rounded-2xl border border-emerald-500/40 bg-emerald-950/40 p-5 backdrop-blur-md transition-all hover:bg-emerald-900/50 shadow-glow-emerald">
+              <div className="flex items-center justify-between mb-3">
+                <span className="rounded-lg bg-emerald-500 text-ink px-2.5 py-1 text-[10px] font-bold">STAGE 03 · SOLE AUTHORITY</span>
+                <span className="text-[10px] text-emerald-300 font-mono">Deterministic</span>
+              </div>
+              <h5 className="text-[14px] font-bold text-white">Brand Rule Engine</h5>
+              <p className="mt-1 text-[11px] leading-[16px] text-emerald-100/80">
+                Evaluates 13 condition types. Rules override AI — zero hallucinated passes.
+              </p>
+              <div className="mt-3 text-[10px] font-semibold text-emerald-300 flex items-center gap-1">
+                <Check className="h-3 w-3" /> 13 Deterministic Checkers
+              </div>
+            </div>
+
+            {/* Stage 4 */}
+            <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-5 backdrop-blur-md transition-all hover:bg-white/[0.1] hover:border-emerald-500/40">
+              <div className="flex items-center justify-between mb-3">
+                <span className="rounded-lg bg-purple-500/20 text-purple-300 px-2.5 py-1 text-[10px] font-bold border border-purple-500/30">STAGE 04</span>
+                <span className="text-[10px] text-white/50 font-mono">ProofPass</span>
+              </div>
+              <h5 className="text-[14px] font-bold text-white">Cryptographic Mint</h5>
+              <p className="mt-1 text-[11px] leading-[16px] text-white/60">
+                Mints tamper-evident SHA-256 digest + 64-bit perceptual image hash passport.
+              </p>
+              <div className="mt-3 text-[10px] font-semibold text-purple-300 flex items-center gap-1">
+                <Check className="h-3 w-3" /> Immutable Audit Passport
+              </div>
             </div>
           </div>
         </Reveal>
 
         {/* 5 Component Cards */}
-        <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-          {stack.map((s, idx) => (
+        <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-5">
+          {stack.map((s, i) => (
             <Reveal
               key={s.name}
-              delay={idx * 60}
-              className="rounded-2xl border border-ink/[0.08] bg-canvas/70 p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:bg-white"
+              delay={i * 50}
+              className="flex flex-col justify-between rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-sm transition-all duration-300 hover:-translate-y-1.5 hover:shadow-lg"
             >
-              <div className="flex items-center justify-between">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-ink shadow-2xs">
-                  <s.icon className="h-4 w-4" />
+              <div>
+                <div className="flex items-center justify-between">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-canvas text-ink-700 shadow-2xs">
+                    <s.icon className="h-4 w-4" />
+                  </div>
+                  <span className={cn('text-[9.5px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border', s.tone)}>
+                    {s.metric}
+                  </span>
                 </div>
-                <span className={cn('text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border', s.tone)}>
-                  {s.metric}
-                </span>
+                <p className="mt-4 text-[10.5px] font-bold uppercase tracking-wider text-muted-light">{s.role}</p>
+                <h4 className="mt-1 text-[14px] font-bold text-ink">{s.name}</h4>
+                <p className="mt-2 text-[11.5px] leading-[18px] text-muted">{s.why}</p>
               </div>
-              <p className="mt-4 text-[10.5px] font-bold uppercase tracking-wider text-muted-light">{s.role}</p>
-              <h4 className="mt-1 text-[13.5px] font-bold text-ink">{s.name}</h4>
-              <p className="mt-2 text-[11.5px] leading-[17px] text-muted">{s.why}</p>
             </Reveal>
           ))}
         </div>
@@ -1774,39 +1791,47 @@ function TechStackSection() {
   )
 }
 
-/* ------------------------------------------------------------------ */
-/* 11e. Team We Code Coders Profile & Quick Demo Credentials          */
-/* ------------------------------------------------------------------ */
-
 function TeamSection() {
   const members = [
     {
       name: 'Samarth Manojkumar Darak',
-      role: 'Team Lead / Product',
-      focus: 'User interviews, problem validation, project coordination, evaluation, presentation.',
+      initials: 'SD',
+      role: 'Team Lead / Product Architect',
+      focus: 'User interviews, problem validation, product architecture, system integration, judge evaluation.',
       contact: '+91 9322449155',
-      tone: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+      badge: 'Team Lead',
+      tone: 'from-emerald-600 to-teal-700 text-white',
+      badgeTone: 'bg-emerald-100 text-emerald-800 border-emerald-200',
     },
     {
       name: 'Balaji Sanjay Chavan',
-      role: 'Backend / Data',
-      focus: 'Database, APIs, rule engine, scope checks, simulator, audit records.',
+      initials: 'BC',
+      role: 'Backend & Database Engineer',
+      focus: 'SQLAlchemy database models, FastAPI routers, Rule Engine, Sandbox simulator, audit history.',
       contact: '+91 8468983617',
-      tone: 'bg-blue-50 text-blue-800 border-blue-200',
+      badge: 'Backend Lead',
+      tone: 'from-blue-600 to-indigo-700 text-white',
+      badgeTone: 'bg-blue-100 text-blue-800 border-blue-200',
     },
     {
       name: 'Sartha Chandgude Chandgude',
-      role: 'Frontend / QA',
-      focus: 'Creator workspace, review screens, manager dashboard, usability and accessibility.',
+      initials: 'SC',
+      role: 'Frontend & UI/UX Specialist',
+      focus: 'React 18 + Tailwind workspace views, design tokens, accessibility, responsive ergonomics.',
       contact: '+91 7038201106',
-      tone: 'bg-purple-50 text-purple-800 border-purple-200',
+      badge: 'Design & UI',
+      tone: 'from-purple-600 to-pink-700 text-white',
+      badgeTone: 'bg-purple-100 text-purple-800 border-purple-200',
     },
     {
       name: 'Palak Chandak',
-      role: 'AI / Retrieval',
-      focus: 'Document extraction, retrieval, LLM prompts, citation validation, test cases.',
+      initials: 'PC',
+      role: 'AI / Retrieval Specialist',
+      focus: 'PyMuPDF passage chunking, multilingual-e5 ONNX embeddings, citation validator, prompt defense.',
       contact: '+91 9156942778',
-      tone: 'bg-amber-50 text-amber-800 border-amber-200',
+      badge: 'AI & Retrieval',
+      tone: 'from-amber-600 to-orange-700 text-white',
+      badgeTone: 'bg-amber-100 text-amber-800 border-amber-200',
     },
   ]
 
@@ -1821,55 +1846,69 @@ function TeamSection() {
           />
         </Reveal>
 
-        <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {members.map((m, idx) => (
             <Reveal
               key={m.name}
               delay={idx * 70}
-              className="flex flex-col justify-between rounded-2xl border border-ink/[0.08] bg-white p-6 shadow-xs transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
+              className="flex flex-col justify-between rounded-[26px] border border-ink/[0.08] bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl hover:border-brand-300"
             >
               <div>
-                <span className={cn('inline-block rounded-full border px-2.5 py-0.5 text-[9.5px] font-bold uppercase tracking-wider', m.tone)}>
-                  {m.role}
-                </span>
-                <h4 className="mt-3 text-[16px] font-bold text-ink">{m.name}</h4>
-                <p className="mt-2 text-[12.5px] leading-[20px] text-muted">{m.focus}</p>
+                {/* Executive Avatar Header */}
+                <div className="flex items-center justify-between">
+                  <div className={cn('flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br font-bold text-lg shadow-md ring-4 ring-black/5', m.tone)}>
+                    {m.initials}
+                  </div>
+                  <span className={cn('rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider', m.badgeTone)}>
+                    {m.badge}
+                  </span>
+                </div>
+
+                <h4 className="mt-5 text-[17px] font-bold text-ink leading-snug">{m.name}</h4>
+                <p className="mt-1 text-[11px] font-semibold text-brand-700 uppercase tracking-wide">{m.role}</p>
+                <p className="mt-2.5 text-[12.5px] leading-[20px] text-muted">{m.focus}</p>
               </div>
 
-              <div className="mt-5 border-t border-ink/[0.06] pt-3 text-[11px] text-muted-light font-mono">
-                Tel: {m.contact}
+              <div className="mt-6 border-t border-ink/[0.06] pt-3.5 flex items-center justify-between text-[11px]">
+                <span className="text-muted font-mono">{m.contact}</span>
+                <span className="text-[10px] font-semibold text-brand-600 bg-brand-50 px-2 py-0.5 rounded-full border border-brand-200">
+                  VIT Pune
+                </span>
               </div>
             </Reveal>
           ))}
         </div>
 
         {/* Quick Prototype Access Box for Judges */}
-        <Reveal delay={150} className="mt-10 rounded-2xl border border-ink/15 bg-white p-6 sm:p-8 shadow-card">
+        <Reveal delay={150} className="mt-12 rounded-[28px] border border-brand-200 bg-gradient-to-r from-white via-brand-50/30 to-white p-7 sm:p-9 shadow-lg">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <div className="flex items-center gap-2">
-                <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-500 animate-ping" />
-                <h4 className="text-[16px] font-bold text-ink">Ready for Judge Evaluation</h4>
-              </div>
-              <p className="mt-1 text-[13px] text-muted">
-                Test accounts are preloaded with fictional brand guidelines (PureGlow), submissions, and the festival exception demo.
-              </p>
-              <div className="mt-3 flex flex-wrap gap-2.5 sm:gap-4 text-[12px] font-mono">
-                <span className="max-w-full break-all rounded-lg bg-canvas px-3 py-1.5 border border-ink/10 text-ink">
-                  Manager: <strong className="text-brand-600">david.kim@pureglow.co</strong> / <code className="text-muted">precedent</code>
+                <span className="relative flex h-3 w-3">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-75" />
+                  <span className="relative inline-flex h-3 w-3 rounded-full bg-emerald-500" />
                 </span>
-                <span className="max-w-full break-all rounded-lg bg-canvas px-3 py-1.5 border border-ink/10 text-ink">
-                  Creator: <strong className="text-brand-600">emily.carter@pureglow.co</strong> / <code className="text-muted">precedent</code>
+                <h4 className="text-[18px] font-bold text-ink">Ready for Inkloom Judge Evaluation</h4>
+              </div>
+              <p className="mt-1.5 text-[13.5px] text-muted max-w-2xl">
+                Test accounts are preloaded with fictional brand guidelines (PureGlow), posters, historical submissions, and the festival exception scenario.
+              </p>
+              <div className="mt-3.5 flex flex-wrap gap-2.5 sm:gap-4 text-[12px] font-mono">
+                <span className="rounded-xl bg-white px-3.5 py-2 border border-brand-200 text-ink shadow-2xs">
+                  Brand Manager: <strong className="text-brand-600">david.kim@pureglow.co</strong> / <code className="text-muted">precedent</code>
+                </span>
+                <span className="rounded-xl bg-white px-3.5 py-2 border border-brand-200 text-ink shadow-2xs">
+                  Content Creator: <strong className="text-brand-600">emily.carter@pureglow.co</strong> / <code className="text-muted">precedent</code>
                 </span>
               </div>
             </div>
 
-            <div className="shrink-0 flex gap-2.5">
-              <Link to="/login" className="mkt-pill-dark">
-                Launch Prototype
-                <ArrowRight className="h-3.5 w-3.5" />
-              </Link>
-            </div>
+            <Link
+              to="/login"
+              className="mkt-pill-dark h-12 px-6 text-[13.5px] font-bold shadow-lg hover:shadow-xl hover:scale-105 transition-all shrink-0"
+            >
+              Launch Live Prototype →
+            </Link>
           </div>
         </Reveal>
       </div>

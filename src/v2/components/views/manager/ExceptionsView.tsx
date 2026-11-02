@@ -1,228 +1,563 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
-  Scale, CheckCircle, Clock, XCircle, ChevronDown, Calendar, MoreVertical, X, Plus,
-  ArrowRight, MessageSquare, BookOpen, Check, Ban, ArrowUpRight, ArrowDownRight,
+  CheckCircle2, Clock, Calendar, AlertCircle, Lock, MessageSquare,
+  ShieldOff, Ban, Check, ChevronRight, RotateCw, User, CalendarClock, Scale,
 } from 'lucide-react';
 import { useApp } from '../../../context/AppContext';
-import { ExceptionItem } from '../../../types';
 import { api } from '@/services/api';
-import { StatCardGrid } from '../../ui/StatCard';
+import type { ExceptionItem } from '../../../types';
+import {
+  AnimatedCard, AnimatedCounter, AnimatedDrawer, Reveal, SkeletonCard,
+  Timeline, type TimelineItem,
+} from '../../motion';
 
-const StatusBadge = ({ status }: { status: string }) => {
-  const map: Record<string, string> = {
-    Approved: 'badge-approved',
-    Pending: 'badge-pending',
-    Rejected: 'badge-rejected',
-    Expired: 'badge-draft',
-  };
-  const dot: Record<string, string> = { Approved: 'bg-emerald-500', Pending: 'bg-amber-500', Rejected: 'bg-red-500', Expired: 'bg-slate-400' };
-  return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold ${map[status] ?? 'badge-draft'}`}>
-      <span className={`w-1.5 h-1.5 rounded-full ${dot[status] ?? 'bg-slate-400'}`} />
-      {status}
-    </span>
-  );
+/* ------------------------------------------------------------------ */
+/* Helpers                                                             */
+/* ------------------------------------------------------------------ */
+
+type Status = ExceptionItem['status'];
+
+const STATUS_CLASS: Record<Status, string> = {
+  Approved: 'badge-approved',
+  Pending: 'badge-pending',
+  Rejected: 'badge-rejected',
 };
 
+const STATUS_RAIL: Record<Status, string> = {
+  Approved: 'bg-sage-400',
+  Pending: 'bg-warn-400',
+  Rejected: 'bg-danger-400',
+};
+
+/** Days until an expiry label. Returns null when no parseable date is stored. */
+function daysUntil(dateText?: string): number | null {
+  if (!dateText) return null;
+  const t = Date.parse(dateText);
+  if (Number.isNaN(t)) return null;
+  return Math.ceil((t - Date.now()) / 86_400_000);
+}
+
+function ExpiryChip({ dateText }: { dateText?: string }) {
+  const days = daysUntil(dateText);
+  if (days === null) {
+    return <span className="text-2xs text-muted">{dateText || 'No expiry set'}</span>;
+  }
+  if (days < 0) {
+    return <span className="badge-rejected">Expired {Math.abs(days)}d ago</span>;
+  }
+  if (days <= 30) {
+    return <span className="badge-pending">Expires in {days}d</span>;
+  }
+  return <span className="text-2xs text-muted">Expires {dateText}</span>;
+}
+
+const Denied: React.FC = () => (
+  <div className="mx-auto max-w-lg px-6 py-16 text-center">
+    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-terracotta-50 text-terracotta-600">
+      <Lock className="h-5 w-5" />
+    </div>
+    <h1 className="mt-4 text-lg font-semibold text-ink">Manager access required</h1>
+    <p className="mt-1 text-xs leading-relaxed text-muted">
+      Only brand managers can approve, reject or revoke exceptions. Creators can see the status of
+      their own requests in the creator workspace.
+    </p>
+  </div>
+);
+
+const Metric: React.FC<{
+  label: string;
+  value: number;
+  icon: React.ReactNode;
+  chip: string;
+  hint: string;
+}> = ({ label, value, icon, chip, hint }) => (
+  <div className="rounded-2xl border border-line bg-white p-4 shadow-card">
+    <div className="flex items-start justify-between gap-2">
+      <span className={`flex h-9 w-9 items-center justify-center rounded-xl ${chip}`}>{icon}</span>
+      <span className="text-2xs text-muted">{hint}</span>
+    </div>
+    <p className="mt-3 text-2xs font-semibold uppercase tracking-[0.08em] text-muted">{label}</p>
+    <p className="mt-0.5 text-2xl font-semibold tabular-nums text-ink">
+      <AnimatedCounter value={value} />
+    </p>
+  </div>
+);
+
+/* ------------------------------------------------------------------ */
+/* View                                                                */
+/* ------------------------------------------------------------------ */
+
+type Tab = 'All' | Status;
+
 export const ExceptionsView: React.FC = () => {
-  const { exceptions, selectedException, setSelectedException, updateExceptionStatus, addNewException, searchQuery, showToast, loading } = useApp();
+  const {
+    exceptions, selectedException, setSelectedException, updateExceptionStatus,
+    searchQuery, setSearchQuery, refresh, showToast, loading, error, role,
+  } = useApp();
 
-  const [filterTab, setFilterTab] = useState<'All' | 'Pending' | 'Approved' | 'Rejected'>('All');
-  const [isDrawerOpen, setIsDrawerOpen] = useState(true);
-  const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
-  const [newCampaign, setNewCampaign] = useState('');
-  const [newTitle, setNewTitle] = useState('');
-  const [newReason, setNewReason] = useState('');
-  const [newScope, setNewScope] = useState('');
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [filterTab, setFilterTab] = useState<Tab>('All');
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [decisionNote, setDecisionNote] = useState('');
+  const [decisionSent, setDecisionSent] = useState(false);
+  const [revoking, setRevoking] = useState(false);
+  const [confirmRevoke, setConfirmRevoke] = useState(false);
 
-  const countBy = (s: ExceptionItem['status']) => exceptions.filter((e) => e.status === s).length;
-  const totalCount = exceptions.length;
+  const countBy = (s: Status) => exceptions.filter((e) => e.status === s).length;
   const pendingCount = countBy('Pending');
   const approvedCount = countBy('Approved');
   const rejectedCount = countBy('Rejected');
 
-  const activeException = selectedException || exceptions[0];
+  /* Read the freshest record for the drawer so a decision is reflected after refresh. */
+  const activeException = selectedException
+    ? exceptions.find((e) => e.id === selectedException.id) ?? selectedException
+    : exceptions[0];
 
-  const filtered = exceptions.filter((ex) => {
-    if (filterTab === 'Pending' && ex.status !== 'Pending') return false;
-    if (filterTab === 'Approved' && ex.status !== 'Approved') return false;
-    if (filterTab === 'Rejected' && ex.status !== 'Rejected') return false;
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      return ex.campaign?.toLowerCase().includes(q) || ex.requestTitle?.toLowerCase().includes(q) || ex.reason?.toLowerCase().includes(q);
-    }
-    return true;
-  });
+  const expiringSoon = useMemo(
+    () =>
+      exceptions.filter((e) => {
+        if (e.status !== 'Approved') return false;
+        const days = daysUntil(e.expiryDate);
+        return days !== null && days >= 0 && days <= 30;
+      }),
+    [exceptions],
+  );
 
-  const toggleSelect = (id: string) => setSelectedIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+  const filtered = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return exceptions.filter((ex) => {
+      if (filterTab !== 'All' && ex.status !== filterTab) return false;
+      if (!q) return true;
+      return (
+        ex.campaign?.toLowerCase().includes(q) ||
+        ex.requestTitle?.toLowerCase().includes(q) ||
+        ex.reason?.toLowerCase().includes(q) ||
+        ex.creator?.toLowerCase().includes(q)
+      );
+    });
+  }, [exceptions, filterTab, searchQuery]);
 
-  const handleSubmitRequest = () => {
-    if (!newReason.trim()) { showToast('Please enter a reason.', 'error'); return; }
-    addNewException({ campaign: newCampaign, requestTitle: newTitle, reason: newReason, scope: newScope });
-    setIsRequestModalOpen(false); setNewCampaign(''); setNewTitle(''); setNewReason(''); setNewScope('');
+  const openException = (ex: ExceptionItem) => {
+    setSelectedException(ex);
+    setDecisionNote('');
+    setDecisionSent(false);
+    setConfirmRevoke(false);
+    setIsDrawerOpen(true);
   };
 
+  const handleDecision = (decision: 'Approved' | 'Rejected') => {
+    if (!activeException) return;
+    updateExceptionStatus(activeException.id, decision, decisionNote.trim());
+    setDecisionSent(true);
+  };
+
+  const handleRevoke = async () => {
+    if (!activeException) return;
+    setRevoking(true);
+    try {
+      await api.revokeException(activeException.id, decisionNote.trim() || 'Revoked from the approval centre');
+      await refresh();
+      showToast('Exception revoked.');
+      setConfirmRevoke(false);
+      setDecisionSent(false);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not revoke the exception.', 'error');
+    } finally {
+      setRevoking(false);
+    }
+  };
+
+  const timeline = (ex: ExceptionItem): TimelineItem[] => {
+    const decisionTone = ex.status === 'Approved' ? 'sage' : ex.status === 'Rejected' ? 'danger' : 'amber';
+    const expiryDays = daysUntil(ex.expiryDate);
+    const items: TimelineItem[] = [
+      {
+        id: 'requested',
+        title: 'Exception requested',
+        description: `${ex.creator || 'A workspace member'} submitted this request.`,
+        time: ex.submittedOn,
+        tone: 'brand',
+      },
+      {
+        id: 'decision',
+        title:
+          ex.status === 'Pending'
+            ? 'Awaiting a manager decision'
+            : `Decision recorded — ${ex.status.toLowerCase()}`,
+        description:
+          ex.status === 'Pending'
+            ? 'No decision has been persisted for this request.'
+            : ex.managerNotes || 'Decision stored without an accompanying note.',
+        time: ex.status === 'Pending' ? undefined : 'decision date not exposed in this view',
+        tone: decisionTone,
+      },
+      {
+        id: 'expiry',
+        title:
+          expiryDays !== null && expiryDays < 0
+            ? 'Expired'
+            : expiryDays !== null && expiryDays <= 30
+              ? `Expires in ${expiryDays} days`
+              : 'Expiry',
+        description: ex.expiryDate || 'No expiry date was set on this exception.',
+        time: ex.expiryDate && expiryDays !== null ? ex.expiryDate : undefined,
+        tone: expiryDays !== null && expiryDays <= 30 ? 'terracotta' : 'olive',
+      },
+    ];
+    return items;
+  };
+
+  if (role !== 'manager') return <Denied />;
+
+  if (loading) {
+    return (
+      <div className="p-4 sm:p-6">
+        <div className="mx-auto max-w-[1400px] space-y-5">
+          <div className="h-16 animate-pulse rounded-2xl bg-cream-100" />
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {[0, 1, 2, 3].map((i) => <SkeletonCard key={i} />)}
+          </div>
+          {[0, 1, 2].map((i) => <SkeletonCard key={i} />)}
+        </div>
+      </div>
+    );
+  }
+
+  const allSections: { status: Status; rows: ExceptionItem[] }[] = [
+    { status: 'Pending' as const, rows: filtered.filter((e) => e.status === 'Pending') },
+    { status: 'Approved' as const, rows: filtered.filter((e) => e.status === 'Approved') },
+    { status: 'Rejected' as const, rows: filtered.filter((e) => e.status === 'Rejected') },
+  ];
+  const sections = allSections.filter((s) => (filterTab === 'All' ? true : s.status === filterTab));
+
   return (
-    <div className="flex h-full overflow-hidden">
-      <main className="flex-1 overflow-y-auto p-6 space-y-5 bg-canvas">
+    <div className="p-4 sm:p-6">
+      <div className="mx-auto max-w-[1400px] space-y-5">
+
         {/* Header */}
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h1 className="text-[32px] font-black tracking-tight leading-none mt-1 animate-count-up">Exceptions</h1>
-            <p className="text-xs text-muted mt-0.5">Manage exception requests and track their status.</p>
+            <p className="mb-1 text-2xs font-semibold uppercase tracking-[0.1em] text-brand-600">
+              Approval centre
+            </p>
+            <h1 className="text-3xl font-semibold tracking-[-0.02em] text-ink">Exceptions</h1>
+            <p className="mt-1 max-w-2xl text-sm text-muted">
+              An exception authorises one piece of content to depart from one rule until a stated
+              date. Decisions are written to the audit trail.
+            </p>
           </div>
+          <label className="relative">
+            <span className="sr-only">Search exceptions</span>
+            <input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search requests"
+              className="w-56 rounded-xl border border-line bg-white px-3 py-2 text-xs text-ink placeholder:text-muted-light focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+            />
+          </label>
         </div>
 
-        {/* KPI Cards */}
-        <StatCardGrid cards={[
-    { label: 'Total Requests', value: totalCount, icon: <Scale className="w-5 h-5" />, variant: 'blue', trend: 8, sparkPathIndex: 0 },
-    { label: 'Approved', value: approvedCount, icon: <CheckCircle className="w-5 h-5" />, variant: 'green', trend: 6, sparkPathIndex: 1 },
-    { label: 'Pending Review', value: pendingCount, icon: <Clock className="w-5 h-5" />, variant: 'amber', trend: 2, sparkPathIndex: 2 },
-    { label: 'Rejected', value: rejectedCount, icon: <XCircle className="w-5 h-5" />, variant: 'red', trend: 1, sparkPathIndex: 3 },
-  ]} />
+        {error && (
+          <div role="alert" className="flex items-start gap-2.5 rounded-2xl border border-danger-200 bg-danger-50 px-4 py-3 text-xs text-danger-700">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
 
-        {/* Toolbar */}
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {(['All', 'Pending', 'Approved', 'Rejected'] as const).map((tab) => {
-              const cnt = tab === 'All' ? totalCount : tab === 'Pending' ? pendingCount : tab === 'Approved' ? approvedCount : rejectedCount;
-              return (
-                <button key={tab} onClick={() => setFilterTab(tab)}
-                  className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer ${filterTab === tab ? 'bg-gradient-to-r from-brand-600 to-blue-600 text-white' : 'bg-white border border-line text-ink-600 hover:bg-[#FAF7EF]'}`}>
-                  {tab === 'All' ? `All Requests` : tab} ({cnt})
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <Metric label="Requests" value={exceptions.length} icon={<Scale className="h-4 w-4" />} chip="bg-brand-50 text-brand-600" hint="all time" />
+          <Metric label="Pending" value={pendingCount} icon={<Clock className="h-4 w-4" />} chip="bg-warn-50 text-warn-600" hint="needs a decision" />
+          <Metric label="Approved" value={approvedCount} icon={<CheckCircle2 className="h-4 w-4" />} chip="bg-sage-50 text-sage-600" hint="in force" />
+          <Metric label="Expiring ≤30d" value={expiringSoon.length} icon={<CalendarClock className="h-4 w-4" />} chip="bg-terracotta-50 text-terracotta-600" hint="approved" />
+        </div>
+
+        {expiringSoon.length > 0 && (
+          <div className="rounded-2xl border border-terracotta-200 bg-terracotta-50/60 p-4">
+            <div className="flex items-center gap-2">
+              <CalendarClock className="h-4 w-4 text-terracotta-600" />
+              <p className="text-xs font-semibold text-terracotta-700">
+                {expiringSoon.length} approved exception{expiringSoon.length === 1 ? '' : 's'} expiring within 30 days
+              </p>
+            </div>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {expiringSoon.slice(0, 6).map((ex) => (
+                <button
+                  key={ex.id}
+                  onClick={() => openException(ex)}
+                  className="rounded-full border border-terracotta-200 bg-white px-2.5 py-1 text-2xs font-medium text-terracotta-700 transition-colors hover:bg-terracotta-50"
+                >
+                  {ex.requestTitle} · {ex.expiryDate}
                 </button>
-              );
-            })}
-          </div>
-          <div className="flex items-center gap-2 text-xs">
-            <select className="bg-white border border-line rounded-lg px-2.5 py-1.5 text-xs font-medium text-ink focus:outline-none cursor-pointer"><option>Newest First</option></select>
-            <div className="flex items-center gap-1 bg-white border border-line rounded-lg px-2 py-1.5 text-xs text-ink-700 cursor-pointer">
-              Last 30 Days <ChevronDown className="w-3 h-3 text-muted-light ml-1" />
-            </div>
-          </div>
-        </div>
-
-        {/* Table */}
-        <div className="bg-white rounded-2xl border border-line shadow-2xs overflow-hidden">
-          <table className="w-full text-left">
-            <thead>
-              <tr className="bg-gradient-to-r from-slate-50 via-blue-50/40 to-pink-50/30 border-b border-slate-200">
-                <th className="py-3 px-4 w-8"><input type="checkbox" className="rounded" /></th>
-                <th className="py-3 px-4 text-[11px] font-semibold text-muted uppercase tracking-wide">Campaign</th>
-                <th className="py-3 px-4 text-[11px] font-semibold text-muted uppercase tracking-wide">Request Title</th>
-                <th className="py-3 px-4 text-[11px] font-semibold text-muted uppercase tracking-wide">Reason</th>
-                <th className="py-3 px-4 text-[11px] font-semibold text-muted uppercase tracking-wide">Status</th>
-                <th className="py-3 px-4 text-[11px] font-semibold text-muted uppercase tracking-wide">Submitted On</th>
-                <th className="py-3 px-4 text-[11px] font-semibold text-muted uppercase tracking-wide">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#F5F0E8]">
-              {filtered.length === 0 && <tr><td colSpan={7} className="py-12 text-center text-xs text-muted">No exception requests found.</td></tr>}
-              {filtered.map((ex) => (
-                <tr key={ex.id} onClick={() => { setSelectedException(ex); setIsDrawerOpen(true); }}
-                  className={`cursor-pointer transition-colors ${selectedException?.id === ex.id ? 'bg-brand-50/40' : 'hover:bg-[#FAF7EF]/60'}`}>
-                  <td className="py-3 px-4"><input type="checkbox" checked={selectedIds.includes(ex.id)} onChange={() => toggleSelect(ex.id)} onClick={(e) => e.stopPropagation()} className="rounded" /></td>
-                  <td className="py-3 px-4">
-                    <div className="flex items-center gap-2.5">
-                      <img src={ex.thumbnail} alt="" className="w-10 h-10 rounded-lg object-cover border border-line shrink-0" />
-                      <div>
-                        <p className="font-semibold text-ink-900 text-xs">{ex.campaign}</p>
-                        <p className="text-[10px] text-muted-light">{ex.expiryDate}</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="py-3 px-4 text-xs text-ink-700 font-medium">{ex.requestTitle}</td>
-                  <td className="py-3 px-4 text-xs text-muted max-w-[180px] truncate">{ex.reason}</td>
-                  <td className="py-3 px-4"><StatusBadge status={ex.status} /></td>
-                  <td className="py-3 px-4 text-xs text-muted whitespace-nowrap">{ex.submittedOn}</td>
-                  <td className="py-3 px-4">
-                    <button onClick={(e) => e.stopPropagation()} className="p-1.5 rounded-lg text-muted hover:text-ink-700 hover:bg-[#FAF7EF] transition-colors">
-                      <MoreVertical className="w-4 h-4" />
-                    </button>
-                  </td>
-                </tr>
               ))}
-            </tbody>
-          </table>
-          <div className="flex items-center justify-between px-4 py-3 border-t border-line">
-            <p className="text-xs text-muted">Showing 1–{filtered.length} of {filtered.length} exception requests</p>
-            <div className="flex items-center gap-1 text-xs">
-              {[1,2,3,4,5].map((p) => <button key={p} className={`w-7 h-7 rounded-lg font-semibold transition-colors ${p === 1 ? 'bg-gradient-to-r from-brand-600 to-blue-500 text-white shadow-sm font-bold' : 'border border-line text-muted hover:bg-[#FAF7EF]'}`}>{p}</button>)}
             </div>
           </div>
-        </div>
-      </main>
+        )}
 
-      {/* Right panel */}
-      {isDrawerOpen && activeException && (
-        <aside className="w-[340px] bg-white border-l border-line flex flex-col shrink-0 overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-line shrink-0">
-            <h3 className="text-sm font-bold text-ink-900">Exception Request Details</h3>
-            <button onClick={() => setIsDrawerOpen(false)} className="p-1 rounded-lg text-muted-light hover:text-ink-700 hover:bg-[#F1ECE0]"><X className="w-4 h-4" /></button>
+        {/* Tabs */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          {([
+            ['All', exceptions.length],
+            ['Pending', pendingCount],
+            ['Approved', approvedCount],
+            ['Rejected', rejectedCount],
+          ] as const).map(([tab, count]) => (
+            <button
+              key={tab}
+              onClick={() => setFilterTab(tab)}
+              aria-pressed={filterTab === tab}
+              className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
+                filterTab === tab
+                  ? 'bg-ink-900 text-white'
+                  : 'border border-line bg-white text-ink-600 hover:bg-cream-50'
+              }`}
+            >
+              {tab === 'All' ? 'All requests' : tab}{' '}
+              <span className="tabular-nums opacity-70">({count})</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Sections */}
+        {exceptions.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-line bg-white px-6 py-14 text-center">
+            <ShieldOff className="mx-auto h-7 w-7 text-muted-light" />
+            <p className="mt-3 text-sm font-semibold text-ink">No exception requests yet</p>
+            <p className="mx-auto mt-1 max-w-sm text-xs leading-relaxed text-muted">
+              Requests appear here when a creator asks to depart from an active rule. Nothing is
+              pre-filled or simulated.
+            </p>
           </div>
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            <div className="relative rounded-xl overflow-hidden border border-line">
-              <img src={activeException.thumbnail} alt="" className="w-full h-36 object-cover" />
-              <div className="absolute top-2 right-2"><StatusBadge status={activeException.status} /></div>
-            </div>
-            <div>
-              <p className="font-bold text-ink-900 text-sm">{activeException.requestTitle}</p>
-              <p className="text-xs text-muted mt-1 leading-relaxed">{activeException.reason}</p>
-            </div>
-            {/* Request Info */}
-            <div className="space-y-0">
-              <p className="text-xs font-bold text-ink-900 mb-2">Request Information</p>
-              {[['Campaign', activeException.campaign], ['Submitted', activeException.submittedOn], ['Creator', activeException.creator], ['Reason', activeException.reason?.slice(0, 60) + (activeException.reason?.length > 60 ? '…' : '')]].map(([label, val]) => (
-                <div key={String(label)} className="flex items-start justify-between py-1.5 border-b border-[#F5F0E8] last:border-0 text-xs">
-                  <span className="text-muted shrink-0">{label}</span>
-                  <span className="font-medium text-ink text-right ml-4 max-w-[170px]">{val}</span>
+        ) : filtered.length === 0 ? (
+          <div className="rounded-2xl border border-line bg-white px-6 py-12 text-center">
+            <p className="text-sm font-semibold text-ink">No requests in this view</p>
+            <p className="mt-1 text-xs text-muted">
+              {searchQuery ? `Nothing matches “${searchQuery}”.` : `There are no ${filterTab.toLowerCase()} requests.`}
+            </p>
+            <button
+              onClick={() => { setFilterTab('All'); setSearchQuery(''); }}
+              className="mt-4 rounded-xl border border-line bg-white px-3.5 py-2 text-xs font-semibold text-ink-700 transition-colors hover:bg-cream-50"
+            >
+              Clear filters
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-5">
+            {sections.map((section) => (
+              <section key={section.status} aria-labelledby={`section-${section.status}`}>
+                <div className="mb-2 flex items-center gap-2">
+                  <h2 id={`section-${section.status}`} className="text-sm font-semibold text-ink">
+                    {section.status}
+                  </h2>
+                  <span className="rounded-full bg-cream-100 px-2 py-0.5 text-2xs font-semibold tabular-nums text-muted">
+                    {section.rows.length}
+                  </span>
+                  <span className="h-px flex-1 bg-line" />
                 </div>
-              ))}
+
+                {section.rows.length === 0 ? (
+                  <p className="rounded-2xl border border-line bg-white px-4 py-5 text-center text-2xs text-muted">
+                    {section.status === 'Pending'
+                      ? 'Nothing is waiting for a decision.'
+                      : `No ${section.status.toLowerCase()} requests.`}
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {section.rows.map((ex, i) => (
+                      <Reveal key={ex.id} delay={Math.min(i, 6) * 0.02}>
+                        <AnimatedCard className="overflow-hidden">
+                          <div className="flex">
+                            <span className={`w-1 shrink-0 ${STATUS_RAIL[ex.status]}`} aria-hidden="true" />
+                            <button
+                              onClick={() => openException(ex)}
+                              className="flex min-w-0 flex-1 flex-col gap-3 p-3.5 text-left transition-colors hover:bg-cream-50/60 sm:flex-row sm:items-center"
+                            >
+                              <img
+                                src={ex.thumbnail}
+                                alt=""
+                                className="h-10 w-10 shrink-0 rounded-lg border border-line object-cover"
+                              />
+                              <div className="min-w-0 flex-1">
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  <span className="truncate text-xs font-semibold text-ink">{ex.requestTitle}</span>
+                                  <span className={STATUS_CLASS[ex.status]}>{ex.status}</span>
+                                </div>
+                                <p className="mt-0.5 truncate text-2xs text-muted">
+                                  {ex.campaign} · requested by {ex.creator || 'workspace member'}
+                                </p>
+                                <p className="mt-1 line-clamp-1 text-2xs text-muted">{ex.reason}</p>
+                              </div>
+                              <div className="flex shrink-0 flex-wrap items-center gap-4 text-2xs text-muted">
+                                <div>
+                                  <p className="uppercase tracking-[0.06em] text-muted-light">Scope</p>
+                                  <p className="mt-0.5 max-w-[140px] truncate font-medium text-ink-700">
+                                    {ex.scope || 'Not stated'}
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="uppercase tracking-[0.06em] text-muted-light">Effective</p>
+                                  <p className="mt-0.5 font-medium text-ink-700">{ex.submittedOn}</p>
+                                </div>
+                                <div>
+                                  <p className="uppercase tracking-[0.06em] text-muted-light">Expiry</p>
+                                  <p className="mt-0.5"><ExpiryChip dateText={ex.expiryDate} /></p>
+                                </div>
+                                <ChevronRight className="h-4 w-4 text-muted-light" />
+                              </div>
+                            </button>
+                          </div>
+                        </AnimatedCard>
+                      </Reveal>
+                    ))}
+                  </div>
+                )}
+              </section>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Decision drawer */}
+      <AnimatedDrawer
+        open={isDrawerOpen && !!activeException}
+        onClose={() => setIsDrawerOpen(false)}
+        title={activeException?.requestTitle ?? 'Exception request'}
+        subtitle={activeException ? `${activeException.campaign} · ${activeException.status}` : undefined}
+        width={480}
+      >
+        {activeException && (
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className={STATUS_CLASS[activeException.status]}>{activeException.status}</span>
+              <ExpiryChip dateText={activeException.expiryDate} />
             </div>
-            {/* Exception details */}
-            {(activeException.scope || activeException.conditions || activeException.expiryDate) && (
-              <div className="space-y-0">
-                <p className="text-xs font-bold text-ink-900 mb-2">Exception Details</p>
-                {[['Scope', activeException.scope], ['Conditions', activeException.conditions], ['Expiry Date', activeException.expiryDate]].filter(([, v]) => v).map(([label, val]) => (
-                  <div key={String(label)} className="flex items-start justify-between py-1.5 border-b border-[#F5F0E8] last:border-0 text-xs">
-                    <span className="text-muted shrink-0">{label}</span>
-                    <span className="font-medium text-ink text-right ml-4 max-w-[170px]">{val}</span>
+
+            <div className="rounded-xl border border-line bg-cream-50 p-3">
+              <p className="text-2xs font-semibold uppercase tracking-[0.06em] text-muted">Reason</p>
+              <p className="mt-1 text-xs leading-relaxed text-ink-700">{activeException.reason}</p>
+            </div>
+
+            <div>
+              <p className="mb-1.5 text-2xs font-semibold uppercase tracking-[0.08em] text-muted">
+                Request information
+              </p>
+              <dl className="space-y-1.5">
+                {[
+                  { label: 'Campaign', value: activeException.campaign, icon: <Scale className="h-3.5 w-3.5" /> },
+                  { label: 'Requested by', value: activeException.creator || 'Workspace member', icon: <User className="h-3.5 w-3.5" /> },
+                  { label: 'Scope', value: activeException.scope || 'Not stated', icon: <ShieldOff className="h-3.5 w-3.5" /> },
+                  { label: 'Effective from', value: activeException.submittedOn, icon: <Calendar className="h-3.5 w-3.5" /> },
+                  { label: 'Expires', value: activeException.expiryDate || 'No expiry set', icon: <CalendarClock className="h-3.5 w-3.5" /> },
+                  { label: 'Conditions', value: activeException.conditions || 'None recorded', icon: <MessageSquare className="h-3.5 w-3.5" /> },
+                ].map((row) => (
+                  <div
+                    key={row.label}
+                    className="flex items-start justify-between gap-3 border-b border-line py-1.5 text-xs last:border-0"
+                  >
+                    <span className="flex shrink-0 items-center gap-1.5 text-muted">{row.icon}{row.label}</span>
+                    <span className="max-w-[60%] break-words text-right font-medium text-ink">{row.value}</span>
                   </div>
                 ))}
-              </div>
-            )}
-            {/* Manager notes */}
-            {activeException.managerNotes && (
-              <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl flex items-start gap-2 text-xs">
-                <span className="text-blue-500 shrink-0 mt-0.5">ℹ</span>
-                <p className="text-blue-800 leading-relaxed">{activeException.managerNotes}</p>
-              </div>
-            )}
-          </div>
-          {/* Action buttons */}
-          <div className="p-4 border-t border-line space-y-2 shrink-0">
-            <div className="flex gap-2">
-              <button className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-white border border-line rounded-xl text-xs font-semibold text-ink-700 hover:bg-[#FAF7EF] transition-colors cursor-pointer">
-                <MessageSquare className="w-3.5 h-3.5" />Add Comment
-              </button>
-              <button className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-white border border-line rounded-xl text-xs font-semibold text-ink-700 hover:bg-[#FAF7EF] transition-colors cursor-pointer">
-                <BookOpen className="w-3.5 h-3.5" />View Guideline
-              </button>
+              </dl>
             </div>
-            {activeException.status === 'Pending' && (
-              <div className="flex gap-2">
-                <button onClick={() => updateExceptionStatus(activeException.id, 'Rejected', '')} className="flex-1 py-2 bg-white border border-red-300 rounded-xl text-xs font-semibold text-red-600 hover:bg-red-50 transition-colors cursor-pointer">
-                  Reject
-                </button>
-                <button onClick={() => updateExceptionStatus(activeException.id, 'Approved', '')} className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold transition-colors cursor-pointer">
-                  Approve Exception
-                </button>
+
+            <div>
+              <p className="mb-2 text-2xs font-semibold uppercase tracking-[0.08em] text-muted">
+                Lifecycle
+              </p>
+              <Timeline items={timeline(activeException)} />
+            </div>
+
+            {activeException.managerNotes && (
+              <div className="flex items-start gap-2 rounded-xl border border-olive-200 bg-olive-50/60 p-3">
+                <MessageSquare className="mt-0.5 h-3.5 w-3.5 shrink-0 text-olive-600" />
+                <p className="text-2xs leading-relaxed text-ink-700">{activeException.managerNotes}</p>
               </div>
             )}
+
+            {/* Decision panel */}
+            {activeException.status === 'Pending' ? (
+              <div className="rounded-2xl border border-line bg-white p-3.5">
+                <p className="text-xs font-semibold text-ink">Decision</p>
+                <p className="mt-0.5 text-2xs text-muted">
+                  The note is stored with the decision and shown in the audit trail.
+                </p>
+                <label htmlFor="decision-note" className="sr-only">Decision note</label>
+                <textarea
+                  id="decision-note"
+                  value={decisionNote}
+                  onChange={(e) => setDecisionNote(e.target.value)}
+                  rows={2}
+                  placeholder="Conditions or reason for the decision"
+                  className="mt-2 w-full resize-none rounded-xl border border-line px-3 py-2 text-xs text-ink placeholder:text-muted-light focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+                />
+                <div className="mt-2 flex gap-2">
+                  <button
+                    onClick={() => handleDecision('Rejected')}
+                    className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-danger-300 bg-white py-2 text-xs font-semibold text-danger-700 transition-colors hover:bg-danger-50"
+                  >
+                    <Ban className="h-3.5 w-3.5" />Reject
+                  </button>
+                  <button
+                    onClick={() => handleDecision('Approved')}
+                    className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-brand-600 py-2 text-xs font-semibold text-white transition-colors hover:bg-brand-700"
+                  >
+                    <Check className="h-3.5 w-3.5" />Approve
+                  </button>
+                </div>
+                {decisionSent && (
+                  <p role="status" className="mt-2 rounded-lg bg-cream-50 px-2.5 py-2 text-2xs text-muted">
+                    Decision sent. This panel shows the new status once the server refresh completes.
+                  </p>
+                )}
+              </div>
+            ) : activeException.status === 'Approved' ? (
+              <div className="rounded-2xl border border-line bg-white p-3.5">
+                <p className="text-xs font-semibold text-ink">Revoke this exception</p>
+                <p className="mt-0.5 text-2xs leading-relaxed text-muted">
+                  Revoking ends the authorisation immediately. The content returns to normal rule
+                  enforcement and Sentinel may create a reassessment task.
+                </p>
+                {!confirmRevoke ? (
+                  <button
+                    onClick={() => setConfirmRevoke(true)}
+                    className="mt-2 inline-flex items-center gap-1.5 rounded-xl border border-terracotta-300 bg-white px-3 py-2 text-xs font-semibold text-terracotta-700 transition-colors hover:bg-terracotta-50"
+                  >
+                    <ShieldOff className="h-3.5 w-3.5" />Revoke exception
+                  </button>
+                ) : (
+                  <div className="mt-2 flex gap-2">
+                    <button
+                      onClick={() => setConfirmRevoke(false)}
+                      className="flex-1 rounded-xl border border-line bg-white py-2 text-xs font-semibold text-ink-700 transition-colors hover:bg-cream-50"
+                    >
+                      Keep exception
+                    </button>
+                    <button
+                      onClick={handleRevoke}
+                      disabled={revoking}
+                      className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-terracotta-600 py-2 text-xs font-semibold text-white transition-colors hover:bg-terracotta-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {revoking ? <RotateCw className="h-3.5 w-3.5 animate-spin" /> : <ShieldOff className="h-3.5 w-3.5" />}
+                      {revoking ? 'Revoking…' : 'Confirm revoke'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="rounded-xl border border-line bg-cream-50 px-3 py-2.5 text-2xs leading-relaxed text-muted">
+                This request was rejected. A rejected request cannot be approved later; the creator
+                must submit a new request with updated scope or reasoning.
+              </p>
+            )}
+
+            <button
+              onClick={() => setIsDrawerOpen(false)}
+              className="w-full rounded-xl border border-line bg-white py-2 text-xs font-semibold text-ink-700 transition-colors hover:bg-cream-50"
+            >
+              Close
+            </button>
           </div>
-        </aside>
-      )}
+        )}
+      </AnimatedDrawer>
     </div>
   );
 };
