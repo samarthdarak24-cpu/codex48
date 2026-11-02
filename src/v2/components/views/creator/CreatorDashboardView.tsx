@@ -268,7 +268,7 @@ export const CreatorDashboardView: React.FC = () => {
                 actions={
                   <button
                     onClick={() => setCurrentPage('my-submissions')}
-                    className="inline-flex items-center gap-1 text-xs font-semibold text-brand-600 transition-colors hover:text-brand-700"
+                    className="link-underline inline-flex items-center gap-1 text-xs font-semibold text-brand-600 transition-colors hover:text-brand-700"
                   >
                     See all<ArrowRight className="h-3.5 w-3.5" />
                   </button>
