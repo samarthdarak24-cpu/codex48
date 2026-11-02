@@ -28,6 +28,7 @@ from app.config import settings
 from app.db import SessionLocal, init_db
 from app.errors import RequestIDMiddleware, install_error_handlers
 from app.routers import (
+    canonical_v1,
     analysis,
     analytics,
     assets,
@@ -205,6 +206,24 @@ def health_models() -> dict:
     }
 
 
+@app.get("/ready")
+def readiness() -> dict:
+    """Readiness probe checking database connectivity."""
+    db = SessionLocal()
+    try:
+        db.execute(text("SELECT 1"))
+        return {
+            "status": "ready",
+            "app": settings.app_name,
+            "database": "connected",
+            "storage": "local",
+        }
+    except Exception as e:
+        return {"status": "unavailable", "error": str(e)}
+    finally:
+        db.close()
+
+
 @app.get("/ai/status")
 def ai_status() -> dict:
     """A2 AI Status & Trust Panel summary."""
@@ -276,6 +295,10 @@ for route in proofpass.router.routes:
         tags=route.tags,
     )
 app.include_router(_proofpass_alias)
+
+# Canonical v1 router
+app.include_router(canonical_v1.router)
+
 
 
 # ---------------------------------------------------------------------------

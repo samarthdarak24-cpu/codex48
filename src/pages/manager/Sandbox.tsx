@@ -349,6 +349,7 @@ export default function Sandbox() {
                   <DataTable
                     columns={columns}
                     rows={activeSim.items}
+                    minWidth="540px"
                     getKey={(r) => r.submissionId}
                     dense
                     empty={

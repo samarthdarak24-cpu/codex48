@@ -134,7 +134,7 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const { user } = useAuth()
 
   return (
-    <aside className="flex h-full w-[246px] shrink-0 flex-col border-r border-line bg-white">
+    <aside className="flex h-full w-[246px] max-w-[85vw] shrink-0 flex-col border-r border-line bg-white">
       <div className="px-4 pb-4 pt-5">
         <Link to={user?.role === 'manager' ? '/manager/overview' : '/app/overview'} onClick={onNavigate}>
           <Wordmark />
@@ -235,14 +235,20 @@ function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
     user?.role === 'manager' ? 'Search content, rules, or submissions…' : 'Search content, rules, or guidelines…'
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center gap-3 border-b border-line bg-white/90 px-4 backdrop-blur-md sm:px-6">
-      <button
-        onClick={onOpenMenu}
-        aria-label="Open navigation"
-        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-line text-ink-600 lg:hidden"
-      >
-        <Menu className="h-4 w-4" />
-      </button>
+    <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between gap-3 border-b border-line bg-white/90 px-3 backdrop-blur-md sm:px-6">
+      <div className="flex items-center gap-2 lg:hidden">
+        <button
+          onClick={onOpenMenu}
+          aria-label="Open navigation"
+          className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-line text-ink-600 transition-colors hover:bg-[#F2F7FD]"
+        >
+          <Menu className="h-4 w-4" />
+        </button>
+        <Link to={user?.role === 'manager' ? '/manager/overview' : '/app/overview'} className="flex items-center gap-1.5">
+          <BrandMark size={22} />
+          <span className="text-sm font-bold tracking-tight text-ink">Precedent</span>
+        </Link>
+      </div>
 
       <form
         className="relative hidden max-w-[330px] flex-1 sm:block"
@@ -266,12 +272,12 @@ function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
         />
       </form>
 
-      <div className="ml-auto flex items-center gap-2">
+      <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
         <button
           type="button"
           onClick={() => setJudgeOpen(true)}
           className="inline-flex items-center gap-1.5 rounded-full border border-brand-200 bg-brand-50/90 px-3 py-1 text-xs font-bold text-brand-700 shadow-2xs transition-all hover:border-brand-300 hover:bg-brand-100"
-          title="Open Judge Guided Tour & Demo Evaluation Guide"
+          title="Open Judge Guided Tour &amp; Demo Evaluation Guide"
         >
           <Sparkles className="h-3.5 w-3.5 animate-pulse text-brand-600" />
           <span className="hidden sm:inline">Judge Tour</span>
@@ -303,7 +309,7 @@ function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
             <div
               onClick={(e) => e.stopPropagation()}
               role="menu"
-              className="absolute right-0 top-12 w-[236px] animate-pop-in rounded-xl border border-line bg-white p-1.5 shadow-lift"
+              className="absolute right-0 top-12 w-[236px] max-w-[calc(100vw-32px)] animate-pop-in rounded-xl border border-line bg-white p-1.5 shadow-lift"
             >
               <div className="px-2.5 py-2">
                 <p className="text-base font-semibold text-ink">{user?.name}</p>
@@ -614,13 +620,13 @@ export function PageHeader({
           {backLabel}
         </button>
       )}
-      <div className="flex flex-wrap items-end justify-between gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
         <div className="min-w-0">
           {eyebrow}
-          <h1 className="text-3xl font-semibold tracking-[-0.025em] text-ink">{title}</h1>
-          {subtitle && <p className="mt-1 max-w-2xl text-base leading-[20px] text-muted">{subtitle}</p>}
+          <h1 className="text-2xl sm:text-3xl font-semibold tracking-[-0.025em] text-ink">{title}</h1>
+          {subtitle && <p className="mt-1 max-w-2xl text-sm sm:text-base leading-[20px] text-muted">{subtitle}</p>}
         </div>
-        {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+        {actions && <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">{actions}</div>}
       </div>
     </div>
   )
@@ -664,7 +670,7 @@ export function DashboardLayout() {
 
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar onOpenMenu={() => setMobileOpen(true)} />
-        {mutationError && (
+{mutationError && (
           <div
             role="alert"
             className="mx-4 mt-3 flex flex-wrap items-start gap-x-3 gap-y-1.5 rounded-xl border border-danger-200 bg-danger-50 px-3 py-2.5 sm:mx-6"
@@ -683,7 +689,7 @@ export function DashboardLayout() {
             </div>
           </div>
         )}
-        <main className="flex-1 px-4 py-5 sm:px-6 sm:py-6">
+        <main className="flex-1 px-3 py-4 sm:px-6 sm:py-6">
           <div className="mx-auto w-full max-w-[1180px] animate-fade-up">
             <Outlet />
           </div>

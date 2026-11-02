@@ -145,7 +145,7 @@ export function BrandAssetsPicker({
           </Button>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <span className="text-2xs font-semibold uppercase tracking-[0.06em] text-muted">Brand</span>
           <Select
             value={assetBrand}
@@ -156,7 +156,7 @@ export function BrandAssetsPicker({
             <option value="PureGlow">PureGlow</option>
             <option value="WellnessLife">WellnessLife</option>
           </Select>
-          <span className="ml-auto text-right text-2xs leading-[13px] text-muted">
+          <span className="w-full sm:w-auto sm:ml-auto sm:text-right text-2xs leading-[13px] text-muted">
             Images you upload are saved under this brand.
           </span>
         </div>

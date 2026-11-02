@@ -264,6 +264,7 @@ export default function NewContent() {
                 <Button
                   type="button"
                   variant="outline"
+                  className="w-full sm:w-auto"
                   onClick={() => {
                     setTitle('')
                     setText('')
@@ -273,7 +274,7 @@ export default function NewContent() {
                 >
                   Clear
                 </Button>
-                <Button type="submit" loading={submitting} icon={<Send className="h-3.5 w-3.5" />}>
+                <Button type="submit" loading={submitting} className="w-full sm:w-auto" icon={<Send className="h-3.5 w-3.5" />}>
                   Submit for Review
                 </Button>
               </div>

@@ -9,13 +9,6 @@ Every error leaves the API in one shape (blueprint 4.4 / 5.2):
       "request_id": "9f2c...",
       "detail": "Submission not found"     <- kept for existing clients
     }
-
-`detail` mirrors `message` so the typed frontend client (which reads
-``detail``/``message``) keeps working unchanged.
-
-The request id is generated (or propagated from an inbound ``X-Request-ID``)
-by :class:`RequestIDMiddleware` and echoed on the response header so a judge
-can match a UI error to a server log line.
 """
 from __future__ import annotations
 
@@ -26,6 +19,7 @@ from typing import Any, Optional
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 from starlette.middleware.base import BaseHTTPMiddleware
 
 log = logging.getLogger("precedent.errors")
@@ -44,14 +38,31 @@ def error_body(
     details: Optional[Any] = None,
     request_id: str = "",
 ) -> dict:
-    body: dict[str, Any] = {
+    return {
         "code": code,
         "message": message,
         "detail": message,
         "details": details,
         "request_id": request_id,
     }
-    return body
+
+
+def format_error_response(
+    status_code: int,
+    code: str,
+    message: str,
+    details: Any = None,
+    request_id: str = "",
+) -> JSONResponse:
+    content = error_body(code, message, details=details, request_id=request_id)
+    return JSONResponse(status_code=status_code, content=content)
+
+
+class ErrorResponse(BaseModel):
+    code: str
+    message: str
+    details: Any = None
+    request_id: str = ""
 
 
 class AppError(Exception):
@@ -70,6 +81,68 @@ class AppError(Exception):
         self.status_code = status_code
         self.code = code
         self.details = details
+
+
+class AppException(Exception):
+    def __init__(
+        self,
+        code: str,
+        message: str,
+        status_code: int = 400,
+        details: Any = None,
+    ):
+        super().__init__(message)
+        self.code = code
+        self.message = message
+        self.status_code = status_code
+        self.details = details
+
+
+class StaleVersionException(AppException):
+    def __init__(self, message: str = "Stale version: submission has been updated by another reviewer"):
+        super().__init__(
+            code="STALE_VERSION",
+            message=message,
+            status_code=409,
+        )
+
+
+class NotFoundException(AppException):
+    def __init__(self, resource: str, resource_id: str = ""):
+        msg = f"{resource} {resource_id} not found" if resource_id else f"{resource} not found"
+        super().__init__(
+            code="NOT_FOUND",
+            message=msg,
+            status_code=404,
+        )
+
+
+class ForbiddenException(AppException):
+    def __init__(self, message: str = "Forbidden"):
+        super().__init__(
+            code="FORBIDDEN",
+            message=message,
+            status_code=403,
+        )
+
+
+class UnauthenticatedException(AppException):
+    def __init__(self, message: str = "Authentication required"):
+        super().__init__(
+            code="UNAUTHENTICATED",
+            message=message,
+            status_code=401,
+        )
+
+
+class ValidationException(AppException):
+    def __init__(self, message: str = "Validation error", details: Any = None):
+        super().__init__(
+            code="VALIDATION_ERROR",
+            message=message,
+            status_code=422,
+            details=details,
+        )
 
 
 _STATUS_CODES = {
@@ -96,7 +169,7 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
         request.state.request_id = rid
         try:
             response = await call_next(request)
-        except Exception:  # pragma: no cover - re-raised by the handler below
+        except Exception:  # pragma: no cover
             log.exception("unhandled error rid=%s path=%s", rid, request.url.path)
             raise
         response.headers[REQUEST_ID_HEADER] = rid
@@ -115,7 +188,19 @@ def install_error_handlers(app: FastAPI) -> None:
     """Register handlers so every error uses the structured shape."""
 
     @app.exception_handler(AppError)
-    async def _app_error(request: Request, exc: AppError):  # noqa: ANN202
+    async def _app_error(request: Request, exc: AppError):
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=error_body(
+                exc.code,
+                exc.message,
+                details=exc.details,
+                request_id=_request_id(request),
+            ),
+        )
+
+    @app.exception_handler(AppException)
+    async def _app_exception(request: Request, exc: AppException):
         return JSONResponse(
             status_code=exc.status_code,
             content=error_body(
@@ -127,7 +212,7 @@ def install_error_handlers(app: FastAPI) -> None:
         )
 
     @app.exception_handler(HTTPException)
-    async def _http_error(request: Request, exc: HTTPException):  # noqa: ANN202
+    async def _http_error(request: Request, exc: HTTPException):
         message = exc.detail if isinstance(exc.detail, str) else "Request failed"
         details = None if isinstance(exc.detail, str) else exc.detail
         return JSONResponse(
@@ -142,7 +227,7 @@ def install_error_handlers(app: FastAPI) -> None:
         )
 
     @app.exception_handler(RequestValidationError)
-    async def _validation_error(request: Request, exc: RequestValidationError):  # noqa: ANN202
+    async def _validation_error(request: Request, exc: RequestValidationError):
         fields = [
             {
                 "field": ".".join(str(p) for p in err.get("loc", []) if p != "body"),
@@ -162,8 +247,7 @@ def install_error_handlers(app: FastAPI) -> None:
         )
 
     @app.exception_handler(Exception)
-    async def _unhandled(request: Request, exc: Exception):  # noqa: ANN202
-        # Never leak a stack trace or a filesystem path to the client.
+    async def _unhandled(request: Request, exc: Exception):
         log.exception("unhandled error rid=%s", _request_id(request))
         return JSONResponse(
             status_code=500,
