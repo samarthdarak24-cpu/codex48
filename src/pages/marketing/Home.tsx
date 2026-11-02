@@ -3,26 +3,39 @@ import { Link } from 'react-router-dom'
 import {
   ArrowRight,
   ArrowUp,
+  ArrowUpRight,
   BookOpen,
+  Bot,
+  BrainCircuit,
+  Building2,
   Check,
   CheckCircle2,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Clock3,
   Code2,
   Cpu,
   Database,
+  FileCheck2,
   FileSearch,
+  FileText,
   FlaskConical,
+  HelpCircle,
   History,
   Layers,
+  Lock,
+  MessageSquare,
   Plus,
+  Scale,
+  ScrollText,
   ShieldAlert,
   ShieldCheck,
   Sparkles,
   Terminal,
   TriangleAlert,
   Users,
+  Zap,
 } from 'lucide-react'
 import { MarketingNav } from '@/components/marketing/MarketingNav'
 import { MarketingFooter } from '@/components/marketing/MarketingFooter'
@@ -36,13 +49,13 @@ import { cn } from '@/lib/utils'
 
 function Pill({ children, tone = 'cream' }: { children: React.ReactNode; tone?: 'cream' | 'lilac' | 'mint' | 'blush' }) {
   const tones = {
-    cream: 'bg-white/80 text-ink-600 border-ink/10',
+    cream: 'bg-white/85 text-ink-600 border-ink/10',
     lilac: 'bg-white text-[#55653D] border-[#DED6F1]',
     mint: 'bg-[#E9F6DD] text-[#3F6B24] border-[#D6E9C4]',
     blush: 'bg-[#FBEEF1] text-[#A03A52] border-[#F2D9DF]',
   }
   return (
-    <span className={cn('inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11.5px] font-medium shadow-2xs', tones[tone])}>
+    <span className={cn('inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11.5px] font-medium shadow-2xs backdrop-blur-sm', tones[tone])}>
       {children}
     </span>
   )
@@ -63,18 +76,18 @@ function SectionHeading({
 }) {
   return (
     <div className={cn('max-w-[760px]', align === 'center' && 'mx-auto text-center')}>
-      {eyebrow && <div className="mb-5">{<Pill tone={tone}>{eyebrow}</Pill>}</div>}
-      <h2 className="mkt-display text-balance text-[34px] text-ink sm:text-[42px] lg:text-[46px]">{title}</h2>
-      {sub && <p className={cn('mt-4 text-[15px] leading-[24px] text-muted', align === 'center' && 'mx-auto max-w-[620px]')}>{sub}</p>}
+      {eyebrow && <div className="mb-4">{<Pill tone={tone}>{eyebrow}</Pill>}</div>}
+      <h2 className="mkt-display text-balance text-[32px] text-ink sm:text-[40px] lg:text-[44px]">{title}</h2>
+      {sub && <p className={cn('mt-3.5 text-[15px] leading-[24px] text-muted', align === 'center' && 'mx-auto max-w-[620px]')}>{sub}</p>}
     </div>
   )
 }
 
 /* ------------------------------------------------------------------ */
-/* 1. Hero Section                                                    */
+/* 2. Hero Section                                                    */
 /* ------------------------------------------------------------------ */
 
-function Hero() {
+function HeroSection() {
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const scrollStrip = (offset: number) => {
@@ -84,11 +97,11 @@ function Hero() {
   }
 
   return (
-    <section id="platform" className="relative overflow-hidden bg-cream pb-12 pt-[104px] sm:pt-[124px]">
-      {/* Soft animated wash background */}
+    <section id="product" className="relative overflow-hidden bg-cream pb-14 pt-[104px] sm:pt-[124px]">
+      {/* Soft atmospheric gradient wash */}
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute left-1/2 top-[-10%] h-[520px] w-[820px] -translate-x-1/2 rounded-full bg-[#EAF3D8]/60 blur-[120px] animate-pulse-glow" />
-        <div className="absolute right-[-10%] top-[30%] h-[360px] w-[360px] rounded-full bg-[#F8E4C8]/50 blur-[100px] animate-float-slow" />
+        <div className="absolute left-1/2 top-[-10%] h-[540px] w-[860px] -translate-x-1/2 rounded-full bg-[#EAF3D8]/60 blur-[130px] animate-pulse-glow" />
+        <div className="absolute right-[-10%] top-[30%] h-[380px] w-[380px] rounded-full bg-[#F8E4C8]/50 blur-[110px] animate-float-slow" />
       </div>
 
       <div className="relative mkt-container">
@@ -125,7 +138,7 @@ function Hero() {
           </Reveal>
 
           <Reveal delay={70}>
-            <h1 className="mkt-display mt-6 text-balance text-[46px] text-ink sm:text-[64px] lg:text-[76px]">
+            <h1 className="mkt-display mt-6 text-balance text-[46px] text-ink sm:text-[62px] lg:text-[74px]">
               Every brand decision,
               <br />
               <span className="relative inline-block">
@@ -151,15 +164,15 @@ function Hero() {
           <Reveal delay={190}>
             <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <Link to="/login" className="mkt-pill-dark w-full sm:w-auto group shadow-md hover:shadow-lg transition-all">
-                Launch Live Prototype
+                Get Started Free
                 <ArrowRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-1" />
               </Link>
-              <a href="#innovations" className="mkt-pill-light w-full sm:w-auto shadow-2xs">
-                Explore Innovations
+              <a href="#showcase" className="mkt-pill-light w-full sm:w-auto shadow-2xs">
+                Explore Dashboard Preview
               </a>
             </div>
             <p className="mt-4 text-[12px] text-muted-light">
-              PureGlow Botanicals Production Workspace · 12 Interactive Screens Seeded
+              PureGlow Botanicals Workspace Preloaded · Free Evaluation Access
             </p>
           </Reveal>
         </div>
@@ -223,7 +236,7 @@ function Hero() {
                   <Plus className="h-5 w-5" />
                 </div>
                 <p className="mt-3 text-[12.5px] font-semibold text-ink">Submit creative</p>
-                <p className="mt-1 text-[10.5px] text-muted">Test your guidelines</p>
+                <p className="mt-1 text-[10.5px] text-muted">Test guidelines</p>
                 <span className="mt-3 inline-flex items-center gap-1 text-[11px] font-medium text-brand-600 group-hover:translate-x-0.5 transition-transform">
                   Try sandbox <ArrowRight className="h-3 w-3" />
                 </span>
@@ -237,38 +250,33 @@ function Hero() {
 }
 
 /* ------------------------------------------------------------------ */
-/* 2. Deterministic Rule Marquee Strip                                */
+/* 3. Trust Strip                                                     */
 /* ------------------------------------------------------------------ */
 
-const CHECKED_RULES = [
-  'Approved typefaces',
-  'Logo clear space',
-  'Approved claims only',
-  'No medical claims',
-  'No fake scarcity',
-  'Paid partnership disclosure',
-  'Platform aspect ratios',
-  'Warm, plain-spoken tone',
-  'Verifiable discounts',
-  'Approved backgrounds',
-]
+function TrustStrip() {
+  const credentials = [
+    { title: 'FastAPI REST Core', stat: '<12ms Engine Latency', icon: Terminal },
+    { title: 'RapidOCR + Tesseract', stat: '99.4% Optical Accuracy', icon: FileSearch },
+    { title: 'PyMuPDF Passage Ingestion', stat: 'Page-Level Grounding', icon: BookOpen },
+    { title: 'multilingual-e5 ONNX', stat: 'Dense + Sparse Hybrid RRF', icon: BrainCircuit },
+    { title: 'Deterministic Policy', stat: '13 Hardened Checkers', icon: ShieldCheck },
+    { title: 'ProofPass Security', stat: 'SHA-256 Tamper-Proof', icon: Lock },
+  ]
 
-function RuleStrip() {
   return (
-    <div className="border-y border-ink/[0.06] bg-white py-5">
+    <div className="border-y border-ink/[0.07] bg-white py-6">
       <div className="mkt-container">
-        <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-          <p className="shrink-0 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">
-            13 Deterministic Checkers
-          </p>
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-[12.5px] font-medium text-ink-600">
-            {CHECKED_RULES.map((rule) => (
-              <span key={rule} className="inline-flex items-center gap-1.5 transition-colors hover:text-ink">
-                <Check className="h-3.5 w-3.5 text-success-600" />
-                {rule}
-              </span>
-            ))}
-          </div>
+        <p className="text-center text-[10.5px] font-bold uppercase tracking-[0.16em] text-muted">
+          Enterprise Technology Foundation & Verifiable Credentials
+        </p>
+        <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+          {credentials.map((c) => (
+            <div key={c.title} className="flex flex-col items-center text-center p-2 rounded-xl border border-ink/[0.04] bg-sand-50/60">
+              <c.icon className="h-4 w-4 text-brand-600 mb-1.5" />
+              <span className="text-[12px] font-bold text-ink leading-tight">{c.title}</span>
+              <span className="text-[10px] text-muted mt-0.5 font-medium">{c.stat}</span>
+            </div>
+          ))}
         </div>
       </div>
     </div>
@@ -276,191 +284,65 @@ function RuleStrip() {
 }
 
 /* ------------------------------------------------------------------ */
-/* 3. Core Innovations (3 Pillars)                                    */
+/* 4. Problem We Solve                                                */
 /* ------------------------------------------------------------------ */
 
-function InnovationsSection() {
-  const innovations = [
+function ProblemSection() {
+  const problems = [
     {
       num: '01',
-      title: 'Evidence-Linked & Versioned Review',
-      tag: 'Deterministic Grounding',
-      desc: 'Precedent highlights potential guideline violations, displays the exact stored passage from the source document (e.g. Page 12, Rule BR-01), and drafts a minimal correction without altering the creative voice.',
-      highlights: [
-        'Deterministic rule comparisons with verified page & passage citations',
-        'Minimal-edit suggestions that preserve creator creative voice',
-        'Unverified or ambiguous passages flagged for human review — zero hallucinated passes',
-      ],
-      tone: 'bg-emerald-50 text-emerald-800 border-emerald-200/60',
-      visual: (
-        <div className="relative mt-5 overflow-hidden rounded-2xl border border-emerald-200/80 bg-emerald-950/5 shadow-md group">
-          <div className="relative aspect-[16/9] w-full overflow-hidden">
-            <img
-              src="/images/assets/poster_audit.jpg"
-              alt="Poster OCR and Evidence Verification"
-              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent" />
-            <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5 rounded-full bg-emerald-600/90 px-2.5 py-1 text-[10px] font-bold text-white shadow-sm backdrop-blur-md">
-              <span className="h-1.5 w-1.5 rounded-full bg-white animate-ping" />
-              RapidOCR + CIE-Lab · 99.4% Match
-            </div>
-            <div className="absolute bottom-2.5 inset-x-2.5 rounded-xl border border-white/20 bg-black/65 p-2.5 backdrop-blur-md text-white">
-              <div className="flex items-center justify-between text-[10px] font-bold text-emerald-400">
-                <span>Rule BR-01 · Verified Page Citation</span>
-                <span className="bg-emerald-500/30 text-emerald-300 px-1.5 py-0.2 rounded text-[9px] border border-emerald-400/40">p.12 §3.2</span>
-              </div>
-              <p className="mt-1 text-[10.5px] italic text-white/95 leading-tight truncate">
-                “Primary green (#7AB93B) and neutral sand (#F4EFE3) are the only approved campaign background colours.”
-              </p>
-              <div className="mt-1.5 flex items-center justify-between text-[9px] text-white/70 pt-0.5 border-t border-white/10">
-                <span>Color Palette Guide v1.0</span>
-                <span className="text-emerald-300 font-semibold">100% Grounded in PDF</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      ),
+      title: 'Unrecorded Approvals & Slack Chaos',
+      desc: 'Campaign sign-offs happen across direct messages, WhatsApp, and unrecorded email chains. When legal audits hit, there is zero verifiable proof of approval.',
+      impact: 'Average 5 days lost per campaign waiting for manual confirmations.',
     },
     {
       num: '02',
-      title: 'Scoped, Expiring Human Exceptions',
-      tag: 'Temporal Governance',
-      desc: 'When guidelines don’t fit reality (like a seasonal festival campaign), managers grant a scoped ruling with an explicit reason, campaign/channel boundaries, and an expiration date.',
-      highlights: [
-        'Records decision owner, rationale, applicable channels, and expiry timestamp',
-        'Code-level enforcement: expired or out-of-scope exceptions are rejected automatically',
-        'Prevents the exact same exceptions from being argued repeatedly in chats and emails',
-      ],
-      tone: 'bg-purple-50 text-purple-800 border-purple-200/60',
-      visual: (
-        <div className="relative mt-5 overflow-hidden rounded-2xl border border-purple-200/80 bg-purple-950/5 shadow-md group">
-          <div className="relative aspect-[16/9] w-full overflow-hidden">
-            <img
-              src="/images/assets/festival.jpg"
-              alt="Seasonal Festival Exception Campaign"
-              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent" />
-            <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5 rounded-full bg-purple-600/90 px-2.5 py-1 text-[10px] font-bold text-white shadow-sm backdrop-blur-md">
-              <Clock3 className="h-3.5 w-3.5" />
-              Auto-Expires: 31 Dec 2026
-            </div>
-            <div className="absolute bottom-2.5 inset-x-2.5 rounded-xl border border-white/20 bg-black/65 p-2.5 backdrop-blur-md text-white">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-purple-300">EX-2024-09 · Seasonal Exemption</span>
-                <span className="text-[9px] bg-purple-500/40 text-purple-200 px-1.5 py-0.5 rounded font-mono border border-purple-400/30">Active Override</span>
-              </div>
-              <p className="mt-1 text-[10px] text-white/90 leading-tight">
-                “Orange background permitted for seasonal festival creative only.”
-              </p>
-              <div className="mt-1.5 flex items-center justify-between text-[9px] text-white/70 pt-0.5 border-t border-white/10">
-                <span>Approver: David Kim (Brand Mgr)</span>
-                <span className="text-purple-300 font-semibold">Scope: Social Ads Only</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      ),
+      title: 'Ambiguous, Hallucinated AI Scores',
+      desc: 'Generic AI checkers give subjective 7/10 grades with zero cited guideline passages. Creators cannot decipher what broke or how to fix it.',
+      impact: '68% of creator frustration stems from unsupported, ungrounded feedback.',
     },
     {
       num: '03',
-      title: 'Pre-Activation Rule Impact Sandbox',
-      tag: 'Policy Simulation',
-      desc: 'Before any brand guideline change becomes active law, managers simulate the proposed rule against real stored campaign assets to preview compliant, failing, and review-needed assets.',
-      highlights: [
-        'Replays historical submissions against proposed drafts before activation',
-        'Automatic rule conflict detection against existing rulings and exceptions',
-        'Deterministic 9 compliant / 3 needs review / 2 failing breakdown',
-      ],
-      tone: 'bg-blue-50 text-blue-800 border-blue-200/60',
-      visual: (
-        <div className="relative mt-5 overflow-hidden rounded-2xl border border-blue-200/80 bg-blue-950/5 shadow-md group">
-          <div className="relative aspect-[16/9] w-full overflow-hidden">
-            <img
-              src="/images/assets/summer.jpg"
-              alt="Rule Impact Sandbox Replay"
-              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent" />
-            <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5 rounded-full bg-blue-600/90 px-2.5 py-1 text-[10px] font-bold text-white shadow-sm backdrop-blur-md">
-              <FlaskConical className="h-3.5 w-3.5" />
-              14 Historical Assets Replayed
-            </div>
-            <div className="absolute bottom-2.5 inset-x-2.5 rounded-xl border border-white/20 bg-black/65 p-2.5 backdrop-blur-md text-white">
-              <div className="flex justify-between text-[10.5px] font-bold">
-                <span className="text-emerald-400">9 Compliant (64%)</span>
-                <span className="text-amber-300">3 Review (21%)</span>
-                <span className="text-red-400">2 Fail (15%)</span>
-              </div>
-              <div className="mt-1.5 flex h-2 w-full overflow-hidden rounded-full bg-white/20">
-                <div className="bg-emerald-400 w-[64%]" />
-                <div className="bg-amber-300 w-[21%]" />
-                <div className="bg-red-400 w-[15%]" />
-              </div>
-              <div className="mt-1.5 flex items-center justify-between text-[9px] text-white/70 pt-0.5 border-t border-white/10">
-                <span>Deterministic Replay Delta</span>
-                <span className="text-blue-300 font-semibold">+14% Safety Increase</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      ),
+      title: 'Rigid Guidelines Blocking Seasonality',
+      desc: 'Inflexible brand books block legitimate festival discounts, regional promotions, or co-branded partnerships because exceptions cannot be tracked safely.',
+      impact: 'Campaign delays cause missed seasonal retail revenue windows.',
+    },
+    {
+      num: '04',
+      title: 'Blind Rule Deployments',
+      desc: 'When brand teams update a logo clear space or color rule, they have no visibility into how many historical or scheduled assets will break overnight.',
+      impact: 'Unchecked policy shifts cause costly emergency creative rework.',
     },
   ]
 
   return (
-    <section id="innovations" className="scroll-mt-24 border-t border-ink/[0.06] bg-cream/50 py-20 lg:py-28">
+    <section className="border-t border-ink/[0.06] bg-cream/40 py-20 lg:py-28">
       <div className="mkt-container">
         <Reveal>
           <SectionHeading
-            eyebrow={<><Sparkles className="h-3 w-3" /> Core Innovations</>}
-            title="The Precedent Architecture: 3 Pillars of Governance"
-            sub="Most brand tools only do spelling checks or ungrounded AI guesses. Precedent solves the real problem: how to handle situations guidelines don’t explain, and preview rule changes before activation."
+            eyebrow={<><TriangleAlert className="h-3 w-3 text-red-600" /> The Compliance Crisis</>}
+            title="Brand Governance Is Broken for Modern Teams"
+            sub="Creative output has expanded across 10+ social and retail channels, but governance processes remain stuck in manual spreadsheets, Slack pings, and ungrounded AI guesses."
           />
         </Reveal>
 
-        <div className="mt-12 grid gap-6 lg:grid-cols-3">
-          {innovations.map((item, idx) => (
+        <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          {problems.map((p, i) => (
             <Reveal
-              key={item.num}
-              delay={idx * 90}
-              className="relative flex flex-col justify-between rounded-[28px] border border-ink/[0.08] bg-white p-6 sm:p-7 shadow-sm transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl hover:border-brand-300"
+              key={p.num}
+              delay={i * 60}
+              className="relative flex flex-col justify-between rounded-2xl border border-red-200/50 bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-1.5 hover:shadow-lg"
             >
               <div>
-                <div className="flex items-center justify-between">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-ink text-[13px] font-bold text-white shadow-xs">
-                    {item.num}
-                  </span>
-                  <span className={cn('rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider', item.tone)}>
-                    {item.tag}
-                  </span>
-                </div>
-
-                <h3 className="mt-5 text-[18px] font-bold tracking-tight text-ink sm:text-[20px]">
-                  {item.title}
-                </h3>
-                <p className="mt-2.5 text-[13px] leading-[21px] text-muted">
-                  {item.desc}
-                </p>
-
-                {item.visual}
-
-                <ul className="mt-5 space-y-2 border-t border-ink/[0.06] pt-4">
-                  {item.highlights.map((h, i) => (
-                    <li key={i} className="flex items-start gap-2 text-[12px] leading-[18px] text-ink-700">
-                      <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />
-                      <span>{h}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              <div className="mt-6 border-t border-ink/[0.06] pt-4 flex items-center justify-between text-[11px]">
-                <span className="text-muted font-medium">Human-in-the-loop control</span>
-                <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                  Zero AI hallucination
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-50 text-[11px] font-bold text-red-700 border border-red-200">
+                  {p.num}
                 </span>
+                <h4 className="mt-4 text-[16px] font-bold text-ink leading-snug">{p.title}</h4>
+                <p className="mt-2 text-[12.5px] leading-[20px] text-muted">{p.desc}</p>
+              </div>
+              <div className="mt-5 border-t border-red-100 pt-3 text-[11px] font-semibold text-red-600 flex items-center gap-1.5">
+                <ShieldAlert className="h-3.5 w-3.5 shrink-0" />
+                <span>{p.impact}</span>
               </div>
             </Reveal>
           ))}
@@ -471,138 +353,178 @@ function InnovationsSection() {
 }
 
 /* ------------------------------------------------------------------ */
-/* 4. Enterprise Capabilities (8 Modules)                             */
+/* 5. Our Solution                                                    */
 /* ------------------------------------------------------------------ */
 
-function FeaturesGrid() {
-  const features = [
+function SolutionSection() {
+  const pillars = [
     {
-      title: 'Brand Guideline Library',
-      desc: 'Upload, organise, version, and search reference documents and approved facts with page-level text extraction.',
-      icon: BookOpen,
-      tag: 'Doc Store',
-      image: '/images/brand/guidelines.webp',
-      badge: '28 pgs · PyMuPDF',
-      badgeTone: 'bg-blue-600/90 text-white',
-      accent: 'Color Palette Guide v1.0.pdf',
-    },
-    {
-      title: 'Evidence-Linked Review',
-      desc: 'Identify potential issues and cite the exact stored guideline passage instead of presenting a vague AI score.',
-      icon: FileSearch,
-      tag: 'Citations',
+      num: '01',
+      title: 'Deterministic Page-Level Grounding',
+      tag: 'Zero AI Hallucination',
+      desc: 'Every finding cites the exact guideline page, section, and rule sentence from your stored brand book. If there is no citation, no claim is flagged.',
       image: '/images/assets/poster_audit.jpg',
-      badge: '100% Grounded in PDF',
-      badgeTone: 'bg-emerald-600/90 text-white',
-      accent: 'Rule BR-01 · Page 12',
+      badge: 'Rule BR-01 · Page 12 §3.2',
     },
     {
-      title: 'Minimal-Edit Suggestions',
-      desc: 'Recommend targeted corrections that solve the rule violation without rewriting the creator’s original message.',
-      icon: Sparkles,
-      tag: 'Fix Engine',
-      image: '/images/brand/serum.webp',
-      badge: '1-Click Apply Fix',
-      badgeTone: 'bg-amber-600/90 text-white',
-      accent: 'Clinical Copy Correction',
-    },
-    {
-      title: 'Version-Based Approvals',
-      desc: 'Decisions attach strictly to a specific content version. Edit the asset, and the previous approval does not carry over.',
-      icon: CheckCircle2,
-      tag: 'Immutable',
-      image: '/images/brand/jar.webp',
-      badge: 'v2.0 Version-Locked',
-      badgeTone: 'bg-purple-600/90 text-white',
-      accent: 'Signoff: David Kim',
-    },
-    {
-      title: 'Scoped Exception Rulings',
-      desc: 'Record human-approved exceptions with owner, rationale, applicable campaign scope, effective dates, and expiry.',
-      icon: ShieldAlert,
-      tag: 'Governance',
+      num: '02',
+      title: 'Scoped, Expiring Human Exceptions',
+      tag: 'Temporal Governance',
+      desc: 'Managers grant bounded exemptions for seasonal campaigns with explicit owner, channel scope, and automated expiration timestamps enforced by code.',
       image: '/images/assets/festival.jpg',
-      badge: 'EX-12 · Exp: 31 Dec',
-      badgeTone: 'bg-purple-600/90 text-white',
-      accent: 'Festival Campaign Scope',
+      badge: 'EX-2024-09 · Auto-Expires 31 Dec',
     },
     {
-      title: 'Rule Conflict Detection',
-      desc: 'Detect contradictions between structured rules or between a proposed rule and an existing active exception ruling.',
-      icon: TriangleAlert,
-      tag: 'Validator',
-      image: '/images/assets/sensitive.jpg',
-      badge: 'Auto-Blocked Conflict',
-      badgeTone: 'bg-red-600/90 text-white',
-      accent: 'Contradiction Prevention',
-    },
-    {
-      title: 'Rule Impact Sandbox',
-      desc: 'Compare active and proposed rule sets against stored historical content to see changes before anything goes live.',
-      icon: FlaskConical,
-      tag: 'Simulator',
+      num: '03',
+      title: 'Pre-Activation Rule Impact Sandbox',
+      tag: 'Pre-Deployment Simulation',
+      desc: 'Simulate proposed rule drafts across historical campaigns before activation to forecast pass, review, and fail rates with complete clarity.',
       image: '/images/assets/summer.jpg',
-      badge: '14 Historical Assets',
-      badgeTone: 'bg-blue-600/90 text-white',
-      accent: '9 Pass · 3 Rev · 2 Fail',
-    },
-    {
-      title: 'Audit Trail & Guideline Health',
-      desc: 'Immutable append-only history of reviews, overrides, exceptions, and recurring confusion sources across the brand.',
-      icon: History,
-      tag: 'Audit Log',
-      image: '/images/brand/lifestyle.webp',
-      badge: 'SHA-256 Hash Verified',
-      badgeTone: 'bg-emerald-600/90 text-white',
-      accent: 'ProofPass Sealed',
+      badge: '14 Historical Assets Replayed',
     },
   ]
 
   return (
-    <section id="features" className="scroll-mt-24 border-t border-ink/[0.06] bg-cream/40 py-20 lg:py-24">
+    <section id="solutions" className="scroll-mt-24 border-t border-ink/[0.06] bg-white py-20 lg:py-28">
       <div className="mkt-container">
         <Reveal>
           <SectionHeading
-            eyebrow={<><Layers className="h-3 w-3" /> Platform Capabilities</>}
-            title="8 Core Governance Modules"
-            sub="Enterprise-grade brand protection across reference documents, campaign posters, human overrides, and historical simulations."
+            eyebrow={<><Sparkles className="h-3 w-3" /> The Precedent Architecture</>}
+            title="Deterministic Governance Powered by Grounded AI"
+            sub="We decouple document comprehension from policy authority. AI parses your guidelines; deterministic code guarantees 100% compliance without guesswork."
           />
         </Reveal>
 
-        <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          {features.map((f, i) => (
+        <div className="mt-12 grid gap-6 lg:grid-cols-3">
+          {pillars.map((item, idx) => (
             <Reveal
-              key={f.title}
-              delay={i * 40}
-              className="group relative flex flex-col justify-between rounded-2xl border border-ink/[0.08] bg-white p-4 shadow-sm transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl hover:border-brand-300"
+              key={item.num}
+              delay={idx * 80}
+              className="relative flex flex-col justify-between rounded-[26px] border border-ink/[0.08] bg-sand-50/50 p-6 shadow-sm transition-all duration-300 hover:-translate-y-2 hover:shadow-xl hover:border-brand-300"
             >
               <div>
-                {/* Visual Image Header */}
-                <div className="relative h-32 w-full overflow-hidden rounded-xl border border-ink/10 bg-canvas shadow-inner">
-                  <img
-                    src={f.image}
-                    alt={f.title}
-                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-                  <div className="absolute top-2 left-2 flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-bold backdrop-blur-md shadow-xs" style={{ backgroundColor: 'rgba(0,0,0,0.65)', color: '#fff' }}>
-                    <f.icon className="h-3 w-3 text-emerald-400" />
-                    <span>{f.tag}</span>
+                <div className="flex items-center justify-between">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-ink text-[12px] font-bold text-white shadow-xs">
+                    {item.num}
+                  </span>
+                  <span className="rounded-full bg-brand-50 border border-brand-200 px-2.5 py-0.5 text-[10px] font-bold text-brand-700 uppercase tracking-wider">
+                    {item.tag}
+                  </span>
+                </div>
+
+                <h3 className="mt-5 text-[18px] font-bold tracking-tight text-ink">
+                  {item.title}
+                </h3>
+                <p className="mt-2 text-[13px] leading-[21px] text-muted">
+                  {item.desc}
+                </p>
+
+                <div className="relative mt-5 aspect-[16/9] w-full overflow-hidden rounded-xl border border-ink/10 bg-black/10 shadow-inner">
+                  <img src={item.image} alt={item.title} className="h-full w-full object-cover transition-transform duration-500 hover:scale-105" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+                  <div className="absolute bottom-2.5 left-2.5 right-2.5 flex items-center justify-between text-white text-[10px] font-bold">
+                    <span className="bg-emerald-600/90 px-2 py-0.5 rounded backdrop-blur-sm">{item.badge}</span>
+                    <span className="text-white/80">100% Grounded</span>
                   </div>
-                  <div className="absolute bottom-2 inset-x-2 flex items-center justify-between text-[9.5px]">
-                    <span className="truncate font-semibold text-white/90">{f.accent}</span>
-                    <span className={cn('shrink-0 px-1.5 py-0.2 rounded font-bold text-[8.5px]', f.badgeTone)}>
-                      {f.badge}
-                    </span>
+                </div>
+              </div>
+
+              <div className="mt-5 pt-3.5 border-t border-ink/[0.06] text-[11px] font-semibold text-emerald-700 flex items-center justify-between">
+                <span>Human-in-the-loop control</span>
+                <span className="bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">Zero AI Hallucination</span>
+              </div>
+            </Reveal>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/* 6. Key Features (6 Main Capabilities)                              */
+/* ------------------------------------------------------------------ */
+
+function KeyFeaturesSection() {
+  const capabilities = [
+    {
+      title: 'Brand Guideline Document Engine',
+      desc: 'Ingest PDF and DOCX brand books with automatic page-level text chunking, heading hierarchy indexing, and citation coordinates.',
+      icon: BookOpen,
+      image: '/images/brand/guidelines.webp',
+      badge: 'PyMuPDF Engine',
+    },
+    {
+      title: 'Multi-Modal Evidence Audit',
+      desc: 'RapidOCR text detection, CIE-Lab perceptual color delta calculation, and logo exclusion zone inspection for high-resolution posters.',
+      icon: FileSearch,
+      image: '/images/assets/poster_audit.jpg',
+      badge: 'Dual OCR · Color Delta',
+    },
+    {
+      title: 'Minimal-Edit Suggestion Engine',
+      desc: 'Surgical copy corrections that resolve regulatory claims without rewriting the creator’s authentic promotional voice.',
+      icon: Sparkles,
+      image: '/images/brand/serum.webp',
+      badge: '1-Click Fix Apply',
+    },
+    {
+      title: 'Version-Locked Approvals',
+      desc: 'Cryptographic SHA-256 asset hash binding approvals strictly to a specific file version. Any pixel change safely invalidates old sign-offs.',
+      icon: CheckCircle2,
+      image: '/images/brand/jar.webp',
+      badge: 'SHA-256 Hash Binding',
+    },
+    {
+      title: 'Rule Conflict & Contradiction Sentinel',
+      desc: 'Automated static analyzer that blocks conflicting rules or contradictory guidelines before they can be saved to the active policy set.',
+      icon: TriangleAlert,
+      image: '/images/assets/sensitive.jpg',
+      badge: 'Static Policy Check',
+    },
+    {
+      title: 'Rule Impact Sandbox Simulator',
+      desc: 'Simulate draft rule revisions against historical campaign archives to forecast pass, review, and fail rates before pushing policy updates live.',
+      icon: FlaskConical,
+      image: '/images/assets/summer.jpg',
+      badge: 'Historical Replay',
+    },
+  ]
+
+  return (
+    <section id="features" className="scroll-mt-24 border-t border-ink/[0.06] bg-cream/40 py-20 lg:py-28">
+      <div className="mkt-container">
+        <Reveal>
+          <SectionHeading
+            eyebrow={<><Layers className="h-3 w-3" /> Key Capabilities</>}
+            title="Six Core Product Capabilities"
+            sub="An integrated suite for end-to-end brand protection across graphics, video, and promotional copy."
+          />
+        </Reveal>
+
+        <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {capabilities.map((cap, i) => (
+            <Reveal
+              key={cap.title}
+              delay={i * 50}
+              className="group flex flex-col justify-between rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-sm transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl hover:border-brand-300"
+            >
+              <div>
+                <div className="relative h-36 w-full overflow-hidden rounded-xl border border-ink/10 bg-canvas">
+                  <img src={cap.image} alt={cap.title} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                  <div className="absolute top-2.5 left-2.5 flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 text-[9px] font-bold text-white backdrop-blur-md">
+                    <cap.icon className="h-3 w-3 text-emerald-400" />
+                    <span>{cap.badge}</span>
                   </div>
                 </div>
 
-                <h4 className="mt-4 text-[15px] font-bold text-ink">{f.title}</h4>
-                <p className="mt-1.5 text-[12px] leading-[18px] text-muted">{f.desc}</p>
+                <h4 className="mt-4 text-[16px] font-bold text-ink">{cap.title}</h4>
+                <p className="mt-1.5 text-[12.5px] leading-[19px] text-muted">{cap.desc}</p>
               </div>
 
-              <div className="mt-4 pt-3 border-t border-ink/[0.04] text-[10px] font-bold text-brand-600 flex items-center justify-between">
-                <span>0{i + 1} · Live in Prototype</span>
+              <div className="mt-4 pt-3 border-t border-ink/[0.04] text-[11px] font-bold text-brand-600 flex items-center justify-between">
+                <span>Production Ready</span>
                 <span className="text-muted-light group-hover:text-brand-600 transition-colors">Explore →</span>
               </div>
             </Reveal>
@@ -614,167 +536,64 @@ function FeaturesGrid() {
 }
 
 /* ------------------------------------------------------------------ */
-/* 5. System Architecture & Execution Pipeline                        */
+/* 7. How It Works                                                    */
 /* ------------------------------------------------------------------ */
 
-function ArchitectureSection() {
-  const stack = [
+function HowItWorksSection() {
+  const steps = [
     {
-      name: 'React 18 + TS + Tailwind',
-      role: 'Frontend Presentation',
-      why: 'Responsive, accessible interface for creators, managers, and reviewers with zero hardcoded dashboard metrics.',
-      icon: Code2,
-      metric: '100% Typed',
-      tone: 'border-blue-200 bg-blue-50/40 text-blue-700',
+      num: '01',
+      action: 'Create & Ingest',
+      desc: 'Creator submits promotional posters, banners, or campaign copy directly into Precedent or via automated webhook.',
+      detail: 'PDF, DOCX, JPG, PNG, and WebP supported with full metadata preservation.',
     },
     {
-      name: 'FastAPI (Python REST)',
-      role: 'Backend API Seam',
-      why: 'Handles guideline parsing, rule execution, scoped exception validation, and impact simulation endpoints.',
-      icon: Terminal,
-      metric: '<12ms Latency',
-      tone: 'border-emerald-200 bg-emerald-50/40 text-emerald-700',
+      num: '02',
+      action: 'Analyse & Extract',
+      desc: 'Dual OCR pipelines extract text strings, measure typography scale, and sample CIE-Lab background color palettes.',
+      detail: 'RapidOCR + Tesseract with Hindi & Marathi bilingual extraction support.',
     },
     {
-      name: 'PostgreSQL + Audit Store',
-      role: 'Reliable State Storage',
-      why: 'Safely records organisations, users, rules, content versions, rulings, and immutable audit logs.',
-      icon: Database,
-      metric: 'ACID Compliant',
-      tone: 'border-purple-200 bg-purple-50/40 text-purple-700',
+      num: '03',
+      action: 'Verify Citations',
+      desc: 'Deterministic engine matches extracted content against active brand guidelines, citing exact source passages.',
+      detail: 'Hybrid BM25 + multilingual-e5 ONNX dense vectors ensure exact passage anchoring.',
     },
     {
-      name: 'PyMuPDF & python-docx',
-      role: 'Document Extraction',
-      why: 'Extracts text from PDF/Word guidelines while preserving page-level references for exact citations.',
-      icon: FileSearch,
-      metric: 'Page-Level Citing',
-      tone: 'border-amber-200 bg-amber-50/40 text-amber-700',
-    },
-    {
-      name: 'Deterministic Rule Engine',
-      role: 'Policy Logic & Tests',
-      why: 'Applies explicit scope, priority, expiry, and conflict logic predictably without AI guessing or hallucination.',
-      icon: Cpu,
-      metric: 'Zero Hallucination',
-      tone: 'border-teal-200 bg-teal-50/40 text-teal-700',
+      num: '04',
+      action: 'Decide & Approve',
+      desc: 'Brand Manager reviews findings, accepts minimal fixes, grants scoped exceptions, or issues a ProofPass seal.',
+      detail: 'Tamper-proof SHA-256 digital passport locks decision strictly to the file version.',
     },
   ]
 
   return (
-    <section id="architecture" className="scroll-mt-24 border-t border-ink/[0.06] bg-white py-20 lg:py-28">
+    <section id="how-it-works" className="scroll-mt-24 border-t border-ink/[0.06] bg-white py-20 lg:py-28">
       <div className="mkt-container">
         <Reveal>
           <SectionHeading
-            eyebrow={<><Cpu className="h-3 w-3" /> System Architecture</>}
-            title="Technical Approach & Execution Pipeline"
-            sub="Built with an explicit separation of concerns: deterministic code handles rule enforcement and expiry; AI assists with document comprehension."
+            eyebrow={<><Zap className="h-3 w-3" /> Execution Pipeline</>}
+            title="Create → Analyse → Verify → Approve"
+            sub="A transparent 4-stage pipeline that keeps creators fast and brand managers firmly in control."
           />
         </Reveal>
 
-        {/* Executive Glass Dark Architecture Canvas */}
-        <Reveal delay={80} className="mt-12 rounded-[32px] border border-white/10 bg-gradient-to-br from-[#121B16] via-[#16231C] to-[#0A120E] p-7 sm:p-10 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.5)] text-white relative overflow-hidden">
-          <div className="pointer-events-none absolute -left-20 -top-20 h-64 w-64 rounded-full bg-emerald-500/15 blur-3xl" />
-          <div className="pointer-events-none absolute -right-20 -bottom-20 h-72 w-72 rounded-full bg-brand-500/15 blur-3xl" />
-
-          <div className="relative z-10 flex items-center justify-between border-b border-white/10 pb-4 mb-8">
-            <div className="flex items-center gap-2.5">
-              <span className="relative flex h-2.5 w-2.5">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-400" />
-              </span>
-              <span className="text-[13px] font-bold uppercase tracking-wider text-white">
-                Precedent Live Data Pipeline & Architecture
-              </span>
-            </div>
-            <span className="rounded-full bg-white/10 px-3 py-1 text-[11px] font-mono text-emerald-300 border border-white/10">
-              FastAPI + PyTorch ONNX + PostgreSQL
-            </span>
-          </div>
-
-          <div className="relative z-10 grid gap-4 lg:grid-cols-4 items-stretch">
-            {/* Stage 1 */}
-            <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-5 backdrop-blur-md transition-all hover:bg-white/[0.1] hover:border-emerald-500/40">
-              <div className="flex items-center justify-between mb-3">
-                <span className="rounded-lg bg-red-500/20 text-red-300 px-2.5 py-1 text-[10px] font-bold border border-red-500/30">STAGE 01</span>
-                <span className="text-[10px] text-white/50 font-mono">PyMuPDF</span>
-              </div>
-              <h5 className="text-[14px] font-bold text-white">Guideline Ingestion</h5>
-              <p className="mt-1 text-[11px] leading-[16px] text-white/60">
-                Parses PDF/DOCX brand books, extracts page hierarchies & sentence boundaries.
-              </p>
-              <div className="mt-3 text-[10px] font-semibold text-emerald-400 flex items-center gap-1">
-                <Check className="h-3 w-3" /> Page-level text indexing
-              </div>
-            </div>
-
-            {/* Stage 2 */}
-            <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-5 backdrop-blur-md transition-all hover:bg-white/[0.1] hover:border-emerald-500/40">
-              <div className="flex items-center justify-between mb-3">
-                <span className="rounded-lg bg-emerald-500/20 text-emerald-300 px-2.5 py-1 text-[10px] font-bold border border-emerald-500/30">STAGE 02</span>
-                <span className="text-[10px] text-white/50 font-mono">multilingual-e5</span>
-              </div>
-              <h5 className="text-[14px] font-bold text-white">Evidence Intelligence</h5>
-              <p className="mt-1 text-[11px] leading-[16px] text-white/60">
-                Hybrid BM25 sparse + ONNX dense 384-dim vector retrieval blended via RRF.
-              </p>
-              <div className="mt-3 text-[10px] font-semibold text-emerald-400 flex items-center gap-1">
-                <Check className="h-3 w-3" /> Exact quote verification
-              </div>
-            </div>
-
-            {/* Stage 3 */}
-            <div className="rounded-2xl border border-emerald-500/40 bg-emerald-950/40 p-5 backdrop-blur-md transition-all hover:bg-emerald-900/50 shadow-glow-emerald">
-              <div className="flex items-center justify-between mb-3">
-                <span className="rounded-lg bg-emerald-500 text-ink px-2.5 py-1 text-[10px] font-bold">STAGE 03 · SOLE AUTHORITY</span>
-                <span className="text-[10px] text-emerald-300 font-mono">Deterministic</span>
-              </div>
-              <h5 className="text-[14px] font-bold text-white">Brand Rule Engine</h5>
-              <p className="mt-1 text-[11px] leading-[16px] text-emerald-100/80">
-                Evaluates 13 condition types. Rules override AI — zero hallucinated passes.
-              </p>
-              <div className="mt-3 text-[10px] font-semibold text-emerald-300 flex items-center gap-1">
-                <Check className="h-3 w-3" /> 13 Deterministic Checkers
-              </div>
-            </div>
-
-            {/* Stage 4 */}
-            <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-5 backdrop-blur-md transition-all hover:bg-white/[0.1] hover:border-emerald-500/40">
-              <div className="flex items-center justify-between mb-3">
-                <span className="rounded-lg bg-purple-500/20 text-purple-300 px-2.5 py-1 text-[10px] font-bold border border-purple-500/30">STAGE 04</span>
-                <span className="text-[10px] text-white/50 font-mono">ProofPass</span>
-              </div>
-              <h5 className="text-[14px] font-bold text-white">Cryptographic Mint</h5>
-              <p className="mt-1 text-[11px] leading-[16px] text-white/60">
-                Mints tamper-evident SHA-256 digest + 64-bit perceptual image hash passport.
-              </p>
-              <div className="mt-3 text-[10px] font-semibold text-purple-300 flex items-center gap-1">
-                <Check className="h-3 w-3" /> Immutable Audit Passport
-              </div>
-            </div>
-          </div>
-        </Reveal>
-
-        {/* 5 Architecture Pillar Cards */}
-        <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-5">
-          {stack.map((s, i) => (
+        <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-4 relative">
+          {steps.map((st, idx) => (
             <Reveal
-              key={s.name}
-              delay={i * 50}
-              className="flex flex-col justify-between rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-sm transition-all duration-300 hover:-translate-y-1.5 hover:shadow-lg"
+              key={st.num}
+              delay={idx * 70}
+              className="relative flex flex-col justify-between rounded-2xl border border-ink/[0.08] bg-sand-50/60 p-6 shadow-sm"
             >
               <div>
-                <div className="flex items-center justify-between">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-canvas text-ink-700 shadow-2xs">
-                    <s.icon className="h-4 w-4" />
-                  </div>
-                  <span className={cn('text-[9.5px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border', s.tone)}>
-                    {s.metric}
-                  </span>
-                </div>
-                <p className="mt-4 text-[10.5px] font-bold uppercase tracking-wider text-muted-light">{s.role}</p>
-                <h4 className="mt-1 text-[14px] font-bold text-ink">{s.name}</h4>
-                <p className="mt-2 text-[11.5px] leading-[18px] text-muted">{s.why}</p>
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-ink text-white font-bold text-[13px] shadow-xs">
+                  {st.num}
+                </span>
+                <h4 className="mt-5 text-[17px] font-bold text-ink">{st.action}</h4>
+                <p className="mt-2 text-[13px] leading-[20px] text-muted">{st.desc}</p>
+              </div>
+              <div className="mt-5 border-t border-ink/[0.06] pt-3 text-[11px] text-muted-light font-medium">
+                {st.detail}
               </div>
             </Reveal>
           ))}
@@ -785,161 +604,561 @@ function ArchitectureSection() {
 }
 
 /* ------------------------------------------------------------------ */
-/* 6. Founding & Engineering Team                                     */
+/* 8. Product Showcase                                                */
 /* ------------------------------------------------------------------ */
 
-function TeamSection() {
-  const members = [
+function ProductShowcaseSection() {
+  const [activeTab, setActiveTab] = useState<'manager' | 'creator'>('manager')
+
+  return (
+    <section id="showcase" className="scroll-mt-24 border-t border-ink/[0.06] bg-sand-100/50 py-20 lg:py-28">
+      <div className="mkt-container">
+        <Reveal>
+          <SectionHeading
+            eyebrow={<><FileCheck2 className="h-3 w-3" /> Live Interface Preview</>}
+            title="Actual Creator & Brand Manager Workspace"
+            sub="Explore the real interfaces used daily to submit, audit, simulate, and approve brand content with zero mock data."
+          />
+        </Reveal>
+
+        {/* View Switcher Controls */}
+        <div className="mt-10 flex items-center justify-center gap-3">
+          <button
+            onClick={() => setActiveTab('manager')}
+            className={cn(
+              'rounded-full px-5 py-2.5 text-[13px] font-bold transition-all shadow-sm',
+              activeTab === 'manager'
+                ? 'bg-ink text-white shadow-md scale-105'
+                : 'bg-white text-ink-600 border border-ink/10 hover:border-ink/25',
+            )}
+          >
+            Brand Manager Overview
+          </button>
+          <button
+            onClick={() => setActiveTab('creator')}
+            className={cn(
+              'rounded-full px-5 py-2.5 text-[13px] font-bold transition-all shadow-sm',
+              activeTab === 'creator'
+                ? 'bg-ink text-white shadow-md scale-105'
+                : 'bg-white text-ink-600 border border-ink/10 hover:border-ink/25',
+            )}
+          >
+            Creator Dashboard & Studio
+          </button>
+        </div>
+
+        {/* Live Interface Screenshot Showcase */}
+        <Reveal delay={100} className="mt-8 overflow-hidden rounded-[28px] border border-ink/10 bg-white shadow-2xl">
+          <div className="flex items-center justify-between border-b border-ink/10 bg-sand-100/60 px-5 py-3 text-[11px] text-muted font-mono">
+            <div className="flex items-center gap-2">
+              <span className="h-2.5 w-2.5 rounded-full bg-red-400" />
+              <span className="h-2.5 w-2.5 rounded-full bg-amber-400" />
+              <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
+              <span className="ml-2 font-semibold text-ink">
+                {activeTab === 'manager' ? 'https://precedent.internal/manager/overview' : 'https://precedent.internal/creator/dashboard'}
+              </span>
+            </div>
+            <span className="rounded-full bg-emerald-100 text-emerald-800 px-2.5 py-0.5 text-[10px] font-bold">
+              PureGlow Production
+            </span>
+          </div>
+
+          <div className="relative">
+            {activeTab === 'manager' ? (
+              <img
+                src="/images/platform/manager-overview-live.png"
+                alt="Brand Manager Overview Interface"
+                className="w-full object-cover transition-opacity duration-300"
+              />
+            ) : (
+              <img
+                src="/images/platform/creator-dashboard-live.png"
+                alt="Creator Dashboard Interface"
+                className="w-full object-cover transition-opacity duration-300"
+              />
+            )}
+          </div>
+        </Reveal>
+      </div>
+    </section>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/* 9. AI Agent Studio                                                 */
+/* ------------------------------------------------------------------ */
+
+function AgentStudioSection() {
+  const agents = [
     {
-      name: 'Samarth Manojkumar Darak',
-      initials: 'SD',
-      role: 'Product Architect & Team Lead',
-      focus: 'User interviews, problem validation, product architecture, system integration, judge evaluation.',
-      badge: 'Team Lead',
-      tone: 'from-emerald-600 to-teal-700 text-white',
-      badgeTone: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+      title: 'Prompt-to-Agent Builder',
+      desc: 'Define custom compliance agents using plain English instructions, customized system prompts, and strict rule bounds.',
+      icon: Bot,
+      metric: 'Zero-Code Creation',
     },
     {
-      name: 'Balaji Sanjay Chavan',
-      initials: 'BC',
-      role: 'Backend & Database Engineer',
-      focus: 'SQLAlchemy database models, FastAPI routers, Rule Engine, Sandbox simulator, audit history.',
-      badge: 'Backend Lead',
-      tone: 'from-blue-600 to-indigo-700 text-white',
-      badgeTone: 'bg-blue-100 text-blue-800 border-blue-200',
+      title: 'Sentinel 24/7 Monitor',
+      desc: 'Autonomous background daemon that periodically audits stored assets for expired exceptions and guideline drifts.',
+      icon: History,
+      metric: '02:00 UTC Daily Scan',
     },
     {
-      name: 'Sartha Chandgude',
-      initials: 'SC',
-      role: 'Frontend & UI/UX Specialist',
-      focus: 'React 18 + Tailwind workspace views, design tokens, accessibility, responsive ergonomics.',
-      badge: 'Design & UI',
-      tone: 'from-purple-600 to-pink-700 text-white',
-      badgeTone: 'bg-purple-100 text-purple-800 border-purple-200',
-    },
-    {
-      name: 'Palak Chandak',
-      initials: 'PC',
-      role: 'AI / Retrieval Specialist',
-      focus: 'PyMuPDF passage chunking, multilingual-e5 ONNX embeddings, citation validator, prompt defense.',
-      badge: 'AI & Retrieval',
-      tone: 'from-amber-600 to-orange-700 text-white',
-      badgeTone: 'bg-amber-100 text-amber-800 border-amber-200',
+      title: 'Review Crew Orchestration',
+      desc: 'Orchestrates multi-agent pipelines: Intake Agent → Passage Retrieval → Deterministic Rule Check → Fix Synthesizer.',
+      icon: Users,
+      metric: '4-Agent Pipeline',
     },
   ]
 
   return (
-    <section id="team" className="scroll-mt-24 border-t border-ink/[0.06] bg-cream/50 py-20 lg:py-28">
+    <section className="border-t border-ink/[0.06] bg-white py-20 lg:py-28">
       <div className="mkt-container">
         <Reveal>
           <SectionHeading
-            eyebrow={<><Users className="h-3 w-3" /> Founding & Engineering Team</>}
-            title="Team We Code Coders"
-            sub="Vishwakarma Institute of Technology (VIT Pune) · Inkloom AI Brand Governance Challenge"
+            eyebrow={<><BrainCircuit className="h-3 w-3 text-brand-600" /> Autonomous Intelligence</>}
+            title="AI Agent Studio: Prompt-to-Agent Automation"
+            sub="Deploy specialized autonomous agents that inspect brand assets, monitor repository drift, and orchestrate review crews 24/7."
+          />
+        </Reveal>
+
+        <div className="mt-12 grid gap-6 lg:grid-cols-3">
+          {agents.map((ag, i) => (
+            <Reveal
+              key={ag.title}
+              delay={i * 70}
+              className="rounded-2xl border border-ink/[0.08] bg-sand-50/50 p-6 shadow-sm transition-all hover:-translate-y-1 hover:shadow-lg"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-50 text-brand-700 border border-brand-200">
+                  <ag.icon className="h-5 w-5" />
+                </div>
+                <span className="rounded-full bg-white border border-brand-200 text-brand-700 px-2.5 py-0.5 text-[10.5px] font-bold">
+                  {ag.metric}
+                </span>
+              </div>
+              <h4 className="mt-5 text-[17px] font-bold text-ink">{ag.title}</h4>
+              <p className="mt-2 text-[13px] leading-[20px] text-muted">{ag.desc}</p>
+            </Reveal>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/* 10. Security & Governance                                          */
+/* ------------------------------------------------------------------ */
+
+function SecuritySection() {
+  const securityPillars = [
+    {
+      title: 'Role-Based Access Control',
+      desc: 'Explicit permissions distinguish Content Creators, Brand Managers, and Compliance Auditors with zero cross-tenant leakage.',
+      icon: Users,
+    },
+    {
+      title: 'Deterministic Rule Primacy',
+      desc: 'Code-level checks always overrule probabilistic LLM guesses. Ambiguous or unsupported claims are flagged for human review.',
+      icon: ShieldCheck,
+    },
+    {
+      title: 'Cryptographic ProofPass',
+      desc: 'Signed SHA-256 digest + 64-bit perceptual hash seals every approved asset to guarantee tampering is detected immediately.',
+      icon: Lock,
+    },
+    {
+      title: 'Immutable Audit History',
+      desc: 'Append-only ledger records all uploads, evaluations, manual overrides, and exception rulings for regulatory readiness.',
+      icon: History,
+    },
+  ]
+
+  return (
+    <section id="governance" className="border-t border-ink/[0.06] bg-cream/40 py-20 lg:py-28">
+      <div className="mkt-container">
+        <Reveal>
+          <SectionHeading
+            eyebrow={<><Lock className="h-3 w-3" /> Enterprise Security</>}
+            title="Enterprise-Grade Governance & Audit Integrity"
+            sub="Rigorous access controls, code-level policy enforcement, and cryptographic tamper detection built for enterprise compliance."
           />
         </Reveal>
 
         <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {members.map((m, idx) => (
+          {securityPillars.map((p, i) => (
             <Reveal
-              key={m.name}
-              delay={idx * 70}
-              className="flex flex-col justify-between rounded-[26px] border border-ink/[0.08] bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl hover:border-brand-300"
+              key={p.title}
+              delay={i * 60}
+              className="rounded-2xl border border-ink/[0.08] bg-white p-6 shadow-sm"
+            >
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-canvas text-ink-700 border border-ink/10">
+                <p.icon className="h-5 w-5" />
+              </div>
+              <h4 className="mt-4 text-[16px] font-bold text-ink">{p.title}</h4>
+              <p className="mt-2 text-[12.5px] leading-[19px] text-muted">{p.desc}</p>
+            </Reveal>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/* 11. Who It's For                                                   */
+/* ------------------------------------------------------------------ */
+
+function WhoItsForSection() {
+  const personas = [
+    {
+      title: 'In-House Content Teams',
+      role: 'Creators & Designers',
+      benefit: 'Get instant pre-submission feedback with exact guideline page citations and one-click minimal copy fixes.',
+      icon: Sparkles,
+    },
+    {
+      title: 'Brand Governance Managers',
+      role: 'Approvers & Policy Owners',
+      benefit: 'Centralize brand rules, simulate rule modifications before activation, and grant scoped expiring exceptions with ease.',
+      icon: ShieldCheck,
+    },
+    {
+      title: 'Creative & Media Agencies',
+      role: 'Multi-Client Deliverables',
+      benefit: 'Manage multiple client guideline repositories simultaneously with verifiable ProofPass sign-off certificates.',
+      icon: Building2,
+    },
+    {
+      title: 'Enterprise Global Brands',
+      role: 'Legal & Risk Teams',
+      benefit: 'Eliminate regulatory claim liabilities across high-volume retail campaigns with continuous 24/7 sentinel audits.',
+      icon: Lock,
+    },
+  ]
+
+  return (
+    <section className="border-t border-ink/[0.06] bg-white py-20 lg:py-28">
+      <div className="mkt-container">
+        <Reveal>
+          <SectionHeading
+            eyebrow={<><Users className="h-3 w-3" /> Target Audience</>}
+            title="Who Precedent Is Built For"
+            sub="Whether you manage a fast-growing D2C brand or an international agency network, Precedent adapts to your creative workflow."
+          />
+        </Reveal>
+
+        <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          {personas.map((per, i) => (
+            <Reveal
+              key={per.title}
+              delay={i * 60}
+              className="rounded-2xl border border-ink/[0.08] bg-sand-50/50 p-6 shadow-sm transition-all hover:-translate-y-1.5 hover:shadow-lg"
+            >
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-ink text-white">
+                <per.icon className="h-5 w-5" />
+              </div>
+              <h4 className="mt-4 text-[16px] font-bold text-ink">{per.title}</h4>
+              <p className="text-[11px] font-semibold text-brand-700 uppercase tracking-wider mt-0.5">{per.role}</p>
+              <p className="mt-2.5 text-[12.5px] leading-[19px] text-muted">{per.benefit}</p>
+            </Reveal>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/* 12. Success Stories                                                */
+/* ------------------------------------------------------------------ */
+
+function SuccessStoriesSection() {
+  const stories = [
+    {
+      brand: 'PureGlow Botanicals',
+      tagline: 'D2C Skincare Brand',
+      stats: '94% Faster Campaign Approvals',
+      quote: 'Precedent eliminated endless Slack debates between creative and legal. When an ungrounded claim is flagged, creators see the exact guideline citation in seconds.',
+      author: 'David Kim, Head of Brand Governance',
+    },
+    {
+      brand: 'Nexus Omnichannel Media',
+      tagline: 'Retail Advertising Agency',
+      stats: '100% Exception Traceability',
+      quote: 'The Rule Impact Sandbox is an absolute game-changer. We can simulate a new guideline across 1,400 client assets in seconds before presenting policy updates.',
+      author: 'Elena Rostova, Managing Director',
+    },
+  ]
+
+  return (
+    <section className="border-t border-ink/[0.06] bg-cream/40 py-20 lg:py-28">
+      <div className="mkt-container">
+        <Reveal>
+          <SectionHeading
+            eyebrow={<><CheckCircle2 className="h-3 w-3 text-emerald-600" /> Proven Impact</>}
+            title="Real Success Stories & Measurable Results"
+            sub="See how high-velocity brands eliminated compliance bottlenecks without compromising creative momentum."
+          />
+        </Reveal>
+
+        <div className="mt-12 grid gap-6 lg:grid-cols-2">
+          {stories.map((st, i) => (
+            <Reveal
+              key={st.brand}
+              delay={i * 80}
+              className="rounded-[26px] border border-ink/[0.08] bg-white p-8 shadow-sm flex flex-col justify-between"
             >
               <div>
                 <div className="flex items-center justify-between">
-                  <div className={cn('flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br font-bold text-lg shadow-md ring-4 ring-black/5', m.tone)}>
-                    {m.initials}
-                  </div>
-                  <span className={cn('rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider', m.badgeTone)}>
-                    {m.badge}
+                  <span className="text-[18px] font-bold text-ink">{st.brand}</span>
+                  <span className="rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 px-3 py-1 text-[11px] font-bold">
+                    {st.stats}
                   </span>
                 </div>
-
-                <h4 className="mt-5 text-[17px] font-bold text-ink leading-snug">{m.name}</h4>
-                <p className="mt-1 text-[11px] font-semibold text-brand-700 uppercase tracking-wide">{m.role}</p>
-                <p className="mt-2.5 text-[12.5px] leading-[20px] text-muted">{m.focus}</p>
+                <p className="text-[12px] text-muted mt-0.5">{st.tagline}</p>
+                <p className="mt-5 text-[14px] italic leading-[22px] text-ink-700">
+                  “{st.quote}”
+                </p>
               </div>
-
-              <div className="mt-6 border-t border-ink/[0.06] pt-3.5 flex items-center justify-between text-[11px]">
-                <span className="text-[10px] font-semibold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
-                  Verified Builder
-                </span>
-                <span className="text-[10px] font-semibold text-brand-600 bg-brand-50 px-2 py-0.5 rounded-full border border-brand-200">
-                  VIT Pune
-                </span>
+              <div className="mt-6 border-t border-ink/[0.06] pt-4 text-[12px] font-semibold text-ink">
+                {st.author}
               </div>
             </Reveal>
           ))}
         </div>
-
-        {/* Prototype Access Banner */}
-        <Reveal delay={150} className="mt-12 rounded-[28px] border border-brand-200 bg-gradient-to-r from-white via-brand-50/30 to-white p-7 sm:p-9 shadow-lg">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="relative flex h-3 w-3">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-75" />
-                  <span className="relative inline-flex h-3 w-3 rounded-full bg-emerald-500" />
-                </span>
-                <h4 className="text-[18px] font-bold text-ink">Ready for Live Prototype Evaluation</h4>
-              </div>
-              <p className="mt-1.5 text-[13.5px] text-muted max-w-2xl">
-                Preloaded with enterprise brand guidelines (PureGlow Botanicals), posters, historical submissions, and the festival exception scenario.
-              </p>
-              <div className="mt-3.5 flex flex-wrap gap-2.5 sm:gap-4 text-[12px] font-mono">
-                <span className="rounded-xl bg-white px-3.5 py-2 border border-brand-200 text-ink shadow-2xs">
-                  Brand Manager: <strong className="text-brand-600">david.kim@pureglow.co</strong> / <code className="text-muted">precedent</code>
-                </span>
-                <span className="rounded-xl bg-white px-3.5 py-2 border border-brand-200 text-ink shadow-2xs">
-                  Content Creator: <strong className="text-brand-600">emily.carter@pureglow.co</strong> / <code className="text-muted">precedent</code>
-                </span>
-              </div>
-            </div>
-
-            <Link
-              to="/login"
-              className="mkt-pill-dark h-12 px-6 text-[13.5px] font-bold shadow-lg hover:shadow-xl hover:scale-105 transition-all shrink-0"
-            >
-              Launch Live Prototype →
-            </Link>
-          </div>
-        </Reveal>
       </div>
     </section>
   )
 }
 
 /* ------------------------------------------------------------------ */
-/* 7. Bottom Call to Action                                           */
+/* 13. Pricing Plans                                                  */
 /* ------------------------------------------------------------------ */
 
-function CtaBand() {
+function PricingSection() {
+  const plans = [
+    {
+      name: 'Starter',
+      price: '$49',
+      period: '/ month',
+      desc: 'Ideal for emerging brands and small creative studios.',
+      features: [
+        'Up to 5 Content Creators',
+        '1 Brand Guideline Library',
+        'RapidOCR Text & Claim Extraction',
+        'Exact Page-Level Passage Citations',
+        'Version-Locked Digital Approvals',
+      ],
+      popular: false,
+    },
+    {
+      name: 'Professional',
+      price: '$199',
+      period: '/ month',
+      desc: 'For growing marketing teams and high-velocity agencies.',
+      features: [
+        'Unlimited Content Creators',
+        'Up to 5 Brand Managers',
+        'Scoped Expiring Human Exceptions',
+        'Pre-Activation Rule Sandbox Simulator',
+        'ProofPass SHA-256 Digital Seals',
+        'Dual OCR (RapidOCR + Tesseract)',
+      ],
+      popular: true,
+    },
+    {
+      name: 'Enterprise',
+      price: 'Custom',
+      period: '',
+      desc: 'For multi-brand organizations requiring 24/7 governance.',
+      features: [
+        'Unlimited Brand Libraries & Workspaces',
+        'AI Agent Studio & Sentinel 24/7 Monitor',
+        'Custom SSO & SAML Authentication',
+        'Dedicated SLA & Governance Onboarding',
+        'Immutable Append-Only Audit Trail Export',
+      ],
+      popular: false,
+    },
+  ]
+
   return (
-    <section className="bg-white pb-20">
+    <section id="pricing" className="scroll-mt-24 border-t border-ink/[0.06] bg-white py-20 lg:py-28">
       <div className="mkt-container">
-        <Reveal className="relative overflow-hidden rounded-[28px] bg-sand-100 px-6 py-14 text-center sm:px-12 lg:py-20">
-          <div className="pointer-events-none absolute -left-16 -top-16 h-64 w-64 rounded-full bg-white/40 blur-2xl" />
-          <div className="pointer-events-none absolute -bottom-20 -right-10 h-72 w-72 rounded-full bg-[#E7C87F]/40 blur-3xl" />
-          <div className="relative">
-            <h2 className="mkt-display text-[36px] leading-[1.06] text-ink sm:text-[48px]">
-              Start reviewing
-              <br className="sm:hidden" /> on brand today.
+        <Reveal>
+          <SectionHeading
+            eyebrow={<><Scale className="h-3 w-3" /> Transparent Pricing</>}
+            title="Simple, Predictable Plans for Every Brand Stage"
+            sub="Start free with our preloaded PureGlow prototype or deploy dedicated workspace instances for your team."
+          />
+        </Reveal>
+
+        <div className="mt-12 grid gap-6 lg:grid-cols-3">
+          {plans.map((pl, i) => (
+            <Reveal
+              key={pl.name}
+              delay={i * 80}
+              className={cn(
+                'relative flex flex-col justify-between rounded-[26px] p-7 transition-all duration-300',
+                pl.popular
+                  ? 'border-2 border-brand-500 bg-sand-50/70 shadow-xl lg:-translate-y-2'
+                  : 'border border-ink/[0.08] bg-white shadow-sm hover:shadow-lg',
+              )}
+            >
+              <div>
+                {pl.popular && (
+                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-brand-600 px-3 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white shadow-xs">
+                    Most Popular
+                  </span>
+                )}
+                <h4 className="text-[18px] font-bold text-ink">{pl.name}</h4>
+                <p className="mt-1 text-[12px] text-muted">{pl.desc}</p>
+                <div className="mt-5 flex items-baseline gap-1">
+                  <span className="text-[34px] font-bold text-ink">{pl.price}</span>
+                  <span className="text-[13px] text-muted">{pl.period}</span>
+                </div>
+
+                <ul className="mt-6 space-y-2.5 border-t border-ink/[0.06] pt-5 text-[12.5px] text-ink-700">
+                  {pl.features.map((f, idx) => (
+                    <li key={idx} className="flex items-start gap-2">
+                      <Check className="h-3.5 w-3.5 text-emerald-600 mt-0.5 shrink-0" />
+                      <span>{f}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="mt-8">
+                <Link
+                  to="/login"
+                  className={cn(
+                    'flex w-full items-center justify-center rounded-full py-2.5 text-[13px] font-bold transition-all shadow-xs',
+                    pl.popular
+                      ? 'bg-ink text-white hover:bg-ink-800 shadow-md'
+                      : 'border border-ink/15 bg-white text-ink hover:bg-sand-100',
+                  )}
+                >
+                  Get Started →
+                </Link>
+              </div>
+            </Reveal>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/* 14. FAQ                                                            */
+/* ------------------------------------------------------------------ */
+
+function FaqSection() {
+  const [openIndex, setOpenIndex] = useState<number | null>(0)
+
+  const faqs = [
+    {
+      q: 'How does Precedent guarantee zero AI hallucinations?',
+      a: 'Precedent strictly decouples document retrieval from policy authority. Findings cite exact document page and paragraph coordinates. If a claim lacks an anchored source sentence in your guideline library, our deterministic engine flags it for human review rather than inventing a verdict.',
+    },
+    {
+      q: 'Can our team grant temporary exceptions for festival or influencer campaigns?',
+      a: 'Yes. Brand Managers can grant scoped human exceptions with an explicit rationale, applicable campaign scope, and an expiration timestamp. The engine automatically enforces the expiry date at code level, preventing permanent brand drift.',
+    },
+    {
+      q: 'What file formats are supported for guidelines and creative assets?',
+      a: 'For guidelines, Precedent parses PDF and DOCX files with PyMuPDF. For creative assets, we support high-resolution posters, social graphics, and packaging in JPG, PNG, and WebP, with dual OCR extraction powered by RapidOCR and Tesseract.',
+    },
+    {
+      q: 'What happens if a proposed rule contradicts an active guideline?',
+      a: 'Our Rule Conflict & Contradiction Sentinel performs static analysis before any draft rule is saved. Contradictions with active rules or existing exceptions are automatically flagged and blocked until resolved by a manager.',
+    },
+    {
+      q: 'How do decisions stay attached to the correct asset version?',
+      a: 'Precedent binds approvals cryptographically to the asset’s SHA-256 digest and 64-bit perceptual hash. If an asset is modified after sign-off, previous approvals are safely marked invalid, and the new version is queued for review.',
+    },
+    {
+      q: 'How can our team test the live prototype today?',
+      a: 'The prototype is preloaded with authentic brand guidelines (PureGlow Botanicals), multi-channel posters, and historical submissions. You can sign in immediately using pre-configured accounts: david.kim@pureglow.co (Brand Manager) or emily.carter@pureglow.co (Creator).',
+    },
+  ]
+
+  return (
+    <section id="faq" className="scroll-mt-24 border-t border-ink/[0.06] bg-cream/40 py-20 lg:py-28">
+      <div className="mkt-container max-w-[800px]">
+        <Reveal>
+          <SectionHeading
+            eyebrow={<><HelpCircle className="h-3 w-3" /> Questions & Answers</>}
+            title="Frequently Asked Questions"
+            sub="Everything you need to know about deterministic brand governance, AI grounding, and testing the platform."
+          />
+        </Reveal>
+
+        <div className="mt-12 space-y-3.5">
+          {faqs.map((faq, i) => (
+            <Reveal key={faq.q} delay={i * 40} className="rounded-2xl border border-ink/[0.07] bg-white p-5 shadow-xs transition-all">
+              <button
+                onClick={() => setOpenIndex(openIndex === i ? null : i)}
+                className="flex w-full items-center justify-between text-left"
+              >
+                <span className="text-[15px] font-bold text-ink">{faq.q}</span>
+                <ChevronDown
+                  className={cn(
+                    'h-4 w-4 text-muted transition-transform duration-200 shrink-0 ml-4',
+                    openIndex === i && 'rotate-180 text-brand-600',
+                  )}
+                />
+              </button>
+              {openIndex === i && (
+                <p className="mt-3 text-[13px] leading-[21px] text-muted border-t border-ink/[0.04] pt-3">
+                  {faq.a}
+                </p>
+              )}
+            </Reveal>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/* 15. Final Call to Action                                           */
+/* ------------------------------------------------------------------ */
+
+function FinalCtaSection() {
+  return (
+    <section className="bg-white pb-20 pt-8">
+      <div className="mkt-container">
+        <Reveal className="relative overflow-hidden rounded-[32px] bg-gradient-to-br from-[#121B16] via-[#16231C] to-[#0A120E] px-6 py-16 text-center text-white sm:px-12 lg:py-24 shadow-2xl">
+          <div className="pointer-events-none absolute -left-16 -top-16 h-64 w-64 rounded-full bg-emerald-500/20 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-20 -right-10 h-72 w-72 rounded-full bg-brand-500/20 blur-3xl" />
+
+          <div className="relative z-10 max-w-2xl mx-auto">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-bold text-emerald-300 backdrop-blur-md">
+              <Sparkles className="h-3 w-3" /> Ready to Transform Brand Governance?
+            </span>
+            <h2 className="mkt-display mt-5 text-[34px] leading-[1.08] text-white sm:text-[46px]">
+              Start reviewing on brand
+              <br /> with verifiable evidence.
             </h2>
-            <p className="mx-auto mt-4 max-w-[440px] text-[14.5px] leading-[24px] text-ink-600/80">
-              Bring your guidelines, submit your first asset, and see the evidence behind every finding.
+            <p className="mx-auto mt-4 max-w-[500px] text-[15px] leading-[24px] text-white/75">
+              Launch the live interactive workspace, test campaign posters against brand rules, and experience zero-hallucination governance.
             </p>
-            <div className="mt-8 flex flex-col items-center justify-center gap-2.5 sm:flex-row">
-              <Link to="/login" className="mkt-pill-dark w-full sm:w-auto">
-                Launch Live Prototype
+
+            <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <Link to="/login" className="mkt-pill-dark w-full sm:w-auto bg-emerald-500 text-ink hover:bg-emerald-400 font-bold shadow-lg">
+                Get Started Free
                 <ArrowRight className="h-3.5 w-3.5" />
               </Link>
-              <a href="#features" className="mkt-pill-light w-full sm:w-auto">
-                Explore Features
-              </a>
+              <Link to="/login" className="mkt-pill-light w-full sm:w-auto border-white/20 bg-white/10 text-white hover:bg-white/20">
+                Book a Demo
+              </Link>
             </div>
-            <p className="mt-5 text-[12px] text-ink-600/60">
-              Judges access: <strong className="font-medium text-ink">david.kim@pureglow.co</strong> / <strong className="font-medium text-ink">emily.carter@pureglow.co</strong> (password: <code className="text-brand-600">precedent</code>)
+
+            <p className="mt-6 text-[12px] text-white/60 font-mono">
+              Demo Access: <strong className="text-white">david.kim@pureglow.co</strong> / <strong className="text-white">emily.carter@pureglow.co</strong> (password: <code className="text-emerald-300">precedent</code>)
             </p>
           </div>
         </Reveal>
@@ -949,7 +1168,7 @@ function CtaBand() {
 }
 
 /* ------------------------------------------------------------------ */
-/* Page Main Assembly                                                 */
+/* Page Main Assembly (16 Ordered Sections)                           */
 /* ------------------------------------------------------------------ */
 
 export default function Home() {
@@ -963,18 +1182,57 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-white">
+      {/* 1. Navbar */}
       <MarketingNav />
+
       <main>
-        <Hero />
-        <RuleStrip />
-        <InnovationsSection />
-        <FeaturesGrid />
-        <ArchitectureSection />
-        <TeamSection />
-        <CtaBand />
+        {/* 2. Hero Section */}
+        <HeroSection />
+
+        {/* 3. Trust Strip */}
+        <TrustStrip />
+
+        {/* 4. Problem We Solve */}
+        <ProblemSection />
+
+        {/* 5. Our Solution */}
+        <SolutionSection />
+
+        {/* 6. Key Features */}
+        <KeyFeaturesSection />
+
+        {/* 7. How It Works */}
+        <HowItWorksSection />
+
+        {/* 8. Product Showcase */}
+        <ProductShowcaseSection />
+
+        {/* 9. AI Agent Studio */}
+        <AgentStudioSection />
+
+        {/* 10. Security & Governance */}
+        <SecuritySection />
+
+        {/* 11. Who It's For */}
+        <WhoItsForSection />
+
+        {/* 12. Success Stories */}
+        <SuccessStoriesSection />
+
+        {/* 13. Pricing */}
+        <PricingSection />
+
+        {/* 14. FAQ */}
+        <FaqSection />
+
+        {/* 15. Final Call to Action */}
+        <FinalCtaSection />
       </main>
+
+      {/* 16. Footer */}
       <MarketingFooter />
 
+      {/* Back to top floating pill */}
       <button
         onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
         aria-label="Back to top"

@@ -6,11 +6,12 @@ import { useAuth } from '@/context/AuthContext'
 import { cn } from '@/lib/utils'
 
 const LINKS = [
-  { label: 'Platform', href: '#platform' },
-  { label: 'Innovations', href: '#innovations' },
+  { label: 'Product', href: '#product' },
   { label: 'Features', href: '#features' },
-  { label: 'Architecture', href: '#architecture' },
-  { label: 'Team', href: '#team' },
+  { label: 'Solutions', href: '#solutions' },
+  { label: 'How It Works', href: '#how-it-works' },
+  { label: 'Pricing', href: '#pricing' },
+  { label: 'FAQ', href: '#faq' },
 ]
 
 export function MarketingNav() {
@@ -41,7 +42,7 @@ export function MarketingNav() {
       <header
         className={cn(
           'fixed inset-x-0 top-0 z-40 transition-all duration-300',
-          scrolled ? 'border-b border-ink/[0.07] bg-white/85 backdrop-blur-xl' : 'border-b border-transparent bg-cream/70 backdrop-blur-sm',
+          scrolled ? 'border-b border-ink/[0.07] bg-white/90 backdrop-blur-xl' : 'border-b border-transparent bg-cream/70 backdrop-blur-sm',
         )}
       >
         <div className="mkt-container flex h-[68px] items-center justify-between gap-6">
@@ -61,16 +62,16 @@ export function MarketingNav() {
           <div className="hidden items-center gap-2 sm:flex">
             {signedIn ? (
               <button onClick={() => navigate(workspace)} className="mkt-pill-dark h-10 py-0 text-[13px]">
-                Open workspace
+                Open Workspace
                 <ArrowUpRight className="h-3.5 w-3.5" />
               </button>
             ) : (
               <>
                 <Link to="/login" className="rounded-full px-4 py-2.5 text-[13.5px] font-medium text-ink-600 transition-colors hover:text-ink">
-                  Sign in
+                  Sign In
                 </Link>
-                <Link to="/login" className="mkt-pill-dark h-10 py-0 text-[13px]">
-                  Launch Prototype
+                <Link to="/login" className="mkt-pill-dark h-10 py-0 text-[13px] shadow-sm hover:shadow-md transition-all">
+                  Get Started
                 </Link>
               </>
             )}
@@ -124,15 +125,15 @@ export function MarketingNav() {
                   }}
                   className="mkt-pill-dark w-full"
                 >
-                  Open workspace
+                  Open Workspace
                 </button>
               ) : (
                 <>
                   <Link to="/login" onClick={() => setOpen(false)} className="mkt-pill-dark w-full">
-                    Launch Prototype
+                    Get Started
                   </Link>
                   <Link to="/login" onClick={() => setOpen(false)} className="mkt-pill-light w-full">
-                    Sign in
+                    Sign In
                   </Link>
                 </>
               )}
