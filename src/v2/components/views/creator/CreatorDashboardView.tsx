@@ -6,8 +6,9 @@ import { useApp } from '../../../context/AppContext';
 import {
   AgentStatusCard, AnimatedCard, AnimatedCounter, AnimatedProgress, EmptyState,
   HoverLiftCard, ImageHoverEffect, PageTransition, Reveal, RingProgress, SectionHeader,
-  Sparkline, Stagger, StaggerItem, type AgentState,
+  Sparkline, Stagger, StaggerItem, Timeline, type AgentState,
 } from '../../motion';
+import { StepTrail, type StepTrailItem } from '../../detail';
 
 type MetricTone = 'brand' | 'sage' | 'warn' | 'terracotta';
 
@@ -99,6 +100,17 @@ export const CreatorDashboardView: React.FC = () => {
   const recent = submissions.slice(0, 4);
   const firstName = currentUser.name.split(/\s+/)[0] || currentUser.name;
 
+  /* ---- Submission lifecycle — counts derived from stored statuses ---- */
+  const draftCount = submissions.filter((s) => s.status === 'Pending').length;
+  const inReviewCount = submissions.filter((s) => s.status === 'In Review').length;
+  const decidedCount = approvedCount + needsChangesCount + rejectedCount;
+  const lifecycle: StepTrailItem[] = [
+    { label: 'Draft', tone: 'olive', icon: <FileText className="h-3 w-3" />, state: draftCount > 0 ? 'active' : 'pending', hint: `${draftCount}` },
+    { label: 'In review', tone: 'amber', icon: <Clock className="h-3 w-3" />, state: inReviewCount > 0 ? 'active' : 'pending', hint: `${inReviewCount}` },
+    { label: 'Decision', tone: 'terracotta', icon: <BellRing className="h-3 w-3" />, state: decidedCount > 0 ? 'active' : 'pending', hint: `${decidedCount}` },
+    { label: 'Published', tone: 'sage', icon: <CheckCircle2 className="h-3 w-3" />, state: approvedCount > 0 ? 'done' : 'pending', hint: `${approvedCount}` },
+  ];
+
   const crew: { name: string; role: string; state: AgentState; detail: string; icon: React.ReactNode }[] = [
     {
       name: 'Intake',
@@ -189,6 +201,17 @@ export const CreatorDashboardView: React.FC = () => {
           ].map((m, i) => (
             <Metric key={m.label} {...m} delay={i * 0.08} />
           ))}
+        </div>
+
+        {/* Submission lifecycle — the workflow, drawn as one connected line */}
+        <div className="rounded-2xl border border-line bg-white px-4 py-3 shadow-card">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-2xs font-semibold uppercase tracking-[0.08em] text-muted">
+              Submission lifecycle
+            </p>
+            <span className="text-2xs text-muted">derived from your submissions</span>
+          </div>
+          <StepTrail steps={lifecycle} label="Submission lifecycle" className="mt-2.5" />
         </div>
 
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
@@ -420,6 +443,42 @@ export const CreatorDashboardView: React.FC = () => {
                   />
                 ))}
               </div>
+            </div>
+
+            <div className="rounded-2xl border border-line bg-white p-4 shadow-card">
+              <SectionHeader
+                title="Recent activity"
+                subtitle="Latest status on your submissions."
+              />
+              {recent.length === 0 ? (
+                <p className="mt-3 rounded-xl border border-line bg-cream-50 px-3 py-4 text-center text-2xs text-muted">
+                  No activity yet.
+                </p>
+              ) : (
+                <Timeline
+                  className="mt-3"
+                  items={recent.map((s) => ({
+                    id: s.id,
+                    title: s.title,
+                    description: `${s.status} · ${s.complianceScore ?? 0}% compliance`,
+                    time: s.submittedDate || s.submittedAt || undefined,
+                    tone:
+                      s.status === 'Approved'
+                        ? 'sage'
+                        : s.status === 'Rejected'
+                          ? 'danger'
+                          : s.status === 'Needs Changes'
+                            ? 'terracotta'
+                            : 'amber',
+                    icon:
+                      s.status === 'Approved' ? (
+                        <CheckCircle2 className="h-3 w-3" />
+                      ) : (
+                        <Clock className="h-3 w-3" />
+                      ),
+                  }))}
+                />
+              )}
             </div>
           </aside>
         </div>

@@ -9,6 +9,9 @@ import {
   AnimatedBadge, AnimatedCounter, AnimatedModal, AnimatedProgress, EmptyState, FilterPills,
   PageTransition, RingProgress, Stagger, StaggerItem, AnimatedCard, SectionHeader,
 } from '../../motion';
+import {
+  DetailHeader, FlowStep, InfoCard, MetadataRow, MetaChip, StatusBadge, VisualFlow,
+} from '../../detail';
 
 type Category = 'All' | 'Social Media' | 'Product Launch' | 'Campaign' | 'Others';
 
@@ -274,11 +277,50 @@ export const ApprovedContentView: React.FC = () => {
         open={Boolean(preview)}
         onClose={() => setPreviewId(null)}
         title={preview?.title ?? 'Approved content'}
-        description={preview ? `${preview.campaign || 'No campaign'} · ${preview.version || 'v1.0'}` : undefined}
-        maxWidth={720}
+        maxWidth={760}
+        header={
+          preview ? (
+            <DetailHeader
+              tone="sage"
+              icon={<CheckCircle2 className="h-5 w-5" />}
+              eyebrow={`${preview.campaign || 'No campaign'} · ${preview.version || 'v1.0'}`}
+              title={preview.title}
+              description={
+                preview.description ??
+                `${preview.assetType || preview.format || 'Content'} approved for publishing.`
+              }
+              onClose={() => setPreviewId(null)}
+              badges={
+                <>
+                  <StatusBadge tone="sage" label="Approved" />
+                  <MetaChip>{preview.complianceScore}% compliance</MetaChip>
+                  <MetaChip>{preview.findingsCount ?? 0} findings stored</MetaChip>
+                </>
+              }
+              meta={
+                <>
+                  <span className="inline-flex items-center gap-1">
+                    <CalendarDays className="h-3 w-3" />
+                    Approved {preview.submittedDate || preview.submittedAt || 'date not recorded'}
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <FileText className="h-3 w-3" />
+                    {preview.assetType || preview.format || 'Content'}
+                  </span>
+                </>
+              }
+            />
+          ) : undefined
+        }
         footer={
           preview ? (
             <div className="flex w-full flex-col gap-2 sm:flex-row sm:justify-end">
+              <button
+                onClick={() => setPreviewId(null)}
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-line bg-white px-4 py-2 text-xs font-semibold text-ink-700 transition-colors hover:bg-cream-50"
+              >
+                Close
+              </button>
               <button
                 onClick={() => void downloadReport(preview)}
                 disabled={downloading}
@@ -301,12 +343,93 @@ export const ApprovedContentView: React.FC = () => {
         }
       >
         {preview && (
-          <div className="space-y-4">
-            <div className="overflow-hidden rounded-2xl border border-line bg-cream-100">
-              <img src={preview.thumbnail} alt="" className="max-h-[320px] w-full object-contain" />
+          <div className="space-y-5">
+            {/* Why this is safe to reuse */}
+            <InfoCard
+              tone="sage"
+              icon={<CheckCircle2 className="h-3.5 w-3.5" />}
+              eyebrow="At a glance"
+              title="Cleared for publishing"
+            >
+              This version passed brand review. You can reuse it as-is — editing it creates a new
+              version that has to be reviewed again.
+            </InfoCard>
+
+            {/* The approval chain */}
+            <div>
+              <SectionHeader
+                title="How this got approved"
+                subtitle="Each step is recorded against the submission."
+              />
+              <VisualFlow className="mt-3">
+                <FlowStep
+                  index={0}
+                  tone="brand"
+                  icon={<FileText className="h-3.5 w-3.5" />}
+                  label="Step 1 · Submitted"
+                  title={preview.title}
+                >
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <MetaChip>{preview.campaign || 'No campaign'}</MetaChip>
+                    <MetaChip>{preview.version || 'v1.0'}</MetaChip>
+                    <MetaChip>{preview.assetType || preview.format || 'Content'}</MetaChip>
+                  </div>
+                </FlowStep>
+
+                <FlowStep
+                  index={1}
+                  tone="olive"
+                  icon={<Star className="h-3.5 w-3.5" />}
+                  label="Step 2 · Scored against the guidelines"
+                  title={`${preview.complianceScore}% compliance`}
+                >
+                  {preview.findingsCount
+                    ? `${preview.findingsCount} finding(s) were recorded and cleared before approval.`
+                    : 'No findings are stored against this version.'}
+                </FlowStep>
+
+                <FlowStep
+                  index={2}
+                  tone="sage"
+                  icon={<CheckCircle2 className="h-3.5 w-3.5" />}
+                  label="Step 3 · Approved by a brand manager"
+                  title="Approval recorded"
+                >
+                  The approval is written to the audit history against this submission and version.
+                </FlowStep>
+
+                <FlowStep
+                  index={3}
+                  isLast
+                  tone="amber"
+                  icon={<ExternalLink className="h-3.5 w-3.5" />}
+                  label="Step 4 · What you can do now"
+                >
+                  Publish this asset as-is, or open the submission to copy the exact approved file.
+                </FlowStep>
+              </VisualFlow>
             </div>
 
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+            {/* The approved file */}
+            <div>
+              <SectionHeader title="Approved file" subtitle="The version that was signed off." />
+              <div className="mt-2 overflow-hidden rounded-2xl border border-line bg-cream-100">
+                {preview.thumbnail ? (
+                  <img
+                    src={preview.thumbnail}
+                    alt={`Approved asset ${preview.title}`}
+                    className="max-h-[320px] w-full object-contain"
+                  />
+                ) : (
+                  <p className="px-4 py-8 text-center text-2xs text-muted">
+                    No preview image is stored for this submission.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Score + record */}
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
               {preview.complianceScore !== undefined && (
                 <RingProgress
                   value={preview.complianceScore}
@@ -319,32 +442,27 @@ export const ApprovedContentView: React.FC = () => {
                 />
               )}
               <div className="min-w-0 flex-1">
-                <SectionHeader title="Approval record" />
-                <dl className="mt-2 space-y-0">
-                  {[
-                    ['Campaign', preview.campaign || '—'],
-                    ['Content type', preview.assetType || preview.format || '—'],
-                    ['Version', preview.version || 'v1.0'],
-                    ['Approved on', preview.submittedDate || preview.submittedAt || '—'],
-                    ['Findings stored', String(preview.findingsCount ?? 0)],
-                  ].map(([label, value]) => (
-                    <div
-                      key={label}
-                      className="flex items-center justify-between gap-3 border-b border-line-soft py-1.5 text-xs last:border-0"
-                    >
-                      <dt className="text-muted">{label}</dt>
-                      <dd className="max-w-[60%] truncate text-right font-medium text-ink">{value}</dd>
-                    </div>
-                  ))}
+                <SectionHeader title="Approval record" subtitle="Values returned by the service" />
+                <dl className="mt-2 rounded-xl border border-line bg-white px-3 py-1.5">
+                  <MetadataRow label="Campaign" value={preview.campaign || '—'} />
+                  <MetadataRow
+                    label="Content type"
+                    value={preview.assetType || preview.format || '—'}
+                  />
+                  <MetadataRow label="Version" value={preview.version || 'v1.0'} />
+                  <MetadataRow
+                    label="Approved on"
+                    value={preview.submittedDate || preview.submittedAt || '—'}
+                    icon={<CalendarDays className="h-3 w-3" />}
+                  />
+                  <MetadataRow
+                    label="Findings stored"
+                    value={String(preview.findingsCount ?? 0)}
+                  />
+                  <MetadataRow label="Status" value={preview.status} tone="sage" />
                 </dl>
               </div>
             </div>
-
-            {preview.description && (
-              <p className="rounded-xl border border-line bg-cream-50 px-3 py-2.5 text-xs leading-relaxed text-ink-600">
-                {preview.description}
-              </p>
-            )}
           </div>
         )}
       </AnimatedModal>

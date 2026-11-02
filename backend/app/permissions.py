@@ -98,6 +98,20 @@ OPERATION_PERMISSIONS: Dict[str, Set[str]] = {
     "analytics:view": {"manager"},
     "audit:view": {"manager"},
     "audit:export": {"manager"},
+
+    # Agent Studio
+    "agents:view": {"creator", "manager"},
+    "agents:create": {"manager"},
+    "agents:update": {"manager"},
+    "agents:delete": {"manager"},
+    "agents:validate": {"manager"},
+    "agents:publish": {"manager"},
+    "agents:pause": {"manager"},
+    "agents:test": {"manager"},
+    "agents:execute": {"creator", "manager"},
+    "agents:runs:view": {"creator", "manager"},
+    "agents:approve": {"manager"},
+    "agents:tools:view": {"creator", "manager"},
 }
 
 

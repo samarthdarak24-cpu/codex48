@@ -5,7 +5,7 @@
  * metric has no stored data we render an explicit empty state — we never draw a
  * placeholder point, a sample donut or an invented delta.
  */
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   AlertCircle, AlertTriangle, CheckCircle2, Clock, Download, Lock, ShieldAlert,
   TrendingUp, PieChart, Timer, Percent,
@@ -16,6 +16,10 @@ import {
   PageTransition, RingProgress, Sparkline, Stagger, StaggerItem,
 } from '../../motion';
 import { StatusDonut, TrendArea, VolumeBars } from '../../ui/charts';
+import {
+  ActionFooter, DetailDrawer, DetailHeader, FooterButton, InfoCard, MetadataList,
+  MetadataRow, MetricChip, SectionHeader, StatusBadge,
+} from '../../detail';
 
 /* ------------------------------------------------------------------ */
 /* Helpers                                                             */
@@ -58,6 +62,11 @@ export const AnalyticsHealthView: React.FC = () => {
   } = useApp();
 
   const points = useMemo(() => analyticsTrends?.points ?? [], [analyticsTrends]);
+
+  /* Drill-down target for the findings-by-category chart. Real stored rows only. */
+  const [drill, setDrill] = useState<{
+    category: string; count: number; high: number; medium: number; low: number;
+  } | null>(null);
 
   /* ---- States ---- */
 
@@ -370,12 +379,19 @@ export const AnalyticsHealthView: React.FC = () => {
                 />
                 <ul className="space-y-1.5">
                   {analytics.findingsByCategory.map((c) => (
-                    <li key={c.category} className="flex items-center justify-between gap-2 text-2xs">
-                      <span className="truncate text-ink-600">{c.category}</span>
-                      <span className="shrink-0 tabular-nums text-muted">
-                        {c.count} · <span className="text-danger-600">{c.high} high</span> ·{' '}
-                        {c.medium} med · {c.low} low
-                      </span>
+                    <li key={c.category}>
+                      <button
+                        type="button"
+                        onClick={() => setDrill(c)}
+                        aria-label={`Open ${c.category} breakdown`}
+                        className="flex w-full items-center justify-between gap-2 rounded-lg px-1 py-0.5 text-left text-2xs transition-colors hover:bg-cream-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300/60"
+                      >
+                        <span className="truncate text-ink-600">{c.category}</span>
+                        <span className="shrink-0 tabular-nums text-muted">
+                          {c.count} · <span className="text-danger-600">{c.high} high</span> ·{' '}
+                          {c.medium} med · {c.low} low
+                        </span>
+                      </button>
                     </li>
                   ))}
                 </ul>
@@ -631,6 +647,76 @@ export const AnalyticsHealthView: React.FC = () => {
           </AnimatedCard>
         </div>
       </div>
+
+      {/* Drill-down — opens the stored breakdown for one finding category */}
+      <DetailDrawer
+        open={!!drill}
+        onClose={() => setDrill(null)}
+        label={drill?.category ?? 'Finding category'}
+        width={460}
+        header={
+          drill ? (
+            <DetailHeader
+              tone="terracotta"
+              icon={<PieChart className="h-5 w-5" />}
+              eyebrow="Findings · category"
+              title={drill.category}
+              description={`${drill.count} finding${drill.count === 1 ? '' : 's'} recorded in this category for the selected range.`}
+              onClose={() => setDrill(null)}
+              badges={<StatusBadge tone="terracotta" label={`${drill.count} total`} />}
+            />
+          ) : undefined
+        }
+        footer={
+          <ActionFooter>
+            <FooterButton onClick={() => setDrill(null)}>Close</FooterButton>
+          </ActionFooter>
+        }
+      >
+        {drill && (
+          <div className="space-y-4">
+            <InfoCard
+              tone="terracotta"
+              icon={<AlertTriangle className="h-3.5 w-3.5" />}
+              eyebrow="What this means"
+              title={`${drill.count} findings in ${drill.category}`}
+            >
+              Findings here were raised by the deterministic rule engine against stored guideline
+              passages. Severity is stored per finding — it is never inferred by this panel.
+            </InfoCard>
+
+            <div className="grid grid-cols-3 gap-2">
+              <MetricChip label="High" value={drill.high} tone="danger" />
+              <MetricChip label="Medium" value={drill.medium} tone="amber" />
+              <MetricChip label="Low" value={drill.low} tone="olive" />
+            </div>
+
+            <div>
+              <SectionHeader
+                title="Severity split"
+                subtitle="Share of this category's findings by stored severity."
+              />
+              <div className="mt-2 space-y-2">
+                <AnimatedProgress value={drill.high} max={Math.max(drill.count, 1)} tone="danger" label={`High · ${drill.high}`} />
+                <AnimatedProgress value={drill.medium} max={Math.max(drill.count, 1)} tone="amber" label={`Medium · ${drill.medium}`} />
+                <AnimatedProgress value={drill.low} max={Math.max(drill.count, 1)} tone="olive" label={`Low · ${drill.low}`} />
+              </div>
+            </div>
+
+            <div>
+              <SectionHeader title="Stored record" subtitle="Values returned by the analytics service." />
+              <MetadataList className="mt-2">
+                <MetadataRow label="Category" value={drill.category} />
+                <MetadataRow label="Total findings" value={drill.count} />
+                <MetadataRow label="High severity" value={drill.high} tone="danger" />
+                <MetadataRow label="Medium severity" value={drill.medium} tone="amber" />
+                <MetadataRow label="Low severity" value={drill.low} tone="olive" />
+                <MetadataRow label="Range" value={analyticsRange} />
+              </MetadataList>
+            </div>
+          </div>
+        )}
+      </DetailDrawer>
     </PageTransition>
   );
 };

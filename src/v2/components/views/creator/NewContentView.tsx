@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Bookmark, Calendar, Check, CheckCircle2, ChevronRight, FileText, Info, Instagram, Loader2,
-  Package, Play, ShieldCheck, Users, X,
+  Package, Play, Send, ShieldCheck, Tag, Upload, Users, X,
 } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
 import { useApp } from '../../../context/AppContext';
@@ -10,6 +10,7 @@ import {
   AnimatedBadge, AnimatedCard, AnimatedCounter, EASE, HoverLiftCard, PageTransition,
   ProcessingSpinner, ScrollReveal, SectionHeader, SuccessCheck,
 } from '../../motion';
+import { StepTrail, type StepTrailItem } from '../../detail';
 import { FileDrop } from '../../ui/FileDrop';
 
 const FIELD =
@@ -143,6 +144,36 @@ export const NewContentView: React.FC = () => {
     { id: 'brandcheck', label: 'Brand check passed or findings reviewed', checked: check3, onChange: () => setCheck3(!check3) },
   ];
 
+  /* ---- Submission pipeline — state mirrors the form, never invented ---- */
+  const readyToSubmit = check1 && check2 && check3;
+  const submissionSteps: StepTrailItem[] = [
+    {
+      label: 'Select brand', tone: 'olive', icon: <Tag className="h-3 w-3" />,
+      state: product.trim() ? 'done' : 'active',
+      hint: product.trim() || 'PureGlow',
+    },
+    {
+      label: 'Upload content', tone: 'brand', icon: <Upload className="h-3 w-3" />,
+      state: posterFile ? 'done' : 'pending',
+      hint: posterFile ? 'attached' : 'optional',
+    },
+    {
+      label: 'Add details', tone: 'sage', icon: <FileText className="h-3 w-3" />,
+      state: contentTitle.trim() ? 'done' : 'pending',
+      hint: contentTitle.trim() ? 'complete' : 'required',
+    },
+    {
+      label: 'Save draft', tone: 'amber', icon: <Bookmark className="h-3 w-3" />,
+      state: check1 ? 'done' : 'pending',
+      hint: check1 ? 'saved' : 'not saved',
+    },
+    {
+      label: 'Submit for review', tone: 'terracotta', icon: <Send className="h-3 w-3" />,
+      state: readyToSubmit ? 'done' : 'pending',
+      hint: readyToSubmit ? 'ready' : hasRunCheck ? 'review findings' : 'run brand check',
+    },
+  ];
+
   const matchedGuidelines = guidelines.filter((g) => g.status === 'Active').slice(0, 4);
   const brandCheckItems = [
     { label: 'Claims', icon: <FileText className="h-3.5 w-3.5" /> },
@@ -194,6 +225,19 @@ export const NewContentView: React.FC = () => {
             <span>{formError}</span>
           </div>
         )}
+
+        {/* Submission pipeline — five steps, state mirrored from the form */}
+        <div className="rounded-2xl border border-line bg-white px-4 py-3 shadow-card">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-2xs font-semibold uppercase tracking-[0.08em] text-muted">
+              Submission pipeline
+            </p>
+            <span className="text-2xs text-muted">
+              {[product.trim(), posterFile, contentTitle.trim(), check1, readyToSubmit].filter(Boolean).length}/5 complete
+            </span>
+          </div>
+          <StepTrail steps={submissionSteps} label="Submission pipeline" className="mt-2.5" />
+        </div>
 
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
 

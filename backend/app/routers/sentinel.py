@@ -131,27 +131,58 @@ def get_task(
 def impact_preview(
     trigger_ref: str = "",
     trigger_type: str = "rule_edited",
+    rule_codes: str = "",
     db: Session = Depends(get_db),
     current_user=Depends(require_manager),
 ):
-    """Preview affected published items and blast radius before activating policy changes."""
+    """Preview the blast radius of a policy change over live content.
+
+    This replays the CURRENT active rule set against every published version
+    (see `sentinel.find_affected`) and reports only versions that would
+    *newly* become non-compliant. Pre-existing findings are already stored and
+    are not counted again, so the number is a real delta rather than a
+    restatement of the backlog.
+
+    `totalPublishedChecked` is the number of `published` rows that were
+    actually replayed; `blastRadiusCount` is how many of those would need
+    reassessment. Both are measured, never estimated.
+    """
     ws = _ws(current_user)
-    pubs = svc.list_publications(db, workspace=ws, status="active", limit=100)
+    pubs = svc.list_publications(db, workspace=ws, status="published", limit=200)
+
+    codes = [c.strip() for c in (rule_codes or "").split(",") if c.strip()]
+
+    # Real replay: only versions with NEW violations come back.
+    affected = svc.find_affected(db, workspace=ws, rule_codes=codes or None)
+    by_version = {a["versionId"]: a for a in affected if a.get("versionId")}
+    by_submission = {a["submissionId"]: a for a in affected if a.get("submissionId")}
+
     sample_affected = []
+    blast_radius = 0
     for pub in pubs:
+        hit = by_version.get(pub.get("versionId")) or by_submission.get(pub.get("submissionId"))
+        if hit:
+            blast_radius += 1
         sample_affected.append({
             "publicationId": pub.get("id"),
             "submissionId": pub.get("submissionId"),
+            "versionId": pub.get("versionId"),
             "title": pub.get("title"),
             "channel": pub.get("channel"),
-            "version": pub.get("version"),
-            "impactAssessment": "needs_reassessment",
+            "publishedAt": pub.get("publishedAt"),
+            "openTasks": pub.get("openTasks", 0),
+            "newRuleCodes": hit.get("newRuleCodes", []) if hit else [],
+            "impactAssessment": "needs_reassessment" if hit else "unaffected",
         })
+
+    # Most-impacted first so the sample is useful.
+    sample_affected.sort(key=lambda r: (-len(r["newRuleCodes"]), r["title"] or ""))
+
     return {
         "triggerRef": trigger_ref,
         "triggerType": trigger_type,
         "totalPublishedChecked": len(pubs),
-        "blastRadiusCount": len(sample_affected),
+        "blastRadiusCount": blast_radius,
         "sampleAffected": sample_affected[:5],
     }
 

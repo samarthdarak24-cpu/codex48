@@ -142,7 +142,7 @@ function HeroSection() {
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-60" />
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
               </span>
-              Enterprise AI Brand Governance Platform · PureGlow Workspace Ready
+              Enterprise AI Brand Governance Platform Â· PureGlow Workspace Ready
             </span>
           </Reveal>
 
@@ -181,7 +181,7 @@ function HeroSection() {
               </a>
             </div>
             <p className="mt-4 text-[12px] text-muted-light">
-              PureGlow Botanicals Workspace Preloaded · Free Evaluation Access
+              PureGlow Botanicals Workspace Preloaded Â· Free Evaluation Access
             </p>
           </Reveal>
         </div>
@@ -197,7 +197,7 @@ function HeroSection() {
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
               </span>
               <span className="text-[12px] font-medium text-ink-600">
-                Live Brand Assets <span className="hidden sm:inline text-muted-light">· {ASSETS.length} campaigns evaluated</span>
+                Live Brand Assets <span className="hidden sm:inline text-muted-light">Â· {ASSETS.length} campaigns evaluated</span>
               </span>
             </div>
 
@@ -312,11 +312,11 @@ function ProblemSection() {
           <div className="mt-2 space-y-1.5 text-[11px]">
             <div className="rounded bg-white p-2 border border-ink/[0.05] shadow-2xs">
               <p className="text-[10px] text-muted">Creator (10:14 AM)</p>
-              <p className="text-ink-700 font-medium leading-tight">“Can we post the holiday poster with 50% discount claim?”</p>
+              <p className="text-ink-700 font-medium leading-tight">â€œCan we post the holiday poster with 50% discount claim?â€</p>
             </div>
             <div className="rounded bg-white p-2 border border-red-200/80 shadow-2xs">
               <p className="text-[10px] text-muted">Legal (11:02 AM)</p>
-              <p className="text-red-600 font-medium leading-tight">“Wait, who approved this? Can’t find the email thread!”</p>
+              <p className="text-red-600 font-medium leading-tight">â€œWait, who approved this? Canâ€™t find the email thread!â€</p>
             </div>
           </div>
         </div>
@@ -339,7 +339,7 @@ function ProblemSection() {
               <span className="bg-red-100 text-red-800 px-1 rounded text-[9px]">No Source Doc</span>
             </div>
             <p className="mt-1 text-[10.5px] text-muted leading-tight italic">
-              “Tone feels too aggressive. Consider revising copy to align better with industry standards.”
+              â€œTone feels too aggressive. Consider revising copy to align better with industry standards.â€
             </p>
           </div>
         </div>
@@ -460,7 +460,7 @@ function SolutionSection() {
       tag: 'Zero AI Hallucination',
       desc: 'Every finding cites the exact guideline page, section, and rule sentence from your stored brand book. If there is no citation, no claim is flagged.',
       image: '/images/assets/poster_audit.jpg',
-      badge: 'Rule BR-01 · Page 12 §3.2',
+      badge: 'Rule BR-01 Â· Page 12 Â§3.2',
     },
     {
       num: '02',
@@ -468,7 +468,7 @@ function SolutionSection() {
       tag: 'Temporal Governance',
       desc: 'Managers grant bounded exemptions for seasonal campaigns with explicit owner, channel scope, and automated expiration timestamps enforced by code.',
       image: '/images/assets/festival.jpg',
-      badge: 'EX-2024-09 · Auto-Expires 31 Dec',
+      badge: 'EX-2024-09 Â· Auto-Expires 31 Dec',
     },
     {
       num: '03',
@@ -541,49 +541,267 @@ function SolutionSection() {
 /* 6. Key Features (6 Main Capabilities)                              */
 /* ------------------------------------------------------------------ */
 
+function FeatureIllustration1() {
+  return (
+    <div className="relative h-full w-full bg-gradient-to-br from-[#F8F5EE] to-[#EDE8DB] p-4 flex items-center justify-center overflow-hidden">
+      <div className="absolute top-3 right-3 flex items-center gap-1 rounded bg-brand-600/90 px-1.5 py-0.5 text-[8px] font-bold text-white">PDF</div>
+      <div className="flex gap-3 items-end">
+        <div className="w-20 rounded-lg border border-ink/15 bg-white shadow-md p-2 transition-transform group-hover:-translate-y-1">
+          <div className="h-1.5 w-10 rounded bg-brand-300 mb-1.5" />
+          <div className="h-1 w-14 rounded bg-ink/10 mb-1" />
+          <div className="h-1 w-12 rounded bg-ink/10 mb-1" />
+          <div className="h-1 w-16 rounded bg-ink/10 mb-2" />
+          <div className="flex items-center gap-1">
+            <div className="h-3 w-3 rounded bg-[#7AB93B]/30" />
+            <div className="h-1 w-8 rounded bg-[#7AB93B]/50" />
+          </div>
+          <div className="mt-1.5 flex items-center gap-1">
+            <div className="h-3 w-3 rounded bg-[#F4EFE3]" />
+            <div className="h-1 w-6 rounded bg-ink/10" />
+          </div>
+          <div className="mt-2 text-[6px] font-mono text-muted text-center">Color Palette Guide v1.0</div>
+        </div>
+        <div className="flex flex-col items-center gap-1">
+          <ArrowRight className="h-3.5 w-3.5 text-brand-500 transition-transform group-hover:translate-x-0.5" />
+        </div>
+        <div className="w-24 rounded-lg border border-emerald-300 bg-white shadow-md p-2 transition-transform group-hover:-translate-y-1.5">
+          <div className="flex items-center justify-between mb-1.5">
+            <div className="text-[6.5px] font-bold text-emerald-800">Extracted Passages</div>
+            <div className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+          </div>
+          <div className="space-y-1">
+            <div className="rounded bg-emerald-50 border border-emerald-200 p-1">
+              <div className="text-[5.5px] font-mono text-emerald-900 leading-tight">&quot;Primary green (#7AB93B) is the approved background.&quot;</div>
+              <div className="text-[5px] text-emerald-600 mt-0.5 font-bold">Page 12 &middot; &sect;3.2</div>
+            </div>
+            <div className="rounded bg-emerald-50 border border-emerald-200 p-1">
+              <div className="text-[5.5px] font-mono text-emerald-900 leading-tight">&quot;Minimum logo clear space: 24px&quot;</div>
+              <div className="text-[5px] text-emerald-600 mt-0.5 font-bold">Page 8 &middot; &sect;2.1</div>
+            </div>
+          </div>
+          <div className="mt-1.5 text-[5.5px] font-bold text-emerald-700 text-center">28 pages indexed</div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function FeatureIllustration2() {
+  return (
+    <div className="relative h-full w-full bg-gradient-to-br from-[#0D1A12] to-[#162318] p-3 flex items-center justify-center overflow-hidden">
+      <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'linear-gradient(rgba(122,185,59,.3) 1px, transparent 1px), linear-gradient(90deg, rgba(122,185,59,.3) 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
+      <div className="relative flex gap-3 items-center">
+        <div className="relative w-20 h-24 rounded-lg overflow-hidden border border-white/20 shadow-lg">
+          <img src="/images/assets/poster_audit.jpg" alt="Poster scan" className="h-full w-full object-cover" />
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-emerald-500/15 to-transparent" style={{ animation: 'pulse 2s infinite' }} />
+          <div className="absolute top-1 left-1 flex items-center gap-0.5 rounded bg-black/80 px-1 py-0.5 text-[5.5px] font-mono text-emerald-300 backdrop-blur-sm">
+            <ScanLine className="h-2 w-2" /> OCR Active
+          </div>
+          <div className="absolute bottom-1 left-1 right-1 rounded bg-black/90 px-1 py-0.5 text-[5px] text-white/90 font-mono">
+            &Delta; CIE-Lab: <span className="text-emerald-400 font-bold">2.4</span> &middot; <span className="text-emerald-400">Pass</span>
+          </div>
+        </div>
+        <div className="flex flex-col gap-1.5 w-28">
+          <div className="rounded-lg bg-white/10 border border-white/20 p-1.5 backdrop-blur-sm">
+            <div className="text-[6px] font-bold text-emerald-300 mb-1">Color Extraction</div>
+            <div className="flex gap-1">
+              <div className="flex items-center gap-1"><div className="h-3 w-3 rounded-sm border border-white/30" style={{ background: '#7AB93B' }} /><span className="text-[5.5px] text-white/80 font-mono">#7AB93B</span></div>
+            </div>
+            <div className="flex gap-1 mt-0.5">
+              <div className="flex items-center gap-1"><div className="h-3 w-3 rounded-sm border border-white/30" style={{ background: '#F4EFE3' }} /><span className="text-[5.5px] text-white/80 font-mono">#F4EFE3</span></div>
+            </div>
+          </div>
+          <div className="rounded-lg bg-white/10 border border-white/20 p-1.5 backdrop-blur-sm">
+            <div className="text-[6px] font-bold text-emerald-300 mb-0.5">Text Detected</div>
+            <div className="text-[5.5px] text-white/70 italic leading-tight">&quot;Clinically proven hydration for sensitive skin&quot;</div>
+          </div>
+          <div className="rounded bg-emerald-500/20 border border-emerald-400/30 p-1 text-center">
+            <span className="text-[6px] font-bold text-emerald-300">&#10003; 100% Grounded in PDF</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function FeatureIllustration3() {
+  return (
+    <div className="relative h-full w-full bg-gradient-to-br from-[#FDFAF3] to-[#F3EDD8] p-3 flex items-center justify-center overflow-hidden">
+      <div className="w-full max-w-[260px] rounded-xl border border-ink/10 bg-white shadow-lg p-3">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-[7px] font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded border border-red-200">&#9888; Unverified Claim</span>
+          <span className="text-[6px] text-muted">Rule BR-03</span>
+        </div>
+        <div className="rounded bg-red-50/80 border border-red-200 p-1.5 mb-2">
+          <p className="text-[7px] text-red-900 leading-tight"><span className="line-through opacity-60">&quot;Clinically proven to reduce wrinkles by 80%&quot;</span></p>
+        </div>
+        <div className="flex items-center gap-1 mb-1.5">
+          <ArrowRight className="h-2.5 w-2.5 text-emerald-500" />
+          <span className="text-[6px] font-bold text-emerald-700">Minimal Fix Suggested</span>
+        </div>
+        <div className="rounded bg-emerald-50 border border-emerald-300 p-1.5 mb-2">
+          <p className="text-[7px] text-emerald-900 font-medium leading-tight">&quot;Dermatologically tested to help visibly improve skin texture&quot;</p>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-[6px] text-muted">Voice preserved &middot; 4 words changed</span>
+          <span className="rounded bg-emerald-600 text-white text-[6px] font-bold px-1.5 py-0.5">Apply Fix</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function FeatureIllustration4() {
+  return (
+    <div className="relative h-full w-full bg-gradient-to-br from-[#F5F0E8] to-[#EDE5D5] p-3 flex items-center justify-center overflow-hidden">
+      <div className="w-full max-w-[260px] space-y-2">
+        <div className="flex items-center gap-2">
+          <div className="rounded-lg border border-emerald-300 bg-white shadow-sm p-2 flex-1 transition-transform group-hover:-translate-y-0.5">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[6.5px] font-bold text-emerald-800">&#10003; v1.2 Approved</span>
+              <span className="h-2 w-2 rounded-full bg-emerald-500" />
+            </div>
+            <div className="text-[5.5px] font-mono text-muted truncate">sha256: 9a7b4f...c019d</div>
+            <div className="text-[5.5px] text-emerald-700 font-bold mt-0.5">Signed: David Kim</div>
+          </div>
+          <div className="text-[8px] text-muted font-mono">&mdash; edit &rarr;</div>
+          <div className="rounded-lg border border-amber-300 bg-white shadow-sm p-2 flex-1 transition-transform group-hover:-translate-y-0.5">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[6.5px] font-bold text-amber-700">&#9889; v1.3 Review</span>
+              <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+            </div>
+            <div className="text-[5.5px] font-mono text-muted truncate">sha256: e3b0c4...98fc1</div>
+            <div className="text-[5.5px] text-amber-700 font-bold mt-0.5">Hash Changed</div>
+          </div>
+        </div>
+        <div className="rounded-lg border border-ink/10 bg-white p-2 text-center shadow-xs">
+          <div className="text-[6.5px] font-bold text-ink">Content edit detected.</div>
+          <div className="text-[6px] text-red-600 font-semibold mt-0.5">Cryptographic approval seal automatically invalidated.</div>
+          <div className="flex items-center justify-center gap-1 mt-1">
+            <Lock className="h-2.5 w-2.5 text-ink" />
+            <span className="text-[5.5px] font-bold text-ink">Version-Locked Audit Trail</span>
+            <span className="text-[5.5px] font-mono text-muted">v1.2 &rarr; v1.3</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function FeatureIllustration5() {
+  return (
+    <div className="relative h-full w-full bg-gradient-to-br from-[#FEF2F2] to-[#FDE8E8] p-3 flex items-center justify-center overflow-hidden">
+      <div className="w-full max-w-[260px] space-y-1.5">
+        <div className="rounded-lg border border-red-200 bg-white shadow-sm p-2">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[7px] font-bold text-red-700">&#9888; Policy Contradiction</span>
+            <span className="rounded bg-red-100 text-red-800 text-[5.5px] font-bold px-1 py-0.5">Auto-Blocked</span>
+          </div>
+          <div className="space-y-1">
+            <div className="rounded bg-red-50 border border-red-200 p-1.5">
+              <div className="text-[6px] font-bold text-ink">Rule BR-01</div>
+              <div className="text-[5.5px] text-muted leading-tight">&quot;Primary green (#7AB93B) is the only approved background.&quot;</div>
+            </div>
+            <div className="flex justify-center"><span className="text-[8px] text-red-500 font-bold">&updownarrow; conflicts with</span></div>
+            <div className="rounded bg-red-50 border border-red-200 p-1.5">
+              <div className="text-[6px] font-bold text-ink">Draft P4</div>
+              <div className="text-[5.5px] text-muted leading-tight">&quot;Allow any earth-tone background for seasonal campaigns.&quot;</div>
+            </div>
+          </div>
+        </div>
+        <div className="rounded bg-red-600 text-white text-center py-1 px-2">
+          <span className="text-[6.5px] font-bold">Rule cannot be saved &mdash; contradiction detected</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function FeatureIllustration6() {
+  const bars = [70, 85, 90, 65, 95, 80, 75, 100, 55, 90, 85, 60, 95, 70]
+  return (
+    <div className="relative h-full w-full bg-gradient-to-br from-[#F5F0E8] to-[#EDE5D5] p-3 flex items-center justify-center overflow-hidden">
+      <div className="w-full max-w-[260px] space-y-2">
+        <div className="rounded-lg border border-ink/10 bg-white shadow-sm p-2">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[7px] font-bold text-ink">&#9889; Sandbox Replay</span>
+            <span className="rounded bg-emerald-100 text-emerald-800 text-[5.5px] font-bold px-1.5 py-0.5">14 Assets Tested</span>
+          </div>
+          <div className="h-10 w-full flex items-end gap-[3px]">
+            {bars.map((h, i) => (
+              <div
+                key={i}
+                className="flex-1 rounded-t transition-all"
+                style={{
+                  height: `${h}%`,
+                  background: h >= 80 ? '#22C55E' : h >= 60 ? '#F59E0B' : '#EF4444',
+                }}
+              />
+            ))}
+          </div>
+          <div className="flex items-center justify-between mt-1.5 text-[5.5px] font-bold">
+            <span className="flex items-center gap-0.5 text-emerald-700">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> 9 Pass (64%)
+            </span>
+            <span className="flex items-center gap-0.5 text-amber-600">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-500" /> 3 Review (21%)
+            </span>
+            <span className="flex items-center gap-0.5 text-red-600">
+              <span className="h-1.5 w-1.5 rounded-full bg-red-500" /> 2 Fail (15%)
+            </span>
+          </div>
+        </div>
+        <div className="rounded bg-ink text-white text-center py-1 px-2">
+          <span className="text-[6.5px] font-bold">Preview impact before activating rule changes</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function KeyFeaturesSection() {
-  const capabilities = [
+  const capabilities: { title: string; desc: string; icon: typeof BookOpen; badge: string; illustration: React.FC }[] = [
     {
       title: 'Brand Guideline Document Engine',
       desc: 'Ingest PDF and DOCX brand books with automatic page-level text chunking, heading hierarchy indexing, and citation coordinates.',
       icon: BookOpen,
-      image: '/images/platform/rules-ui.png',
       badge: 'PyMuPDF Engine',
+      illustration: FeatureIllustration1,
     },
     {
       title: 'Multi-Modal Evidence Audit',
       desc: 'RapidOCR text detection, CIE-Lab perceptual color delta calculation, and logo exclusion zone inspection for high-resolution posters.',
       icon: FileSearch,
-      image: '/images/assets/poster_audit.jpg',
-      badge: 'Dual OCR · Color Delta',
+      badge: 'Dual OCR \u00b7 Color Delta',
+      illustration: FeatureIllustration2,
     },
     {
       title: 'Minimal-Edit Suggestion Engine',
-      desc: 'Surgical copy corrections that resolve regulatory claims without rewriting the creator’s authentic promotional voice.',
+      desc: 'Surgical copy corrections that resolve regulatory claims without rewriting the creator\u2019s authentic promotional voice.',
       icon: Sparkles,
-      image: '/images/brand/serum.webp',
       badge: '1-Click Fix Apply',
+      illustration: FeatureIllustration3,
     },
     {
       title: 'Version-Locked Approvals',
       desc: 'Cryptographic SHA-256 asset hash binding approvals strictly to a specific file version. Any pixel change safely invalidates old sign-offs.',
       icon: CheckCircle2,
-      image: '/images/platform/exceptions-ui.png',
       badge: 'SHA-256 Hash Binding',
+      illustration: FeatureIllustration4,
     },
     {
       title: 'Rule Conflict & Contradiction Sentinel',
       desc: 'Automated static analyzer that blocks conflicting rules or contradictory guidelines before they can be saved to the active policy set.',
       icon: TriangleAlert,
-      image: '/images/platform/manager-sentinel.png',
       badge: 'Static Policy Check',
+      illustration: FeatureIllustration5,
     },
     {
       title: 'Rule Impact Sandbox Simulator',
       desc: 'Simulate draft rule revisions against historical campaign archives to forecast pass, review, and fail rates before pushing policy updates live.',
       icon: FlaskConical,
-      image: '/images/platform/sandbox-ui.png',
       badge: 'Historical Replay',
+      illustration: FeatureIllustration6,
     },
   ]
 
@@ -606,10 +824,9 @@ function KeyFeaturesSection() {
               className="group flex flex-col justify-between rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-sm transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl hover:border-brand-300"
             >
               <div>
-                <div className="relative h-36 w-full overflow-hidden rounded-xl border border-ink/10 bg-canvas">
-                  <img src={cap.image} alt={cap.title} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-                  <div className="absolute top-2.5 left-2.5 flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 text-[9px] font-bold text-white backdrop-blur-md">
+                <div className="relative h-40 w-full overflow-hidden rounded-xl border border-ink/10 bg-canvas">
+                  <cap.illustration />
+                  <div className="absolute top-2.5 left-2.5 flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 text-[9px] font-bold text-white backdrop-blur-md z-10">
                     <cap.icon className="h-3 w-3 text-emerald-400" />
                     <span>{cap.badge}</span>
                   </div>
@@ -621,7 +838,7 @@ function KeyFeaturesSection() {
 
               <div className="mt-4 pt-3 border-t border-ink/[0.04] text-[11px] font-bold text-brand-600 flex items-center justify-between">
                 <span>Production Ready</span>
-                <span className="text-muted-light group-hover:text-brand-600 transition-colors">Explore →</span>
+                <span className="text-muted-light group-hover:text-brand-600 transition-colors">Explore &rarr;</span>
               </div>
             </Reveal>
           ))}
@@ -631,7 +848,7 @@ function KeyFeaturesSection() {
   )
 }
 
-/* ------------------------------------------------------------------ */
+
 /* 7. How It Works (Visual & Flow Upgrade)                            */
 /* ------------------------------------------------------------------ */
 
@@ -660,7 +877,7 @@ function HowItWorksSection() {
           <img src="/images/assets/poster_audit.jpg" alt="OCR Scan" className="h-full w-full object-cover opacity-70" />
           <div className="absolute inset-0 bg-gradient-to-b from-transparent via-emerald-500/20 to-transparent animate-pulse" />
           <div className="absolute top-2 left-2 flex items-center gap-1 rounded bg-black/75 px-1.5 py-0.5 text-[8.5px] font-mono text-emerald-300">
-            <ScanLine className="h-3 w-3 animate-spin" /> RapidOCR · CIE-Lab Active
+            <ScanLine className="h-3 w-3 animate-spin" /> RapidOCR Â· CIE-Lab Active
           </div>
           <div className="absolute bottom-2 left-2 right-2 rounded bg-black/80 px-2 py-1 text-[9px] text-white/90">
             Extracted: <strong className="text-emerald-400">#7AB93B Palette</strong>
@@ -677,10 +894,10 @@ function HowItWorksSection() {
         <div className="relative mt-4 h-28 w-full overflow-hidden rounded-xl border border-emerald-300 bg-emerald-50/60 p-2.5 flex flex-col justify-between">
           <div className="flex items-center justify-between text-[9px] font-bold text-emerald-800">
             <span className="flex items-center gap-1"><BookOpen className="h-3 w-3" /> Guideline Match</span>
-            <span className="bg-emerald-200/80 px-1.5 py-0.2 rounded text-[8.5px]">Page 12 §3.2</span>
+            <span className="bg-emerald-200/80 px-1.5 py-0.2 rounded text-[8.5px]">Page 12 Â§3.2</span>
           </div>
           <p className="text-[9.5px] italic text-emerald-950 leading-tight">
-            “Primary green (#7AB93B) and neutral sand (#F4EFE3) are approved.”
+            â€œPrimary green (#7AB93B) and neutral sand (#F4EFE3) are approved.â€
           </p>
           <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-700">
             <CheckCircle2 className="h-3 w-3 text-emerald-600" /> 100% Grounded in PDF
@@ -717,7 +934,7 @@ function HowItWorksSection() {
         <Reveal>
           <SectionHeading
             eyebrow={<><Workflow className="h-3 w-3" /> Execution Pipeline</>}
-            title="Create → Analyse → Verify → Approve"
+            title="Create â†’ Analyse â†’ Verify â†’ Approve"
             sub="A transparent 4-stage pipeline that keeps creators fast and brand managers firmly in control."
           />
         </Reveal>
@@ -861,7 +1078,7 @@ function AgentStudioSection() {
     },
     {
       title: 'Review Crew Orchestration',
-      desc: 'Orchestrates multi-agent pipelines: Intake Agent → Passage Retrieval → Deterministic Rule Check → Fix Synthesizer.',
+      desc: 'Orchestrates multi-agent pipelines: Intake Agent â†’ Passage Retrieval â†’ Deterministic Rule Check â†’ Fix Synthesizer.',
       icon: Users,
       metric: '4-Agent Pipeline',
     },
@@ -971,7 +1188,7 @@ function AgentStudioSection() {
             </div>
           </div>
           <span className="shrink-0 rounded-full bg-ink text-white px-3.5 py-1.5 text-[11px] font-bold shadow-xs">
-            Floating Chatbot Ready ↘
+            Floating Chatbot Ready â†˜
           </span>
         </Reveal>
       </div>
@@ -993,11 +1210,11 @@ function SecuritySection() {
         <div className="mt-3 rounded-lg border border-ink/10 bg-sand-50 p-2 text-[10px] space-y-1 font-mono">
           <div className="flex justify-between items-center bg-white px-2 py-1 rounded shadow-2xs">
             <span className="font-bold text-ink">Brand Manager</span>
-            <span className="text-emerald-700 font-bold bg-emerald-100 px-1 rounded text-[8.5px]">Approve · Admin</span>
+            <span className="text-emerald-700 font-bold bg-emerald-100 px-1 rounded text-[8.5px]">Approve Â· Admin</span>
           </div>
           <div className="flex justify-between items-center bg-white px-2 py-1 rounded shadow-2xs">
             <span className="font-bold text-ink">Content Creator</span>
-            <span className="text-blue-700 font-bold bg-blue-100 px-1 rounded text-[8.5px]">Draft · Submit</span>
+            <span className="text-blue-700 font-bold bg-blue-100 px-1 rounded text-[8.5px]">Draft Â· Submit</span>
           </div>
         </div>
       ),
@@ -1060,7 +1277,7 @@ function SecuritySection() {
         {/* Real Audit History Screenshot Banner */}
         <Reveal delay={80} className="mt-12 overflow-hidden rounded-[26px] border border-ink/10 bg-white shadow-xl">
           <div className="flex items-center justify-between border-b border-ink/10 bg-sand-100/60 px-5 py-3 text-[11px] font-mono text-muted">
-            <span className="font-bold text-ink">IMMUTABLE APPEND-ONLY AUDIT REPOSITORY · REAL DATABASE RECORD</span>
+            <span className="font-bold text-ink">IMMUTABLE APPEND-ONLY AUDIT REPOSITORY Â· REAL DATABASE RECORD</span>
             <span className="rounded bg-emerald-100 text-emerald-800 px-2 py-0.5 text-[9.5px] font-bold">
               Tamper-Proof Ledger Active
             </span>
@@ -1167,7 +1384,7 @@ function WhoItsForSection() {
 
               <div className="mt-4 pt-3 border-t border-ink/[0.06] text-[10.5px] font-bold text-brand-600 flex items-center justify-between">
                 <span>Tailored Workflow</span>
-                <span className="text-muted-light group-hover:text-brand-600 transition-colors">See Role →</span>
+                <span className="text-muted-light group-hover:text-brand-600 transition-colors">See Role â†’</span>
               </div>
             </Reveal>
           ))}
@@ -1185,7 +1402,7 @@ function SuccessStoriesSection() {
   const stories = [
     {
       brand: 'PureGlow Botanicals',
-      tagline: 'D2C Skincare Brand · 14 Products',
+      tagline: 'D2C Skincare Brand Â· 14 Products',
       stats: '94% Faster Campaign Approvals',
       quote: 'Precedent eliminated endless Slack debates between creative and legal. When an ungrounded claim is flagged, creators see the exact guideline citation in seconds.',
       author: 'David Kim, Head of Brand Governance',
@@ -1195,7 +1412,7 @@ function SuccessStoriesSection() {
     },
     {
       brand: 'Nexus Omnichannel Media',
-      tagline: 'Retail Advertising Agency · 14 Sub-Brands',
+      tagline: 'Retail Advertising Agency Â· 14 Sub-Brands',
       stats: '100% Exception Traceability',
       quote: 'The Rule Impact Sandbox is an absolute game-changer. We can simulate a new guideline across 1,400 client assets in seconds before presenting policy updates.',
       author: 'Elena Rostova, Managing Director',
@@ -1248,7 +1465,7 @@ function SuccessStoriesSection() {
                 </div>
 
                 <p className="mt-5 text-[13.5px] italic leading-[22px] text-ink-700 bg-sand-50/60 p-4 rounded-xl border border-ink/[0.04]">
-                  “{st.quote}”
+                  â€œ{st.quote}â€
                 </p>
               </div>
 
@@ -1373,7 +1590,7 @@ function PricingSection() {
                       : 'border border-ink/15 bg-white text-ink hover:bg-sand-100',
                   )}
                 >
-                  Get Started →
+                  Get Started â†’
                 </Link>
               </div>
             </Reveal>
@@ -1410,7 +1627,7 @@ function FaqSection() {
     },
     {
       q: 'How do decisions stay attached to the correct asset version?',
-      a: 'Precedent binds approvals cryptographically to the asset’s SHA-256 digest and 64-bit perceptual hash. If an asset is modified after sign-off, previous approvals are safely marked invalid, and the new version is queued for review.',
+      a: 'Precedent binds approvals cryptographically to the assetâ€™s SHA-256 digest and 64-bit perceptual hash. If an asset is modified after sign-off, previous approvals are safely marked invalid, and the new version is queued for review.',
     },
     {
       q: 'How can our team test the live prototype today?',

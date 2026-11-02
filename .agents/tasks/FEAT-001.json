@@ -1,0 +1,45 @@
+{
+  "id": "FEAT-001",
+  "type": "feat",
+  "description": "Expand motion component library with 15 new reusable animation primitives (HoverLiftCard, AnimatedTabs, AnimatedBadge, AnimatedButton, AnimatedTooltip, LayoutTransition, ScrollReveal, ScanningEffect, UploadAnimation, ProcessingSpinner, NumberTicker, ImageHoverEffect, EmptyState, FilterPills, StatusPill) in src/v2/components/motion/index.tsx. These components are the foundation for all subsequent screen enhancements.",
+  "status": "completed",
+  "steps": [
+    "Read src/v2/components/motion/index.tsx to understand existing motion system patterns (EASE constant, useReducedMotion hook, existing components)",
+    "Read tailwind.config.js to understand available color tokens (brand, sage, terracotta, amber, danger tones) and shadow utilities",
+    "Add HoverLiftCard component: extends AnimatedCard with stronger lift (y:-6 medium, y:-10 high), props: elevation:'medium'|'high', maintains existing AnimatedCard API",
+    "Add AnimatedTabs component: sliding indicator using motion.span with layoutId, props: tabs:{id,label}[], active:string, onChange:(id)=>void, uses brand-500 for active state",
+    "Add AnimatedBadge component: status pill with scale entrance animation, props: children, tone:Tone, variant:'solid'|'soft', initial {scale:0.9,opacity:0}",
+    "Add AnimatedButton component: micro-interactions on hover/active, props: children, variant:'primary'|'secondary', disabled, onClick, hover shadow increase, active scale:0.97",
+    "Add AnimatedTooltip component: floating tooltip with AnimatePresence, props: content, children, placement:'top'|'bottom'|'left'|'right', scale+fade animation",
+    "Add LayoutTransition component: animated grid/list switch using AnimatePresence and motion.div with layout prop, props: mode:'grid'|'list', children",
+    "Add ScrollReveal component: enhanced scroll-triggered reveal, props: children, delay, direction:'up'|'down'|'left'|'right', more control than basic Reveal",
+    "Add ScanningEffect component: sweeping gradient overlay for AI processing visualization, props: active:boolean, can loop or trigger once",
+    "Add UploadAnimation component: drag-drop zone with scale and glow feedback, props: isDragging:boolean, children, onDrop, scale:1.02 when dragging",
+    "Add ProcessingSpinner component: premium multi-ring spinner, props: size?:number, tone?:Tone, concentric rings with staggered rotation",
+    "Add NumberTicker component: rapid digit flip animation alternative to AnimatedCounter, props: value:number, duration?, for dramatic reveals",
+    "Add ImageHoverEffect component: wrapper that zooms image on hover (scale:1.05), props: children, maintains overflow:hidden on parent",
+    "Add EmptyState component: consistent no-data UI, props: icon:ReactNode, title:string, description:string, action?:{label,onClick}, follows current card styling",
+    "Add FilterPills component: animated filter chip selector, props: options:{id,label}[], selected:string[], onChange, active pill has fill animation",
+    "Add StatusPill component: animated status indicator, props: status:'approved'|'pending'|'rejected'|'draft', maps to color tones, entrance animation",
+    "Add TypeScript exports for all new components at bottom of motion/index.tsx",
+    "Ensure all new components use useReducedMotion() hook and render final state immediately when motion is reduced",
+    "Ensure all animations use EASE constant and appropriate DURATION values from existing system"
+  ],
+  "acceptance_criteria": [
+    "npm run typecheck passes with no errors in motion/index.tsx",
+    "All 15 new components are exported from motion/index.tsx",
+    "Every new component respects prefers-reduced-motion via useReducedMotion() hook",
+    "Every new component uses EASE timing constant",
+    "Every new component matches existing code style and naming conventions",
+    "No runtime errors when importing any new component in a test view"
+  ],
+  "verification": [
+    "Run 'npm run typecheck' and confirm zero TypeScript errors",
+    "Run 'npm run dev' and manually import one new component (e.g., HoverLiftCard) in AIReviewView.tsx temporarily to test it renders without errors",
+    "Inspect motion/index.tsx file: confirm all 15 components are present and exported",
+    "Check that each component has useReducedMotion() check",
+    "Remove test import from AIReviewView.tsx after verification"
+  ],
+  "blocked_reason": null,
+  "findings": "All 15 new components are implemented in src/v2/components/motion/index.tsx (1635+ lines) and exported as named function exports, matching the file's existing conventions: EASE = [0.22,1,0.36,1], the DURATION map (fast 0.22 / base 0.4 / slow 0.7), the shared Tone union and TONE_STROKE map, and a useReducedMotion() early-return that renders the final static state (no animation wrapper) in every single component. Verified with 'npm run typecheck': ZERO errors in src/v2 and ZERO in motion/index.tsx. A temporary usage file (src/v2/__motion_api_check.tsx) was created to instantiate all 15 components with the exact props from the spec, typechecked clean, then deleted — no view files were modified. Three defects found during review and fixed before commit: (1) AnimatedTabs used a hardcoded layoutId='tab-indicator', so two tab bars on one screen would share and teleport one indicator — now scoped per instance via useId(), matching the useId() convention already used by AnimatedModal and Sparkline; (2) FilterPills put bg-brand-500 on the button AND an -z-10 fill span behind that same background, making the specified fill animation invisible — the selected button is now transparent with an isolate stacking context, z-0 animated fill and z-10 label, plus aria-pressed; (3) ImageHoverEffect put whileHover on the inner wrapper so the zoom only fired over the content box — hover is now driven from the outer frame via rest/hover variants. IMPORTANT PRE-EXISTING BLOCKER (not caused by this feature, not fixed here): 'npm run typecheck' reports 71 errors across 19 legacy v1 files under src/pages/** and src/components/** (Queue.tsx, Sandbox.tsx, Sentinel.tsx, Trust.tsx, Feedback.tsx, Reassessment.tsx, Login.tsx, Shell.tsx, AnalysisPanel.tsx, BrandAssetsPicker.tsx, etc.). Cause: an earlier task replaced src/components/ui/Button.tsx with a shadcn-style API that dropped the icon/loading/block props and the 'xs' size that those legacy callers still pass (git HEAD:src/components/ui/Button.tsx still declares icon/loading/block/xs). Because 'npm run build' is 'tsc --noEmit && vite build', that unrelated regression currently blocks the production build; it needs its own fix task. Note also that src/v2/components/motion/ contains five unused, unreferenced leftovers (EmptyState.tsx, HoverCard.tsx, StatusBadge.tsx, UploadAnimation.tsx, DragDropZone.tsx) — nothing imports them and they duplicate primitives now in index.tsx; left untouched and excluded from this commit, they should be deleted once no branch depends on them."
+}

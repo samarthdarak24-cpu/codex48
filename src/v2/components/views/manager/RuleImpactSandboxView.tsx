@@ -14,6 +14,7 @@ import {
   ProcessingSpinner, Reveal, RingProgress, SectionHeader, SkeletonCard, SuccessCheck,
   type Tone,
 } from '../../motion';
+import { StepTrail, type StepTrailItem } from '../../detail';
 import { RuleFlowDiagram } from '../../ui/RuleFlowDiagram';
 
 /* ------------------------------------------------------------------ */
@@ -205,6 +206,35 @@ export const RuleImpactSandboxView: React.FC = () => {
       showToast(err instanceof Error ? err.message : 'Export failed.', 'error');
     });
   }, [showToast]);
+
+  /* ---- The simulation flow — every node reflects the run's real state ---- */
+  const simSteps: StepTrailItem[] = [
+    {
+      label: 'Current rule', tone: 'olive', icon: <FlaskConical className="h-3 w-3" />,
+      state: selectedRule ? 'done' : 'active',
+      hint: selectedRule ? selectedRule.code : 'pick a rule',
+    },
+    {
+      label: 'Proposed change', tone: 'brand', icon: <Play className="h-3 w-3" />,
+      state: describeChange.trim() ? 'done' : selectedRule ? 'active' : 'pending',
+      hint: changeType,
+    },
+    {
+      label: 'Impact analysis', tone: 'terracotta', icon: <Eye className="h-3 w-3" />,
+      state: isRunning ? 'active' : activeSim ? 'done' : 'pending',
+      hint: isRunning ? 'running…' : activeSim ? 'complete' : 'not run',
+    },
+    {
+      label: 'Affected content', tone: 'amber', icon: <FileText className="h-3 w-3" />,
+      state: activeSim ? 'done' : 'pending',
+      hint: activeSim ? `${activeSim.items.length} item${activeSim.items.length === 1 ? '' : 's'}` : '—',
+    },
+    {
+      label: 'Simulation result', tone: 'sage', icon: <CheckCircle2 className="h-3 w-3" />,
+      state: activeSim ? (activeSim.status === 'Failed' ? 'error' : 'done') : 'pending',
+      hint: activeSim ? activeSim.status : 'awaiting run',
+    },
+  ];
 
   if (role !== 'manager') return <Denied />;
 
@@ -412,6 +442,19 @@ export const RuleImpactSandboxView: React.FC = () => {
             </div>
           </div>
         </HoverLiftCard>
+
+        {/* Simulation flow — one connected line, state mirrored from the run */}
+        <div className="rounded-2xl border border-line bg-white px-4 py-3 shadow-card">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-2xs font-semibold uppercase tracking-[0.08em] text-muted">
+              Simulation flow
+            </p>
+            <span className="text-2xs text-muted">
+              {activeSim ? `Run ${activeSim.status.toLowerCase()}` : 'Nothing run yet'}
+            </span>
+          </div>
+          <StepTrail steps={simSteps} label="Simulation flow" className="mt-2.5" />
+        </div>
 
         {selectedRule && rules.length > 0 && (
           <ChartContainer

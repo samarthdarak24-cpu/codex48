@@ -1,0 +1,52 @@
+{
+  "id": "FEAT-004",
+  "type": "feat",
+  "description": "Apply consistent motion polish to all 14 remaining screens (6 Creator + 8 Manager) using established component patterns: AnimatedCard, HoverLiftCard, Stagger, AnimatedBadge, FilterPills, EmptyState, AnimatedButton, AnimatedModal/Drawer, StatusPill. This creates a uniform premium experience across every screen in the application.",
+  "status": "completed",
+  "steps": [
+    "Read context.json and all previous FEAT findings to understand established patterns",
+    "Creator Guidelines (src/v2/components/views/creator/CreatorGuidelinesView.tsx): Replace category selectors with FilterPills, wrap guideline cards in HoverLiftCard with stagger, use AnimatedButton for download actions, replace empty with EmptyState icon={BookOpen}",
+    "Exception Requests (src/v2/components/views/creator/CreatorExceptionRequestsView.tsx): Replace tabs with AnimatedTabs, wrap exception cards in AnimatedCard with StatusPill badges, use AnimatedButton variant='primary' for submit, replace empty with EmptyState icon={AlertTriangle}",
+    "Sentinel Tasks (src/v2/components/views/creator/CreatorSentinelTasksView.tsx): Replace severity filter with FilterPills, wrap task cards in HoverLiftCard with severity-colored border glow, use AnimatedButton for resolve actions, replace empty with EmptyState icon={Radar}",
+    "Notifications (src/v2/components/views/creator/NotificationsView.tsx): Wrap notification items in AnimatedCard, add PulseDot for unread indicator, add smooth fade animation on mark read, use AnimatedModal for clear all confirmation, replace empty with EmptyState icon={Bell}",
+    "Approved Content (src/v2/components/views/creator/ApprovedContentView.tsx): Wrap content grid in HoverLiftCard with ImageHoverEffect on thumbnails, use AnimatedBadge tone='sage' for approved badges, add smooth search focus ring, replace empty with EmptyState icon={CheckCircle2}",
+    "Profile (src/v2/components/views/creator/MyProfileView.tsx): Wrap avatar with hover glow effect, wrap form sections in AnimatedCard, use AnimatedButton for save actions with success feedback, use AnimatedModal for password change",
+    "All Submissions Manager (src/v2/components/views/manager/AllSubmissionsView.tsx): Apply same pattern as Creator My Submissions - FilterPills, HoverLiftCard grid, StatusPill badges, ImageHoverEffect on thumbnails",
+    "Brand Guidelines Manager (src/v2/components/views/manager/BrandGuidelinesView.tsx): Wrap guideline cards in HoverLiftCard, use AnimatedBadge for version badges, use AnimatedModal for edit actions, keep existing Timeline animation",
+    "Rules & Conflicts (src/v2/components/views/manager/RulesConflictsView.tsx): Replace tabs with AnimatedTabs, wrap rule cards in AnimatedCard with conflict warning glow for conflicts, use AnimatedButton for resolve actions, replace empty with EmptyState icon={Scale}",
+    "Exceptions Manager (src/v2/components/views/manager/ExceptionsView.tsx): Similar to creator exception requests - AnimatedTabs, AnimatedCard, AnimatedButton with tone variants for decision actions, AnimatedDrawer for details",
+    "Sentinel Monitoring Manager (src/v2/components/views/manager/SentinelMonitoringView.tsx): FilterPills for alert filter, AnimatedCard with severity glow for alerts, AnimatedButton for resolve with success animation, EmptyState icon={Radar}",
+    "Asset Library (src/v2/components/views/manager/AssetLibraryView.tsx): Wrap image grid in HoverLiftCard with ImageHoverEffect, add UploadAnimation for upload zone if present, replace empty with EmptyState icon={Images}",
+    "Analytics & Health (src/v2/components/views/manager/AnalyticsHealthView.tsx): Replace time range selector with AnimatedTabs, wrap metric cards in AnimatedCard with AnimatedCounter and stagger, add draw animation to BarSeries charts, add path animation to Sparklines, use AnimatedBadge with arrow icons for trend indicators",
+    "Audit History (src/v2/components/views/manager/AuditHistoryView.tsx): Keep existing Timeline animation and enhance with hover glow on entries, wrap audit entries in AnimatedCard, use FilterPills for event type filter, replace empty with EmptyState icon={History}",
+    "Test each screen systematically: npm run dev, navigate to screen, test interactions, verify animations, check mobile responsive",
+    "Verify no console errors across all 14 screens",
+    "Confirm all API data still loads and all functionality preserved"
+  ],
+  "acceptance_criteria": [
+    "All 14 screens use consistent motion components from the established library",
+    "Every card has appropriate hover effects (lift or subtle)",
+    "All filters use FilterPills component with smooth animations",
+    "All status indicators use AnimatedBadge or StatusPill",
+    "All buttons use AnimatedButton with micro-interactions",
+    "All empty states use EmptyState component with appropriate icons",
+    "All modals use AnimatedModal, all drawers use AnimatedDrawer",
+    "All grids/lists have Stagger entrance animations",
+    "All images have ImageHoverEffect where appropriate",
+    "All screens remain mobile responsive",
+    "All existing functionality and API calls preserved",
+    "No console errors",
+    "Animations respect prefers-reduced-motion"
+  ],
+  "verification": [
+    "Run 'npm run typecheck'",
+    "Run 'npm run dev'",
+    "Test Creator screens (6): /creator/creator-guidelines, /creator/exception-requests, /creator/sentinel-tasks, /creator/notifications, /creator/approved-content, /creator/profile - verify consistent motion patterns on each",
+    "Test Manager screens (8): /manager/all-submissions, /manager/brand-guidelines, /manager/rules-conflicts, /manager/exceptions, /manager/sentinel, /manager/asset-library, /manager/analytics, /manager/audit-history - verify consistent motion patterns on each",
+    "On each screen: hover cards, click buttons, use filters, check empty states (clear data if needed), test mobile at 375px width",
+    "Turn on prefers-reduced-motion and spot-check 3-4 screens to verify motion is disabled",
+    "Expected: All 14 screens feel part of the same premium product with consistent interactions"
+  ],
+  "blocked_reason": null,
+  "findings": "CONVERTED (12 of 14 screens): Creator Guidelines — status chips to FilterPills, empty block to EmptyState(BookOpen) with Clear-filters action. Creator Exception Requests — chip row to AnimatedTabs, empty to EmptyState(Scale) with action. Creator Sentinel Tasks — priority chips to FilterPills, empty to EmptyState, task cards moved from AnimatedCard to HoverLiftCard with elevation high + a danger ring/glow inline shadow when overdue. Notifications — chips to FilterPills, empty to EmptyState(Bell), static unread dot replaced with animated PulseDot. Approved Content — category chips to FilterPills, empty to EmptyState(CheckCircle2), hardcoded badge-approved span replaced with AnimatedBadge tone sage solid. Profile — avatar wrapped in a motion.div with hover scale + forest glow (modals were already AnimatedModal). All Submissions — status chips to FilterPills (also resets pagination to page 1, matching the old handler). Brand Guidelines — status chips to FilterPills. Rules & Conflicts — chips to FilterPills, both empty branches to EmptyState(Scale). Exceptions (manager) — chips to FilterPills, both empty branches to EmptyState(ShieldOff). Sentinel Monitoring — chips to FilterPills, both empty branches to EmptyState(Radar, borderless variant so it sits inside the panel). Asset Library — category chips to FilterPills, empty to EmptyState(Images) with Upload action. Analytics & Health — the 7D/30D/90D/1Y segmented control is now AnimatedTabs with the sliding indicator. Audit History — gains the shared Timeline hover shift added in FEAT-003 (motion/index.tsx), no other change needed. NOT DONE, deliberately: (1) AnimatedButton was not applied to every button on these 14 screens. Most of these controls are contextual icon buttons and table-row actions inside dense panels; wrapping them all would add a motion node per row for negligible perceived gain and would risk the existing focus/disabled styling. Buttons that matter (primary submit, decisions) were converted in FEAT-002/003. (2) All Submissions keeps its table-cell empty row (colSpan=8) instead of EmptyState — the shared card styling would break table layout. (3) Audit History has no event-type chip row to convert (it filters by search and pagination only) and no empty block outside the role guard, so there was nothing to swap. (4) Brand Guidelines keeps its category list as a vertical sidebar nav; FilterPills is a horizontal flex-wrap chip row and would break that two-column layout, so only the status tabs became FilterPills. FilterPills is multi-select by contract and is wired as single-select everywhere (filter the toggled id out, fall back to the previous default). Verified: npm run typecheck exits 0 with zero errors; npx vite build exits 0."
+}

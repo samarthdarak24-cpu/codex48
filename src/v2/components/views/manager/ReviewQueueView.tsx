@@ -7,8 +7,9 @@
  */
 import React, { useMemo, useState } from 'react';
 import {
-  AlertTriangle, ArrowRight, CheckCircle2, ChevronDown, CircleAlert, Clock,
-  Download, Eye, GitCompare, Lock, MessageSquare, Search, User, Wand2, X,
+  AlertTriangle, ArrowRight, Calendar, CheckCircle2, ChevronDown, CircleAlert, ClipboardCheck,
+  Clock, Download, Eye, FileText, Gavel, GitCompare, Lock, MessageSquare, Search, Send, Sparkles,
+  Tag, User, Wand2, X,
 } from 'lucide-react';
 import { useApp } from '../../../context/AppContext';
 import { api } from '@/services/api';
@@ -19,6 +20,10 @@ import {
   AnimatedProgress, EASE, FilterPills, PageTransition, SectionHeader, Stagger, StaggerItem,
   SuccessCheck, type Tone,
 } from '../../motion';
+import {
+  ActionFooter, DetailHeader, EvidenceCard, FlowStep, FooterButton, InfoCard, MetadataRow,
+  MetaChip, StatusBadge, VisualFlow, type DetailTone,
+} from '../../detail';
 
 /* ------------------------------------------------------------------ */
 /* Helpers                                                             */
@@ -40,6 +45,37 @@ const PRIORITY_CLASS: Record<string, string> = {
 };
 
 const PRIORITY_RANK: Record<string, number> = { Critical: 0, High: 1, Medium: 2, Low: 3 };
+
+/** One sentence per state answering "why is this in front of me?" */
+const OVERVIEW: Record<SubmissionStatus, { title: string; body: string }> = {
+  'In Review': {
+    title: 'Waiting on a reviewer decision',
+    body: 'AI review has finished and the findings are stored against this version. Nothing about the submission changes until a manager records a decision.',
+  },
+  'Needs Changes': {
+    title: 'Returned to the creator',
+    body: 'The flagged issues have to be fixed and resubmitted. This version stays on the record as the reference point the next version is compared against.',
+  },
+  Approved: {
+    title: 'Approved and publishable',
+    body: 'This version passed review and may be published. The approval is written to the audit history against your name and note.',
+  },
+  Rejected: {
+    title: 'Rejected — do not publish',
+    body: 'A reviewer rejected this version. It remains in the record with the note that explains the decision.',
+  },
+  Pending: {
+    title: 'Not reviewed yet',
+    body: 'The submission is queued but no AI review has been attached to it yet, so there are no findings to weigh.',
+  },
+};
+
+const PRIORITY_TONE: Record<string, DetailTone> = {
+  Critical: 'danger',
+  High: 'terracotta',
+  Medium: 'amber',
+  Low: 'neutral',
+};
 
 /** Five-state status enum, so each state keeps its own tone and exact label. */
 const StatusPill: React.FC<{ status: string }> = ({ status }) => (
@@ -190,6 +226,45 @@ export const ReviewQueueView: React.FC = () => {
     if (!activeSub?.findings) return [];
     return Array.from(new Set(activeSub.findings.map((f) => f.guidelineRef).filter(Boolean))) as string[];
   }, [activeSub]);
+
+  /* ---- Detail-panel presentation (all derived from stored fields) ---- */
+
+  const subTone: DetailTone = !activeSub
+    ? 'brand'
+    : activeSub.status === 'Approved'
+      ? 'sage'
+      : activeSub.status === 'Rejected'
+        ? 'danger'
+        : activeSub.status === 'Needs Changes'
+          ? 'terracotta'
+          : activeSub.status === 'Pending'
+            ? 'amber'
+            : 'brand';
+
+  const severity = useMemo(() => {
+    const list = activeSub?.findings ?? [];
+    return {
+      errors: list.filter((f) => f.type === 'error').length,
+      warnings: list.filter((f) => f.type === 'warning').length,
+      passed: list.filter((f) => f.type === 'success' || f.type === 'passed').length,
+    };
+  }, [activeSub]);
+
+  const findingsTone: DetailTone =
+    severity.errors > 0 ? 'danger' : severity.warnings > 0 ? 'amber' : 'sage';
+
+  const overview = OVERVIEW[activeSub?.status ?? 'Pending'];
+
+  /** What the platform does next, stated only from the stored status. */
+  const nextStep = !activeSub
+    ? ''
+    : activeSub.status === 'Approved'
+      ? 'The asset is cleared for publishing. Any later edit creates a new version that re-enters the queue.'
+      : activeSub.status === 'Rejected'
+        ? 'The creator is notified and the version is closed. A new submission is needed to try again.'
+        : activeSub.status === 'Needs Changes'
+          ? 'The creator fixes the findings and resubmits; the new version is scored from scratch.'
+          : 'A manager records one of three decisions: approve the version, request changes, or reject it.';
 
   /* ---- States ---- */
 
@@ -376,6 +451,7 @@ export const ReviewQueueView: React.FC = () => {
                       <motion.button
                         key={card.id}
                         onClick={() => openInspector(card)}
+                        aria-label={`Open review panel for ${card.title}`}
                         className={`w-full rounded-xl border bg-white p-2.5 text-left transition-colors ${
                           isSelected
                             ? 'border-brand-300 ring-1 ring-brand-200'
@@ -522,20 +598,64 @@ export const ReviewQueueView: React.FC = () => {
         open={inspectorOpen && Boolean(activeSub)}
         onClose={() => setInspectorOpen(false)}
         title={activeSub?.title ?? 'Submission'}
-        subtitle={
-          activeSub
-            ? `${activeSub.campaign} · ${activeSub.version ?? 'v1.0'} · ${activeSub.assetType ?? activeSub.type ?? 'content'}`
-            : undefined
+        width={500}
+        header={
+          activeSub ? (
+            <DetailHeader
+              tone={subTone}
+              icon={<ClipboardCheck className="h-5 w-5" />}
+              eyebrow={`${activeSub.campaign} · ${activeSub.version ?? 'v1.0'}`}
+              title={activeSub.title}
+              description={
+                activeSub.description ??
+                `${activeSub.assetType ?? activeSub.type ?? 'Content'} submitted for brand review.`
+              }
+              onClose={() => setInspectorOpen(false)}
+              badges={
+                <>
+                  <StatusBadge tone={subTone} label={activeSub.status} />
+                  <StatusBadge
+                    tone={PRIORITY_TONE[activeSub.priority ?? 'Medium'] ?? 'amber'}
+                    label={`${activeSub.priority ?? 'Medium'} priority`}
+                    dot={false}
+                  />
+                  <MetaChip>{activeSub.complianceScore}% compliance</MetaChip>
+                </>
+              }
+              meta={
+                <>
+                  <span className="inline-flex items-center gap-1">
+                    <User className="h-3 w-3" />
+                    {activeSub.creator.name}
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <Calendar className="h-3 w-3" />
+                    {activeSub.submittedAt ?? activeSub.submittedDate ?? 'Not recorded'}
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <Tag className="h-3 w-3" />
+                    {activeSub.assetType ?? activeSub.type ?? 'Content'}
+                  </span>
+                </>
+              }
+            />
+          ) : undefined
         }
-        width={440}
         footer={
           activeSub ? (
-            <div className="space-y-2.5">
+            <ActionFooter
+              note={
+                lastDecision
+                  ? `${lastDecision} recorded. The board refreshes from the server.`
+                  : 'Your note is stored with the decision in the audit history.'
+              }
+            >
               <textarea
                 value={managerNote}
                 onChange={(e) => setManagerNote(e.target.value)}
                 placeholder="Add a note for this decision…"
                 rows={2}
+                aria-label="Reviewer note"
                 className="w-full resize-none rounded-xl border border-line bg-white px-3 py-2 text-xs text-ink focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-300/40"
               />
               <div className="flex items-center gap-2">
@@ -543,245 +663,328 @@ export const ReviewQueueView: React.FC = () => {
                   value={decisionChoice}
                   onChange={(e) => setDecisionChoice(e.target.value)}
                   aria-label="Decision"
-                  className="min-w-0 flex-1 rounded-xl border border-line bg-white px-2.5 py-2 text-xs text-ink focus:outline-none focus:ring-2 focus:ring-brand-300/40"
+                  className="min-w-0 flex-1 rounded-xl border border-line bg-white px-2.5 py-2.5 text-xs text-ink focus:outline-none focus:ring-2 focus:ring-brand-300/40"
                 >
                   <option>Request Changes</option>
                   <option>Approve Version</option>
                   <option>Reject</option>
                 </select>
-                <AnimatedButton onClick={() => handleDecision()} className="shrink-0 px-4 py-2 text-xs">
-                  Submit
-                </AnimatedButton>
+                <FooterButton
+                  variant="primary"
+                  onClick={() => handleDecision()}
+                  icon={<Send className="h-3.5 w-3.5" />}
+                  className="w-auto shrink-0 px-4"
+                >
+                  Record decision
+                </FooterButton>
               </div>
-            </div>
+            </ActionFooter>
           ) : null
         }
       >
         {activeSub && (
-          <div className="space-y-4">
-            <div className="overflow-hidden rounded-xl border border-line">
-              <img src={activeSub.thumbnail} alt="" className="h-40 w-full object-cover" />
-            </div>
+          <div className="space-y-5">
+            {/* What this is, and why it is in front of a reviewer */}
+            <InfoCard
+              tone={subTone}
+              icon={<ClipboardCheck className="h-3.5 w-3.5" />}
+              eyebrow="At a glance"
+              title={overview.title}
+            >
+              {overview.body}
+            </InfoCard>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <StatusPill status={activeSub.status} />
-              <span className={`${PRIORITY_CLASS[activeSub.priority ?? 'Medium'] ?? 'badge-medium'}`}>
-                {activeSub.priority ?? 'Medium'}
-              </span>
-              <span className="text-2xs text-muted">
-                Submitted {activeSub.submittedAt ?? activeSub.submittedDate ?? '—'}
-              </span>
-            </div>
-
-            {lastDecision && (
-              <motion.div
-                key={lastDecision}
-                role="status"
-                className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-2xs font-medium ${
-                  decisionTone === 'sage'
-                    ? 'border-sage-200 bg-sage-50 text-sage-700'
-                    : decisionTone === 'danger'
-                      ? 'border-danger-200 bg-danger-50 text-danger-700'
-                      : 'border-warn-200 bg-warn-50 text-warn-700'
-                }`}
-                style={{
-                  boxShadow: decisionTone === 'sage'
-                    ? '0 0 22px -10px rgba(78,122,61,.65)'
-                    : decisionTone === 'danger'
-                      ? '0 0 22px -10px rgba(194,84,70,.65)'
-                      : '0 0 22px -10px rgba(196,137,28,.65)',
-                }}
-                initial={reduce ? false : { opacity: 0, y: 8 }}
-                animate={
-                  reduce
-                    ? { opacity: 1, y: 0 }
-                    : decisionTone === 'danger'
-                      ? { opacity: 1, y: 0, x: [0, -6, 6, -4, 4, 0] }
-                      : { opacity: 1, y: 0, x: 0 }
-                }
-                transition={{ duration: 0.4, ease: EASE }}
-              >
-                <SuccessCheck size={14} />
-                {lastDecision} recorded. The board refreshes from the server.
-              </motion.div>
-            )}
-
-            <div className="grid grid-cols-4 gap-1.5">
-              {[
-                {
-                  icon: <Download className="h-3.5 w-3.5" />,
-                  label: 'Report',
-                  fn: async () => {
-                    try {
-                      await api.downloadSubmissionReport(activeSub.id, 'text');
-                      addToast('Report downloaded.');
-                    } catch {
-                      addToast('Download failed.', 'error');
-                    }
-                  },
-                },
-                {
-                  icon: <Eye className="h-3.5 w-3.5" />,
-                  label: 'Preview',
-                  fn: () => activeSub.thumbnail && window.open(activeSub.thumbnail, '_blank'),
-                },
-                {
-                  icon: <GitCompare className="h-3.5 w-3.5" />,
-                  label: 'Compare',
-                  fn: () => setIsAiCompareOpen(true),
-                },
-                {
-                  icon: <ArrowRight className="h-3.5 w-3.5" />,
-                  label: 'Audit',
-                  fn: () => addToast(`Submission ${activeSub.id} · ${activeSub.status}`, 'info'),
-                },
-              ].map((btn) => (
-                <button
-                  key={btn.label}
-                  onClick={btn.fn}
-                  aria-label={btn.label}
-                  className="flex flex-col items-center gap-1 rounded-xl border border-line py-2 text-muted transition-colors hover:bg-cream-50 hover:text-ink"
+            {/* The review chain, one node per stored field */}
+            <div>
+              <SectionHeader
+                title="How this review got here"
+                subtitle="Each step is a value stored against this submission."
+              />
+              <VisualFlow className="mt-3">
+                <FlowStep
+                  index={0}
+                  tone="brand"
+                  icon={<FileText className="h-3.5 w-3.5" />}
+                  label="Step 1 · Submitted"
+                  title={activeSub.title}
                 >
-                  {btn.icon}
-                  <span className="text-[10px] font-semibold">{btn.label}</span>
-                </button>
-              ))}
-            </div>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <MetaChip>{activeSub.campaign}</MetaChip>
+                    <MetaChip>{activeSub.version ?? 'v1.0'}</MetaChip>
+                    <MetaChip>{activeSub.assetType ?? activeSub.type ?? 'Content'}</MetaChip>
+                  </div>
+                </FlowStep>
 
-            <div className="flex gap-4 border-b border-line">
-              {(['Findings', 'Evidence', 'Comments'] as const).map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  aria-pressed={activeTab === tab}
-                  className={`-mb-px border-b-2 pb-2 text-xs font-semibold transition-colors ${
-                    activeTab === tab
-                      ? 'border-brand-600 text-brand-600'
-                      : 'border-transparent text-muted hover:text-ink'
-                  }`}
+                <FlowStep
+                  index={1}
+                  tone="sage"
+                  icon={<Sparkles className="h-3.5 w-3.5" />}
+                  label="Step 2 · AI review"
+                  title={`Scored ${activeSub.complianceScore}% against the guideline set`}
                 >
-                  {tab}
-                </button>
-              ))}
-            </div>
+                  {activeSub.findings && activeSub.findings.length > 0
+                    ? `${activeSub.findings.length} finding${activeSub.findings.length === 1 ? '' : 's'} stored against this version.`
+                    : 'No findings are stored against this version.'}
+                </FlowStep>
 
-            {activeTab === 'Findings' && (
-              <div className="space-y-2.5">
-                {activeSub.findings && activeSub.findings.length > 0 ? (
-                  activeSub.findings.map((f) => (
-                    <div
-                      key={f.id}
-                      className={`rounded-xl border p-3 ${
-                        f.type === 'error'
-                          ? 'border-danger-200 bg-danger-50/60'
-                          : f.type === 'warning'
-                            ? 'border-warn-200 bg-warn-50/60'
-                            : 'border-sage-200 bg-sage-50/60'
-                      }`}
+                <FlowStep
+                  index={2}
+                  tone={findingsTone}
+                  icon={
+                    severity.errors > 0 ? (
+                      <CircleAlert className="h-3.5 w-3.5" />
+                    ) : severity.warnings > 0 ? (
+                      <AlertTriangle className="h-3.5 w-3.5" />
+                    ) : (
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                    )
+                  }
+                  label="Step 3 · Findings"
+                  title={
+                    severity.errors > 0
+                      ? `${severity.errors} violation${severity.errors === 1 ? '' : 's'} to resolve`
+                      : severity.warnings > 0
+                        ? `${severity.warnings} warning${severity.warnings === 1 ? '' : 's'} to weigh`
+                        : 'No violations found'
+                  }
+                  action={
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('Findings')}
+                      className="inline-flex items-center gap-1 text-2xs font-semibold text-ink-700 underline-offset-2 hover:underline"
                     >
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="flex items-center gap-1.5 text-xs font-semibold text-ink">
-                          {f.type === 'error' ? (
-                            <CircleAlert className="h-3.5 w-3.5 shrink-0 text-danger-500" />
-                          ) : (
-                            <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-warn-500" />
-                          )}
-                          {f.title}
-                        </p>
-                        <span className={`${f.type === 'error' ? 'badge-rejected' : 'badge-medium'} shrink-0`}>
-                          {f.badge ?? f.type}
-                        </span>
-                      </div>
-                      <p className="mt-1 text-2xs leading-relaxed text-ink-600">{f.description}</p>
-                      {f.guidelineRef && (
-                        <p className="mt-1 text-2xs text-muted-light">{f.guidelineRef}</p>
-                      )}
-                    </div>
-                  ))
-                ) : (
-                  <div className="flex items-center gap-2 rounded-xl border border-sage-200 bg-sage-50 px-3 py-3 text-2xs text-sage-700">
-                    <CheckCircle2 className="h-4 w-4 shrink-0" />
-                    No compliance violations found.
+                      Open findings
+                      <ArrowRight className="h-3 w-3" />
+                    </button>
+                  }
+                >
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <MetaChip>{severity.errors} errors</MetaChip>
+                    <MetaChip>{severity.warnings} warnings</MetaChip>
+                    {severity.passed > 0 && <MetaChip>{severity.passed} passed</MetaChip>}
                   </div>
-                )}
+                </FlowStep>
 
-                <div className="border-t border-line pt-3">
-                  <AnimatedProgress
-                    value={activeSub.complianceScore}
-                    max={100}
-                    tone={activeSub.complianceScore >= 80 ? 'sage' : activeSub.complianceScore >= 50 ? 'amber' : 'danger'}
-                    label="Compliance score"
-                    showValue
+                <FlowStep
+                  index={3}
+                  tone={lastDecision ? decisionTone : 'amber'}
+                  icon={<Gavel className="h-3.5 w-3.5" />}
+                  label="Step 4 · Reviewer decision"
+                  title={lastDecision ? lastDecision : 'Awaiting a manager decision'}
+                >
+                  {lastDecision
+                    ? managerNote
+                      ? `Note recorded: “${managerNote}”`
+                      : 'The decision has been written to the submission record.'
+                    : 'Approve the version, request changes, or reject it from the actions below.'}
+                </FlowStep>
+
+                <FlowStep
+                  index={4}
+                  isLast
+                  tone="olive"
+                  icon={<ArrowRight className="h-3.5 w-3.5" />}
+                  label="Step 5 · What happens next"
+                >
+                  {nextStep}
+                </FlowStep>
+              </VisualFlow>
+            </div>
+
+            {/* The actual asset */}
+            <div>
+              <SectionHeader title="Submitted asset" subtitle="The file this review was run against." />
+              <div className="mt-2 overflow-hidden rounded-xl border border-line bg-cream-50">
+                {activeSub.thumbnail ? (
+                  <img
+                    src={activeSub.thumbnail}
+                    alt={`Preview of ${activeSub.title}`}
+                    className="h-40 w-full object-cover"
                   />
-                </div>
-              </div>
-            )}
-
-            {activeTab === 'Evidence' && (
-              <div className="space-y-2">
-                {evidenceRefs.length > 0 ? (
-                  evidenceRefs.map((ref) => (
-                    <div key={ref} className="rounded-xl border border-line bg-cream-50 p-3">
-                      <p className="text-2xs font-semibold text-ink">Cited guideline passage</p>
-                      <p className="mt-0.5 text-2xs leading-relaxed text-muted">{ref}</p>
-                    </div>
-                  ))
                 ) : (
-                  <div className="rounded-xl border border-dashed border-line bg-cream-50 px-4 py-6 text-center">
-                    <p className="text-xs font-medium text-ink-600">No evidence attached</p>
-                    <p className="mt-0.5 text-2xs text-muted">
-                      This version has no guideline citations stored against its findings.
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {activeTab === 'Comments' && (
-              <div className="space-y-3">
-                {comments.length > 0 ? (
-                  comments.map((c) => (
-                    <div key={c.id} className="flex items-start gap-2.5">
-                      <img src={c.avatar} alt="" className="h-6 w-6 shrink-0 rounded-full object-cover" />
-                      <div className="min-w-0">
-                        <p className="text-2xs font-semibold text-ink">
-                          {c.author} <span className="font-normal text-muted-light">{c.time}</span>
-                        </p>
-                        <p className="mt-0.5 text-2xs leading-relaxed text-ink-600">{c.text}</p>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <p className="rounded-xl border border-line bg-cream-50 px-3 py-4 text-center text-2xs text-muted">
-                    No comments yet.
+                  <p className="px-4 py-8 text-center text-2xs text-muted">
+                    No preview image is stored for this submission.
                   </p>
                 )}
               </div>
-            )}
-
-            {/* Quick decisions */}
-            <div className="border-t border-line pt-3">
-              <p className="mb-2 text-2xs font-semibold uppercase tracking-[0.05em] text-muted">Quick decision</p>
-              <div className="grid grid-cols-3 gap-2">
-                <button
-                  onClick={() => handleDecision('Request Changes')}
-                  className="rounded-xl border border-terracotta-300 py-2 text-2xs font-semibold text-terracotta-700 transition-colors hover:bg-terracotta-50"
-                >
-                  Request changes
-                </button>
-                <button
-                  onClick={() => handleDecision('Reject')}
-                  className="rounded-xl border border-danger-300 py-2 text-2xs font-semibold text-danger-700 transition-colors hover:bg-danger-50"
-                >
-                  Reject
-                </button>
-                <button
-                  onClick={() => handleDecision('Approve Version')}
-                  className="rounded-xl bg-brand-600 py-2 text-2xs font-semibold text-white transition-colors hover:bg-brand-700"
-                >
-                  Approve
-                </button>
+              <div className="mt-2 grid grid-cols-4 gap-1.5">
+                {[
+                  {
+                    icon: <Download className="h-3.5 w-3.5" />,
+                    label: 'Report',
+                    fn: async () => {
+                      try {
+                        await api.downloadSubmissionReport(activeSub.id, 'text');
+                        addToast('Report downloaded.');
+                      } catch {
+                        addToast('Download failed.', 'error');
+                      }
+                    },
+                  },
+                  {
+                    icon: <Eye className="h-3.5 w-3.5" />,
+                    label: 'Preview',
+                    fn: () => activeSub.thumbnail && window.open(activeSub.thumbnail, '_blank'),
+                  },
+                  {
+                    icon: <GitCompare className="h-3.5 w-3.5" />,
+                    label: 'Compare',
+                    fn: () => setIsAiCompareOpen(true),
+                  },
+                  {
+                    icon: <ArrowRight className="h-3.5 w-3.5" />,
+                    label: 'Audit',
+                    fn: () => addToast(`Submission ${activeSub.id} · ${activeSub.status}`, 'info'),
+                  },
+                ].map((btn) => (
+                  <button
+                    key={btn.label}
+                    onClick={btn.fn}
+                    aria-label={btn.label}
+                    className="flex flex-col items-center gap-1 rounded-xl border border-line py-2 text-muted transition-colors hover:bg-cream-50 hover:text-ink"
+                  >
+                    {btn.icon}
+                    <span className="text-[10px] font-semibold">{btn.label}</span>
+                  </button>
+                ))}
               </div>
+            </div>
+
+            {/* Detail tabs */}
+            <div>
+              <div className="flex gap-4 border-b border-line">
+                {(['Findings', 'Evidence', 'Comments'] as const).map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    aria-pressed={activeTab === tab}
+                    className={`-mb-px border-b-2 pb-2 text-xs font-semibold transition-colors ${
+                      activeTab === tab
+                        ? 'border-brand-600 text-brand-600'
+                        : 'border-transparent text-muted hover:text-ink'
+                    }`}
+                  >
+                    {tab}
+                  </button>
+                ))}
+              </div>
+
+              <div className="mt-3">
+                {activeTab === 'Findings' && (
+                  <div className="space-y-2.5">
+                    {activeSub.findings && activeSub.findings.length > 0 ? (
+                      activeSub.findings.map((f) => (
+                        <InfoCard
+                          key={f.id}
+                          tone={f.type === 'error' ? 'danger' : f.type === 'warning' ? 'amber' : 'sage'}
+                          icon={
+                            f.type === 'error' ? (
+                              <CircleAlert className="h-3.5 w-3.5" />
+                            ) : f.type === 'warning' ? (
+                              <AlertTriangle className="h-3.5 w-3.5" />
+                            ) : (
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                            )
+                          }
+                          eyebrow={f.badge ?? f.type}
+                          title={f.title}
+                          meta={f.guidelineRef ? <span>{f.guidelineRef}</span> : undefined}
+                        >
+                          {f.description}
+                        </InfoCard>
+                      ))
+                    ) : (
+                      <InfoCard tone="sage" icon={<CheckCircle2 className="h-3.5 w-3.5" />}>
+                        No compliance violations found for this version.
+                      </InfoCard>
+                    )}
+
+                    <div className="rounded-xl border border-line bg-white px-3 py-2.5">
+                      <AnimatedProgress
+                        value={activeSub.complianceScore}
+                        max={100}
+                        tone={
+                          activeSub.complianceScore >= 80
+                            ? 'sage'
+                            : activeSub.complianceScore >= 50
+                              ? 'amber'
+                              : 'danger'
+                        }
+                        label="Compliance score"
+                        showValue
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === 'Evidence' && (
+                  <div className="space-y-2">
+                    {evidenceRefs.length > 0 ? (
+                      evidenceRefs.map((ref) => (
+                        <EvidenceCard
+                          key={ref}
+                          docLabel="Cited guideline"
+                          passage={ref}
+                          title="Guideline evidence"
+                        />
+                      ))
+                    ) : (
+                      <div className="rounded-xl border border-dashed border-line bg-cream-50 px-4 py-6 text-center">
+                        <p className="text-xs font-medium text-ink-600">No evidence attached</p>
+                        <p className="mt-0.5 text-2xs text-muted">
+                          This version has no guideline citations stored against its findings.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {activeTab === 'Comments' && (
+                  <div className="space-y-3">
+                    {comments.length > 0 ? (
+                      comments.map((c) => (
+                        <div key={c.id} className="flex items-start gap-2.5">
+                          <img
+                            src={c.avatar}
+                            alt=""
+                            className="h-6 w-6 shrink-0 rounded-full object-cover"
+                          />
+                          <div className="min-w-0">
+                            <p className="text-2xs font-semibold text-ink">
+                              {c.author}{' '}
+                              <span className="font-normal text-muted-light">{c.time}</span>
+                            </p>
+                            <p className="mt-0.5 text-2xs leading-relaxed text-ink-600">{c.text}</p>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="rounded-xl border border-line bg-cream-50 px-3 py-4 text-center text-2xs text-muted">
+                        No comments yet.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Stored record */}
+            <div>
+              <SectionHeader title="Stored record" subtitle="Values returned by the submissions service" />
+              <dl className="mt-2 rounded-xl border border-line bg-white px-3 py-1.5">
+                <MetadataRow label="Submission" value={activeSub.id} icon={<Tag className="h-3 w-3" />} />
+                <MetadataRow label="Campaign" value={activeSub.campaign} />
+                <MetadataRow label="Version" value={activeSub.version ?? 'v1.0'} />
+                <MetadataRow label="Status" value={activeSub.status} tone={subTone} />
+                <MetadataRow label="Priority" value={activeSub.priority ?? 'Medium'} />
+                <MetadataRow label="Compliance" value={`${activeSub.complianceScore}%`} />
+                <MetadataRow
+                  label="Submitted"
+                  value={activeSub.submittedAt ?? activeSub.submittedDate ?? 'Not recorded'}
+                  icon={<Calendar className="h-3 w-3" />}
+                />
+                <MetadataRow label="Creator" value={activeSub.creator.name} icon={<User className="h-3 w-3" />} />
+              </dl>
             </div>
           </div>
         )}

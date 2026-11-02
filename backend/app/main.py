@@ -29,6 +29,7 @@ from app.db import SessionLocal, init_db
 from app.errors import RequestIDMiddleware, install_error_handlers
 from app.routers import (
     canonical_v1,
+    agents as agents_router,
     analysis,
     analytics,
     assets,
@@ -298,6 +299,10 @@ app.include_router(_proofpass_alias)
 
 # Canonical v1 router
 app.include_router(canonical_v1.router)
+
+# Agent Studio — root aliases (matching the rest of the app) and /api/v1.
+app.include_router(agents_router.build_router(""))
+app.include_router(agents_router.build_router("/api/v1"))
 
 
 

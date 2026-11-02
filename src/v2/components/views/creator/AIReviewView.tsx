@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Sparkles, CheckCircle2, FileText, ScanLine, RotateCw, Search, BadgeCheck, Gauge, Quote,
+  ShieldCheck,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../../context/AppContext';
@@ -12,6 +13,7 @@ import {
   ImageHoverEffect, ProcessingSpinner, PulseDot, RingProgress, ScanningEffect,
   SectionHeader, Stagger, StaggerItem, type AgentState,
 } from '../../motion';
+import { StepTrail, type StepTrailItem } from '../../detail';
 
 type Group = 'violation' | 'review' | 'passed';
 
@@ -133,6 +135,40 @@ export const AIReviewView: React.FC = () => {
     },
   ];
 
+  /* ---- The analysis pipeline — every state derived from stored artefacts ---- */
+  const pipeline: StepTrailItem[] = [
+    {
+      label: 'Content uploaded', tone: 'olive', icon: <FileText className="h-3 w-3" />,
+      state: current ? 'done' : 'pending',
+      hint: current.version || current.assetType || 'content',
+    },
+    {
+      label: 'OCR analysis', tone: 'brand', icon: <ScanLine className="h-3 w-3" />,
+      state: analysisRunning ? 'active' : analysisReady ? 'done' : 'pending',
+      hint: analysisReady ? `${analysis?.textBlocks?.length ?? 0} regions` : analysisRunning ? 'running…' : 'not run',
+    },
+    {
+      label: 'Guideline search', tone: 'sage', icon: <Search className="h-3 w-3" />,
+      state: findings.length > 0 || aiFindings.length > 0 ? 'done' : 'pending',
+      hint: findings.length > 0 ? `${findings.length} cited` : 'no passages',
+    },
+    {
+      label: 'Rule check', tone: 'terracotta', icon: <ShieldCheck className="h-3 w-3" />,
+      state: current ? 'done' : 'pending',
+      hint: `${violations.length} violation${violations.length === 1 ? '' : 's'}`,
+    },
+    {
+      label: 'Evidence verification', tone: 'amber', icon: <BadgeCheck className="h-3 w-3" />,
+      state: rejected > 0 ? 'error' : verified > 0 ? 'done' : 'pending',
+      hint: verified + rejected > 0 ? `${verified} verified` : 'no citations',
+    },
+    {
+      label: 'Review findings', tone: 'brand', icon: <Gauge className="h-3 w-3" />,
+      state: current ? 'done' : 'pending',
+      hint: `${score}% compliance`,
+    },
+  ];
+
   const runReview = useCallback(async () => {
     if (!current) return;
     setScanning(true);
@@ -202,6 +238,7 @@ export const AIReviewView: React.FC = () => {
               States reflect stored analysis — not simulated progress
             </span>
           </div>
+          <StepTrail steps={pipeline} label="AI analysis pipeline" className="mb-3.5" />
           <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-5">
             {crew.map((a, i) => (
               <AgentStatusCard

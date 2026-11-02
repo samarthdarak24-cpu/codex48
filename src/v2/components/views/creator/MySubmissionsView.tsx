@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import {
-  AlertCircle, CheckCircle2, ChevronRight, Clock, Download, FileText, Loader2, Plus,
-  Search, Send, SlidersHorizontal, Sparkles,
+  AlertCircle, ArrowRight, Calendar, CheckCircle2, ChevronRight, Clock, Download, FileText,
+  Loader2, Plus, Search, Send, SlidersHorizontal, Sparkles, Tag, Wand2,
 } from 'lucide-react';
 import { useApp } from '../../../context/AppContext';
 import type { Submission } from '../../../types';
@@ -11,6 +11,10 @@ import {
   EmptyState, FilterPills, HoverLiftCard, ImageHoverEffect, LayoutTransition, PageTransition,
   SectionHeader, type Tone,
 } from '../../motion';
+import {
+  ActionFooter, DetailHeader, FlowStep, FooterButton, InfoCard, MetadataRow, MetaChip,
+  StatusBadge, VisualFlow, type DetailTone,
+} from '../../detail';
 
 type Filter = 'All' | 'Approved' | 'In Review' | 'Needs Changes' | 'Rejected';
 
@@ -144,6 +148,31 @@ export const MySubmissionsView: React.FC = () => {
   const violations = findings.filter((f) => f.type === 'error');
   const review = findings.filter((f) => f.type === 'warning');
   const passed = findings.filter((f) => f.type === 'success' || f.type === 'passed');
+
+  const detailTone: DetailTone = detail
+    ? detail.status === 'Approved'
+      ? 'sage'
+      : detail.status === 'Rejected'
+        ? 'danger'
+        : detail.status === 'Needs Changes'
+          ? 'terracotta'
+          : detail.status === 'Pending'
+            ? 'amber'
+            : 'brand'
+    : 'brand';
+
+  /** Creator-facing answer to "what do I do now?", derived from the status only. */
+  const creatorNextStep = !detail
+    ? ''
+    : detail.status === 'Approved'
+      ? 'Nothing. This version is approved — publish it, and submit a new version if you need to change it.'
+      : detail.status === 'Rejected'
+        ? 'This version is closed. Read the findings below, then submit a corrected version from New Content.'
+        : detail.status === 'Needs Changes'
+          ? 'Fix the violations listed below and resubmit. The new version is scored from scratch.'
+          : detail.status === 'In Review'
+            ? 'Wait for the brand manager to record a decision. You can still read the findings while it is queued.'
+            : 'The submission is queued and has not been analysed yet.';
 
   return (
     <PageTransition className="p-4 sm:p-6">
@@ -376,85 +405,175 @@ export const MySubmissionsView: React.FC = () => {
         open={Boolean(detail)}
         onClose={() => setDetailId(null)}
         title={detail?.title ?? 'Submission'}
-        subtitle={detail ? `${detail.campaign || 'No campaign'} · ${detail.version || 'v1.0'}` : undefined}
+        width={490}
+        header={
+          detail ? (
+            <DetailHeader
+              tone={detailTone}
+              icon={<FileText className="h-5 w-5" />}
+              eyebrow={`${detail.campaign || 'No campaign'} · ${detail.version || 'v1.0'}`}
+              title={detail.title}
+              description={
+                detail.description ??
+                `${detail.assetType || detail.format || 'Content'} you submitted for brand review.`
+              }
+              onClose={() => setDetailId(null)}
+              badges={
+                <>
+                  <StatusBadge tone={detailTone} label={detail.status} />
+                  <MetaChip>{detail.complianceScore}% compliance</MetaChip>
+                  {detail.priority && <MetaChip>{detail.priority} priority</MetaChip>}
+                </>
+              }
+              meta={
+                <>
+                  <span className="inline-flex items-center gap-1">
+                    <Calendar className="h-3 w-3" />
+                    {detail.submittedDate || detail.submittedAt || 'Not recorded'}
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <Tag className="h-3 w-3" />
+                    {detail.assetType || detail.format || 'Content'}
+                  </span>
+                </>
+              }
+            />
+          ) : undefined
+        }
         footer={
           detail ? (
-            <div className="flex flex-col gap-2">
-              <button
-                onClick={() => void downloadReport(detail)}
-                disabled={downloading}
-                className="flex w-full items-center justify-center gap-2 rounded-xl border border-line bg-white py-2.5 text-xs font-semibold text-ink-700 transition-colors hover:bg-cream-50 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                {downloading ? 'Preparing…' : 'Download report'}
-              </button>
-              <button
-                onClick={() => {
-                  setSelectedSubmission(detail);
-                  setCurrentPage('ai-review');
-                }}
-                className="btn-primary-glow flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-semibold"
-              >
-                <Sparkles className="h-4 w-4" />Open in AI Review
-              </button>
-            </div>
+            <ActionFooter note="Reports and the AI review open against this exact version.">
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <FooterButton
+                    icon={
+                      downloading ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Download className="h-3.5 w-3.5" />
+                      )
+                    }
+                    onClick={() => void downloadReport(detail)}
+                    disabled={downloading}
+                  >
+                    {downloading ? 'Preparing…' : 'Download report'}
+                  </FooterButton>
+                </div>
+                <div className="flex-1">
+                  <FooterButton
+                    variant="primary"
+                    icon={<Sparkles className="h-3.5 w-3.5" />}
+                    onClick={() => {
+                      setSelectedSubmission(detail);
+                      setCurrentPage('ai-review');
+                    }}
+                  >
+                    Open in AI Review
+                  </FooterButton>
+                </div>
+              </div>
+              <FooterButton onClick={() => setDetailId(null)}>Close</FooterButton>
+            </ActionFooter>
           ) : undefined
         }
       >
         {detail && (
           <div className="space-y-5">
-            <div className="overflow-hidden rounded-2xl border border-line bg-cream-100">
-              <ImageHoverEffect>
-                <img src={detail.thumbnail} alt="" className="h-44 w-full object-cover" />
-              </ImageHoverEffect>
-            </div>
+            {/* Where this version stands, in plain language */}
+            <InfoCard
+              tone={detailTone}
+              icon={<FileText className="h-3.5 w-3.5" />}
+              eyebrow="At a glance"
+              title={`${detail.status} · ${detail.complianceScore}% compliant`}
+            >
+              {creatorNextStep}
+            </InfoCard>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <StatusChip status={detail.status} />
-              {detail.priority && <span className="badge-draft">{detail.priority} priority</span>}
-            </div>
-
-            {detail.description && (
-              <p className="text-xs leading-relaxed text-ink-600">{detail.description}</p>
-            )}
-
+            {/* The lifecycle, one node per stored value */}
             <div>
-              <SectionHeader title="Submission record" />
-              <dl className="mt-2 space-y-0">
-                {[
-                  ['Campaign', detail.campaign || '—'],
-                  ['Content type', detail.assetType || detail.format || '—'],
-                  ['Submitted', detail.submittedDate || detail.submittedAt || '—'],
-                  ['Version', detail.version || 'v1.0'],
-                  ['Compliance score', `${detail.complianceScore}%`],
-                ].map(([label, value]) => (
-                  <div
-                    key={label}
-                    className="flex items-center justify-between gap-3 border-b border-line-soft py-1.5 text-xs last:border-0"
-                  >
-                    <dt className="text-muted">{label}</dt>
-                    <dd className="max-w-[60%] truncate text-right font-medium text-ink">{value}</dd>
+              <SectionHeader
+                title="What happened to this version"
+                subtitle="Each step is recorded against the submission, not inferred."
+              />
+              <VisualFlow className="mt-3">
+                <FlowStep
+                  index={0}
+                  tone="brand"
+                  icon={<Send className="h-3.5 w-3.5" />}
+                  label="Step 1 · You submitted"
+                  title={detail.title}
+                >
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <MetaChip>{detail.campaign || 'No campaign'}</MetaChip>
+                    <MetaChip>{detail.version || 'v1.0'}</MetaChip>
+                    <MetaChip>{detail.assetType || detail.format || 'Content'}</MetaChip>
                   </div>
-                ))}
-              </dl>
+                </FlowStep>
+
+                <FlowStep
+                  index={1}
+                  tone="sage"
+                  icon={<Wand2 className="h-3.5 w-3.5" />}
+                  label="Step 2 · AI review ran"
+                  title={`Scored ${detail.complianceScore}% against the brand guidelines`}
+                >
+                  {findings.length > 0
+                    ? `${findings.length} finding${findings.length === 1 ? '' : 's'} recorded against this version.`
+                    : 'No findings are stored against this version yet.'}
+                </FlowStep>
+
+                <FlowStep
+                  index={2}
+                  tone={detailTone}
+                  icon={<CheckCircle2 className="h-3.5 w-3.5" />}
+                  label="Step 3 · Brand manager decision"
+                  title={detail.status === 'In Review' || detail.status === 'Pending' ? 'Not decided yet' : detail.status}
+                >
+                  {detail.status === 'In Review' || detail.status === 'Pending'
+                    ? 'A manager still has to record a decision on this version.'
+                    : `The decision recorded against this version is “${detail.status}”.`}
+                </FlowStep>
+
+                <FlowStep
+                  index={3}
+                  isLast
+                  tone="amber"
+                  icon={<ArrowRight className="h-3.5 w-3.5" />}
+                  label="Step 4 · Your next action"
+                >
+                  {creatorNextStep}
+                </FlowStep>
+              </VisualFlow>
             </div>
 
-            <div className="rounded-2xl border border-line bg-cream-50 p-3.5">
-              <div className="flex items-baseline justify-between">
-                <p className="text-xs font-semibold text-ink">Findings breakdown</p>
-                <span className="text-2xs tabular-nums text-muted">{findings.length} total</span>
-              </div>
-              <div className="mt-2.5 space-y-2">
-                <AnimatedProgress value={violations.length} max={Math.max(findings.length, 1)} tone="danger" label={`Violations · ${violations.length}`} height={6} />
-                <AnimatedProgress value={review.length} max={Math.max(findings.length, 1)} tone="amber" label={`Needs review · ${review.length}`} height={6} />
-                <AnimatedProgress value={passed.length} max={Math.max(findings.length, 1)} tone="sage" label={`Passed · ${passed.length}`} height={6} />
-              </div>
-            </div>
-
+            {/* The asset */}
             <div>
-              <SectionHeader title="Findings" subtitle="Raised by the rule engine against stored guideline passages." />
+              <SectionHeader title="Submitted asset" subtitle="The file that was analysed." />
+              <div className="mt-2 overflow-hidden rounded-2xl border border-line bg-cream-100">
+                {detail.thumbnail ? (
+                  <ImageHoverEffect>
+                    <img
+                      src={detail.thumbnail}
+                      alt={`Preview of ${detail.title}`}
+                      className="h-44 w-full object-cover"
+                    />
+                  </ImageHoverEffect>
+                ) : (
+                  <p className="px-4 py-8 text-center text-2xs text-muted">
+                    No preview image is stored for this submission.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Findings, colour-coded by severity */}
+            <div>
+              <SectionHeader
+                title="Findings"
+                subtitle="Raised by the rule engine against stored guideline passages."
+              />
               {findings.length === 0 ? (
-                <div className="mt-2 rounded-xl border border-line bg-cream-50 px-4 py-6 text-center">
+                <div className="mt-2 rounded-xl border border-sage-200 bg-sage-50 px-4 py-5 text-center">
                   <CheckCircle2 className="mx-auto h-5 w-5 text-sage-500" />
                   <p className="mt-2 text-xs font-medium text-ink-600">No findings stored</p>
                   <p className="mt-0.5 text-2xs text-muted">
@@ -462,32 +581,88 @@ export const MySubmissionsView: React.FC = () => {
                   </p>
                 </div>
               ) : (
-                <ul className="mt-2 space-y-2">
-                  {findings.map((f) => (
-                    <li
-                      key={f.id}
-                      className={`rounded-xl border p-3 ${
-                        f.type === 'error'
-                          ? 'border-danger-200 bg-danger-50/60'
-                          : f.type === 'warning'
-                            ? 'border-warn-200 bg-warn-50/60'
-                            : 'border-sage-200 bg-sage-50/60'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="text-xs font-semibold text-ink">{f.title}</p>
-                        {f.badge && <span className="badge-critical shrink-0">{f.badge}</span>}
-                      </div>
-                      <p className="mt-1 text-2xs leading-relaxed text-ink-600">{f.description}</p>
-                      {f.guidelineRef && (
-                        <p className="mt-1.5 flex items-center gap-1 text-2xs text-muted">
-                          <FileText className="h-3 w-3" />{f.guidelineRef}
-                        </p>
-                      )}
-                    </li>
-                  ))}
-                </ul>
+                <>
+                  <div className="mt-2 space-y-2 rounded-xl border border-line bg-white px-3 py-2.5">
+                    <AnimatedProgress
+                      value={violations.length}
+                      max={Math.max(findings.length, 1)}
+                      tone="danger"
+                      label={`Violations · ${violations.length}`}
+                      height={6}
+                    />
+                    <AnimatedProgress
+                      value={review.length}
+                      max={Math.max(findings.length, 1)}
+                      tone="amber"
+                      label={`Needs review · ${review.length}`}
+                      height={6}
+                    />
+                    <AnimatedProgress
+                      value={passed.length}
+                      max={Math.max(findings.length, 1)}
+                      tone="sage"
+                      label={`Passed · ${passed.length}`}
+                      height={6}
+                    />
+                  </div>
+
+                  <div className="mt-2 space-y-2">
+                    {findings.map((f) => (
+                      <InfoCard
+                        key={f.id}
+                        tone={
+                          f.type === 'error' ? 'danger' : f.type === 'warning' ? 'amber' : 'sage'
+                        }
+                        icon={
+                          f.type === 'error' ? (
+                            <AlertCircle className="h-3.5 w-3.5" />
+                          ) : f.type === 'warning' ? (
+                            <Clock className="h-3.5 w-3.5" />
+                          ) : (
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                          )
+                        }
+                        eyebrow={f.badge ?? f.type}
+                        title={f.title}
+                        meta={
+                          f.guidelineRef ? (
+                            <span className="inline-flex items-center gap-1">
+                              <FileText className="h-3 w-3" />
+                              {f.guidelineRef}
+                            </span>
+                          ) : undefined
+                        }
+                      >
+                        {f.description}
+                      </InfoCard>
+                    ))}
+                  </div>
+                </>
               )}
+            </div>
+
+            {/* Stored record */}
+            <div>
+              <SectionHeader
+                title="Stored record"
+                subtitle="Values returned by the submissions service"
+              />
+              <dl className="mt-2 rounded-xl border border-line bg-white px-3 py-1.5">
+                <MetadataRow label="Submission" value={detail.id} icon={<Tag className="h-3 w-3" />} />
+                <MetadataRow label="Campaign" value={detail.campaign || '—'} />
+                <MetadataRow
+                  label="Content type"
+                  value={detail.assetType || detail.format || '—'}
+                />
+                <MetadataRow
+                  label="Submitted"
+                  value={detail.submittedDate || detail.submittedAt || '—'}
+                  icon={<Calendar className="h-3 w-3" />}
+                />
+                <MetadataRow label="Version" value={detail.version || 'v1.0'} />
+                <MetadataRow label="Status" value={detail.status} tone={detailTone} />
+                <MetadataRow label="Compliance" value={`${detail.complianceScore}%`} />
+              </dl>
             </div>
           </div>
         )}

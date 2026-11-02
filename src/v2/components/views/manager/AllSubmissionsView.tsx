@@ -7,8 +7,8 @@
  */
 import React, { useMemo, useState } from 'react';
 import {
-  AlertTriangle, ArrowRight, CheckCircle2, ChevronDown, Clock, Download, FileText, Lock,
-  Search, X,
+  AlertTriangle, ArrowRight, Calendar, CheckCircle2, ChevronDown, Clock, Download, FileText,
+  History, Lock, Search, Tag, User, X,
 } from 'lucide-react';
 import { useApp } from '../../../context/AppContext';
 import { api } from '@/services/api';
@@ -17,6 +17,10 @@ import {
   AnimatedCard, AnimatedCounter, AnimatedDrawer, ChartContainer, FilterPills,
   PageTransition, SectionHeader, Stagger, StaggerItem, type Tone,
 } from '../../motion';
+import {
+  ActionFooter, DetailHeader, FooterButton, InfoCard, MetadataRow, MetaChip, StatusBadge,
+  type DetailTone,
+} from '../../detail';
 import { DataTable, type DataTableColumn } from '../../ui/DataTable';
 import { VolumeBars } from '../../ui/charts';
 
@@ -40,7 +44,7 @@ const STATUS_DOT: Record<string, string> = {
   Rejected: 'bg-danger-500',
 };
 
-const StatusBadge: React.FC<{ status: string }> = ({ status }) => (
+const SubmissionStatusBadge: React.FC<{ status: string }> = ({ status }) => (
   <span className={`${STATUS_CLASS[status] ?? 'badge-draft'} shrink-0`}>
     <span className={`h-1.5 w-1.5 rounded-full ${STATUS_DOT[status] ?? 'bg-muted-light'}`} />
     {status}
@@ -48,6 +52,38 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => (
 );
 
 const scoreTone = (score: number): Tone => (score >= 90 ? 'sage' : score >= 70 ? 'amber' : 'danger');
+
+const SUB_TONE: Record<string, DetailTone> = {
+  Approved: 'sage',
+  'In Review': 'brand',
+  Pending: 'amber',
+  'Needs Changes': 'terracotta',
+  Rejected: 'danger',
+};
+
+/** What the stored status actually means for the asset. */
+const SUB_MEANING: Record<string, { title: string; body: string }> = {
+  Approved: {
+    title: 'Cleared for publishing',
+    body: 'This version passed review. Publishing it does not require another approval, but any edit creates a new version that re-enters the queue.',
+  },
+  'In Review': {
+    title: 'Sitting with a reviewer',
+    body: 'AI review is complete and a manager has to record a decision. The asset cannot be published from this state.',
+  },
+  Pending: {
+    title: 'Queued, not reviewed',
+    body: 'The submission exists in the register but no AI review has been attached, so there is no compliance score to rely on.',
+  },
+  'Needs Changes': {
+    title: 'Returned for changes',
+    body: 'A reviewer asked for fixes. The creator resubmits and the new version is scored from scratch.',
+  },
+  Rejected: {
+    title: 'Rejected — do not publish',
+    body: 'A reviewer closed this version. The rejection note in the audit history is the reason of record.',
+  },
+};
 
 /* 40px gives the number room inside a 28px inner diameter, and the track uses
    `line` (#E7E1D3) rather than `line-soft` so the ring reads at a glance. */
@@ -178,7 +214,7 @@ export const AllSubmissionsView: React.FC = () => {
         id: 'status',
         header: 'Status',
         accessor: (sub) => sub.status,
-        cell: (sub) => <StatusBadge status={sub.status} />,
+        cell: (sub) => <SubmissionStatusBadge status={sub.status} />,
       },
       {
         id: 'score',
@@ -458,80 +494,168 @@ export const AllSubmissionsView: React.FC = () => {
         open={Boolean(drawerSub)}
         onClose={() => setDrawerSub(null)}
         title={drawerSub?.title ?? 'Submission'}
-        subtitle={drawerSub ? `${drawerSub.campaign} · ${drawerSub.creator.name}` : undefined}
-        width={440}
+        width={480}
+        header={
+          drawerSub ? (
+            <DetailHeader
+              tone={SUB_TONE[drawerSub.status] ?? 'neutral'}
+              icon={<FileText className="h-5 w-5" />}
+              eyebrow={`${drawerSub.campaign} · ${drawerSub.version ?? 'v1.0'}`}
+              title={drawerSub.title}
+              description={
+                drawerSub.description ??
+                `${typeOf(drawerSub) || 'Content'} submitted by ${drawerSub.creator.name}.`
+              }
+              onClose={() => setDrawerSub(null)}
+              badges={
+                <>
+                  <StatusBadge
+                    tone={SUB_TONE[drawerSub.status] ?? 'neutral'}
+                    label={drawerSub.status}
+                  />
+                  <MetaChip>{drawerSub.complianceScore}% compliance</MetaChip>
+                  <MetaChip>{drawerSub.priority ?? 'Medium'} priority</MetaChip>
+                </>
+              }
+              meta={
+                <>
+                  <span className="inline-flex items-center gap-1">
+                    <User className="h-3 w-3" />
+                    {drawerSub.creator.name}
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <Calendar className="h-3 w-3" />
+                    {drawerSub.submittedAt ?? drawerSub.submittedDate ?? 'Not recorded'}
+                  </span>
+                </>
+              }
+            />
+          ) : undefined
+        }
         footer={
           drawerSub ? (
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => handleReport(drawerSub)}
-                className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-line bg-white px-3 py-2 text-xs font-semibold text-ink-700 transition-colors hover:bg-cream-50"
-              >
-                <Download className="h-3.5 w-3.5" />
-                Report
-              </button>
-              <button
-                onClick={() => {
-                  setSelectedSubmission(drawerSub);
-                  setActivePage('review-queue');
-                }}
-                className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-brand-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-brand-700"
-              >
-                Open in queue
-                <ArrowRight className="h-3.5 w-3.5" />
-              </button>
-            </div>
+            <ActionFooter note="The register is read-only. Decisions are recorded from the review queue.">
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <FooterButton
+                    icon={<Download className="h-3.5 w-3.5" />}
+                    onClick={() => handleReport(drawerSub)}
+                  >
+                    Report
+                  </FooterButton>
+                </div>
+                <div className="flex-1">
+                  <FooterButton
+                    variant="primary"
+                    icon={<ArrowRight className="h-3.5 w-3.5" />}
+                    onClick={() => {
+                      setSelectedSubmission(drawerSub);
+                      setActivePage('review-queue');
+                    }}
+                  >
+                    Open in queue
+                  </FooterButton>
+                </div>
+              </div>
+              <FooterButton onClick={() => setDrawerSub(null)}>Close</FooterButton>
+            </ActionFooter>
           ) : null
         }
       >
         {drawerSub && (
-          <div className="space-y-4">
-            <div className="overflow-hidden rounded-xl border border-line">
-              <img src={drawerSub.thumbnail} alt="" className="h-44 w-full object-cover" />
-            </div>
+          <div className="space-y-5">
+            {/* What this record is */}
+            <InfoCard
+              tone={SUB_TONE[drawerSub.status] ?? 'neutral'}
+              icon={<FileText className="h-3.5 w-3.5" />}
+              eyebrow="At a glance"
+              title={(SUB_MEANING[drawerSub.status] ?? SUB_MEANING.Pending).title}
+            >
+              {(SUB_MEANING[drawerSub.status] ?? SUB_MEANING.Pending).body}
+            </InfoCard>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <StatusBadge status={drawerSub.status} />
-              <span className="badge-draft">{drawerSub.version ?? 'v1.0'}</span>
-              <span className="text-2xs text-muted">{typeOf(drawerSub) || 'content'}</span>
-            </div>
-
-            <div className="rounded-xl border border-line bg-cream-50 px-3 py-2.5">
-              <div className="flex items-center justify-between">
-                <span className="text-2xs font-medium text-muted">Compliance score</span>
-                <span className="text-sm font-semibold tabular-nums text-ink">{drawerSub.complianceScore}%</span>
-              </div>
-              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-line-soft">
-                <div
-                  className={`h-full rounded-full ${
-                    scoreTone(drawerSub.complianceScore) === 'sage'
-                      ? 'bg-sage-500'
-                      : scoreTone(drawerSub.complianceScore) === 'amber'
-                        ? 'bg-warn-400'
-                        : 'bg-danger-500'
-                  }`}
-                  style={{ width: `${Math.max(0, Math.min(100, drawerSub.complianceScore))}%` }}
-                />
-              </div>
-            </div>
-
-            <dl className="divide-y divide-line-soft text-xs">
-              {[
-                ['Campaign', drawerSub.campaign],
-                ['Creator', drawerSub.creator.name],
-                ['Submitted', drawerSub.submittedAt ?? drawerSub.submittedDate ?? '—'],
-                ['Findings', String(drawerSub.findingsCount ?? drawerSub.findings?.length ?? 0)],
-                ['Priority', drawerSub.priority ?? 'Medium'],
-              ].map(([label, value]) => (
-                <div key={label} className="flex items-start justify-between gap-3 py-2">
-                  <dt className="shrink-0 text-muted">{label}</dt>
-                  <dd className="max-w-[60%] text-right font-medium text-ink">{value}</dd>
-                </div>
-              ))}
-            </dl>
-
+            {/* The asset itself */}
             <div>
-              <SectionHeader title="Version history" subtitle="Stored records for this submission" />
+              <SectionHeader
+                title="Submitted asset"
+                subtitle="The file this record was scored against."
+              />
+              <div className="mt-2 overflow-hidden rounded-xl border border-line bg-cream-50">
+                {drawerSub.thumbnail ? (
+                  <img
+                    src={drawerSub.thumbnail}
+                    alt={`Preview of ${drawerSub.title}`}
+                    className="h-44 w-full object-cover"
+                  />
+                ) : (
+                  <p className="px-4 py-8 text-center text-2xs text-muted">
+                    No preview image is stored for this submission.
+                  </p>
+                )}
+              </div>
+
+              <div className="mt-2 rounded-xl border border-line bg-white px-3 py-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-2xs font-medium text-muted">Compliance score</span>
+                  <span className="text-sm font-semibold tabular-nums text-ink">
+                    {drawerSub.complianceScore}%
+                  </span>
+                </div>
+                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-line-soft">
+                  <div
+                    className={`h-full rounded-full ${
+                      scoreTone(drawerSub.complianceScore) === 'sage'
+                        ? 'bg-sage-500'
+                        : scoreTone(drawerSub.complianceScore) === 'amber'
+                          ? 'bg-warn-400'
+                          : 'bg-danger-500'
+                    }`}
+                    style={{ width: `${Math.max(0, Math.min(100, drawerSub.complianceScore))}%` }}
+                  />
+                </div>
+                <p className="mt-1.5 text-2xs text-muted">
+                  {(drawerSub.findingsCount ?? drawerSub.findings?.length ?? 0) > 0
+                    ? `${drawerSub.findingsCount ?? drawerSub.findings?.length} finding(s) recorded against this version.`
+                    : 'No findings are stored against this version.'}
+                </p>
+              </div>
+            </div>
+
+            {/* Stored record */}
+            <div>
+              <SectionHeader
+                title="Stored record"
+                subtitle="Values returned by the submissions service"
+              />
+              <dl className="mt-2 rounded-xl border border-line bg-white px-3 py-1.5">
+                <MetadataRow
+                  label="Submission"
+                  value={drawerSub.id}
+                  icon={<Tag className="h-3 w-3" />}
+                />
+                <MetadataRow label="Campaign" value={drawerSub.campaign} />
+                <MetadataRow label="Version" value={drawerSub.version ?? 'v1.0'} />
+                <MetadataRow
+                  label="Status"
+                  value={drawerSub.status}
+                  tone={SUB_TONE[drawerSub.status] ?? 'neutral'}
+                />
+                <MetadataRow label="Priority" value={drawerSub.priority ?? 'Medium'} />
+                <MetadataRow label="Creator" value={drawerSub.creator.name} />
+                <MetadataRow
+                  label="Submitted"
+                  value={drawerSub.submittedAt ?? drawerSub.submittedDate ?? 'Not recorded'}
+                  icon={<Calendar className="h-3 w-3" />}
+                />
+              </dl>
+            </div>
+
+            {/* Version history + related audit entries */}
+            <div>
+              <SectionHeader
+                title="Version history"
+                subtitle="Stored records for this submission"
+              />
               <ol className="mt-3 space-y-3">
                 <li className="relative border-l border-line pl-4">
                   <span className="absolute -left-[5px] top-1 h-2.5 w-2.5 rounded-full border-2 border-white bg-brand-500" />
@@ -555,22 +679,36 @@ export const AllSubmissionsView: React.FC = () => {
                   </li>
                 ))}
               </ol>
-              <p className="mt-2 text-2xs leading-relaxed text-muted-light">
-                The API exposes the latest stored version plus audit entries that reference this
-                submission. Earlier file revisions are not returned.
-              </p>
+              {relatedEvents.length === 0 && (
+                <div className="mt-2 flex items-start gap-2 rounded-xl border border-line bg-cream-50 px-3 py-2.5">
+                  <History className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted" />
+                  <p className="text-2xs leading-relaxed text-muted">
+                    No audit entries reference this submission yet. The API exposes the latest
+                    stored version plus audit entries that name it; earlier file revisions are not
+                    returned.
+                  </p>
+                </div>
+              )}
             </div>
 
             {drawerSub.comments && drawerSub.comments.length > 0 && (
               <div>
-                <SectionHeader title="Comments" subtitle={`${drawerSub.comments.length} recorded`} />
+                <SectionHeader
+                  title="Comments"
+                  subtitle={`${drawerSub.comments.length} recorded`}
+                />
                 <div className="mt-2 space-y-2.5">
                   {drawerSub.comments.map((c) => (
                     <div key={c.id} className="flex items-start gap-2">
-                      <img src={c.avatar} alt="" className="h-6 w-6 shrink-0 rounded-full object-cover" />
+                      <img
+                        src={c.avatar}
+                        alt=""
+                        className="h-6 w-6 shrink-0 rounded-full object-cover"
+                      />
                       <div className="min-w-0">
                         <p className="text-2xs font-semibold text-ink">
-                          {c.author} <span className="font-normal text-muted-light">{c.time}</span>
+                          {c.author}{' '}
+                          <span className="font-normal text-muted-light">{c.time}</span>
                         </p>
                         <p className="mt-0.5 text-2xs leading-relaxed text-ink-600">{c.text}</p>
                       </div>

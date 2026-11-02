@@ -150,8 +150,17 @@ def _read_with_rapidocr(image_path: str) -> dict[str, Any]:
 
 
 def _resolve_langs(requested: str) -> tuple[str, list[str]]:
-    """Drop language packs that are not installed rather than failing."""
-    want = [p.strip() for p in (requested or "eng").split("+") if p.strip()]
+    """Drop language packs that are not installed rather than failing.
+
+    `OCR_LANGS` is accepted with either separator: Tesseract's own
+    `eng+hin+mar` form and the env-file friendly `eng,hin,mar` form both work.
+    The tessdata prefix must be applied before asking Tesseract what it has,
+    otherwise only the system-wide packs are reported and local ones are
+    silently dropped.
+    """
+    _setup_tessdata_prefix()
+    raw = (requested or "eng").replace("+", ",")
+    want = [p.strip() for p in raw.split(",") if p.strip()]
     try:
         available = set(pytesseract.get_languages(config=""))
     except Exception:

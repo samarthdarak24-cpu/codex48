@@ -462,6 +462,7 @@ export function AnimatedModal({
   description,
   children,
   footer,
+  header,
   maxWidth = 560,
 }: {
   open: boolean
@@ -470,6 +471,8 @@ export function AnimatedModal({
   description?: string
   children?: ReactNode
   footer?: ReactNode
+  /** Replaces the default title bar. The caller is responsible for a close button. */
+  header?: ReactNode
   maxWidth?: number
 }) {
   const reduce = useReducedMotion()
@@ -507,12 +510,16 @@ export function AnimatedModal({
             exit={reduce ? undefined : { opacity: 0, scale: 0.97, y: 6 }}
             transition={{ duration: 0.26, ease: EASE }}
           >
-            <div className="border-b border-line px-6 py-4">
-              <h2 id={titleId} className="text-lg font-semibold text-ink">
-                {title}
-              </h2>
-              {description && <p className="mt-1 text-xs text-muted">{description}</p>}
-            </div>
+            {header ? (
+              header
+            ) : (
+              <div className="border-b border-line px-6 py-4">
+                <h2 id={titleId} className="text-lg font-semibold text-ink">
+                  {title}
+                </h2>
+                {description && <p className="mt-1 text-xs text-muted">{description}</p>}
+              </div>
+            )}
             <div className="max-h-[65vh] overflow-y-auto px-6 py-5">{children}</div>
             {footer && (
               <div className="flex items-center justify-end gap-2 border-t border-line bg-cream-50 px-6 py-3.5">
@@ -534,6 +541,7 @@ export function AnimatedDrawer({
   subtitle,
   children,
   footer,
+  header,
   width = 460,
 }: {
   open: boolean
@@ -542,6 +550,8 @@ export function AnimatedDrawer({
   subtitle?: string
   children?: ReactNode
   footer?: ReactNode
+  /** Replaces the default title bar. The caller is responsible for a close button. */
+  header?: ReactNode
   width?: number
 }) {
   const reduce = useReducedMotion()
@@ -578,21 +588,25 @@ export function AnimatedDrawer({
             exit={reduce ? undefined : { x: '100%' }}
             transition={{ duration: 0.34, ease: EASE }}
           >
-            <div className="flex items-start justify-between gap-3 border-b border-line px-5 py-4">
-              <div className="min-w-0">
-                <h2 className="truncate text-md font-semibold text-ink">{title}</h2>
-                {subtitle && <p className="mt-0.5 truncate text-xs text-muted">{subtitle}</p>}
+            {header ? (
+              header
+            ) : (
+              <div className="flex items-start justify-between gap-3 border-b border-line px-5 py-4">
+                <div className="min-w-0">
+                  <h2 className="truncate text-md font-semibold text-ink">{title}</h2>
+                  {subtitle && <p className="mt-0.5 truncate text-xs text-muted">{subtitle}</p>}
+                </div>
+                <button
+                  onClick={onClose}
+                  className="rounded-lg p-1.5 text-muted transition-colors hover:bg-cream-100 hover:text-ink"
+                  aria-label="Close panel"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                    <path d="M18 6 6 18M6 6l12 12" />
+                  </svg>
+                </button>
               </div>
-              <button
-                onClick={onClose}
-                className="rounded-lg p-1.5 text-muted transition-colors hover:bg-cream-100 hover:text-ink"
-                aria-label="Close panel"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                  <path d="M18 6 6 18M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
+            )}
             <div className="flex-1 overflow-y-auto px-5 py-4">{children}</div>
             {footer && (
               <div className="border-t border-line bg-cream-50 px-5 py-3.5">{footer}</div>

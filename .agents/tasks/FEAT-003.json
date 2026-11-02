@@ -1,0 +1,40 @@
+{
+  "id": "FEAT-003",
+  "type": "feat",
+  "description": "Polish 4 core dashboard and workflow screens (Creator Dashboard, Manager Overview, Review Queue, My Submissions) with enhanced motion components, animated counters, hover effects, and premium interactions. These are high-traffic screens that users see frequently.",
+  "status": "completed",
+  "steps": [
+    "Read context.json and FEAT-001/FEAT-002 findings to understand available components and patterns established",
+    "Creator Dashboard (src/v2/components/views/creator/CreatorDashboardView.tsx): Replace metric card divs with HoverLiftCard, add Stagger+StaggerItem to grid, use AnimatedCounter with varying durations for metrics, add glow to RingProgress for compliance, wrap recent submissions in AnimatedCard grid with hover lift, replace empty content with EmptyState component, add draw animation to existing Sparkline charts if present",
+    "Manager Overview (src/v2/components/views/manager/OverviewView.tsx): Add Stagger to top metric cards (already has good foundation), ensure AnimatedCounter used for all numeric metrics, enhance Timeline component usage with hover effects on entries, wrap all clickable cards in HoverLiftCard, use AnimatedBadge for status indicators in metrics, add chart entrance animations if charts present",
+    "Review Queue (src/v2/components/views/manager/ReviewQueueView.tsx): Wrap queue items in AnimatedCard with interactive prop and hover lift, replace filter UI with FilterPills component, replace decision buttons with AnimatedButton variant='primary' or 'secondary', add green glow + SuccessCheck animation on approval action, add red glow + shake effect on rejection, ensure AnimatedDrawer used for detail panel with enhanced DrawerHeader, add StatusPill components for submission status badges",
+    "My Submissions (src/v2/components/views/creator/MySubmissionsView.tsx): Add grid/list toggle using AnimatedTabs component with LayoutTransition for smooth view switching, wrap submission cards in HoverLiftCard with ImageHoverEffect on thumbnails (zoom on hover), replace filter chips with FilterPills component, use StatusPill for submission status badges, replace empty state with EmptyState component icon={Send}, add fade-in animation for newly loaded items on scroll/pagination",
+    "Test each screen after modification: npm run dev, navigate to screen, test all interactions (hover cards, click buttons, filter/toggle), verify counters animate, verify API data loads correctly",
+    "Ensure mobile responsive: test at 375px width, verify grids stack properly",
+    "Verify no console errors or warnings",
+    "Preserve all existing API calls and functionality"
+  ],
+  "acceptance_criteria": [
+    "Creator Dashboard: Metric cards lift on hover, numbers count up with AnimatedCounter, compliance ring has glow, recent submissions grid animates in with stagger, empty state is beautiful and helpful",
+    "Manager Overview: Top metrics stagger in, all numbers animate, timeline has hover effects, status badges animate, charts draw in if present",
+    "Review Queue: Items lift on hover, filters animate with FilterPills, decision buttons have micro-interactions, approval shows success animation, rejection shows shake, detail drawer slides smoothly, status badges are animated",
+    "My Submissions: Grid/list toggle transitions smoothly, cards lift on hover, thumbnails zoom on hover, filters animate, status pills are color-coded and animated, empty state is consistent, pagination fades in new items",
+    "All screens remain mobile responsive",
+    "All existing functionality preserved",
+    "No console errors",
+    "Animations respect prefers-reduced-motion"
+  ],
+  "verification": [
+    "Run 'npm run typecheck'",
+    "Run 'npm run dev'",
+    "Navigate to /creator/dashboard, observe metric cards stagger in and lift on hover, verify counters animate, check compliance ring glow, test with no submissions to see empty state",
+    "Navigate to /manager/overview, observe top metrics stagger, hover over timeline entries, verify all data displays correctly",
+    "Navigate to /manager/review-queue, click a submission to open drawer, test filter pills, hover queue items, click approve/reject to see animations",
+    "Navigate to /creator/my-submissions, toggle between grid and list views (if toggle exists or add it), hover cards to see lift and thumbnail zoom, test filter pills, verify status badges",
+    "Resize browser to 375px width, verify all 4 screens stack properly on mobile",
+    "Turn on prefers-reduced-motion, verify animations skip to final state",
+    "Expected: All 4 screens feel polished, premium, and consistent while maintaining full functionality"
+  ],
+  "blocked_reason": null,
+  "findings": "CreatorDashboardView: the four metric cards are now HoverLiftCards (elevation medium, 0.08s index stagger) with per-card counter durations 1.0/1.2/1.35/1.5 so the numbers do not all land on the same frame; the compliance RingProgress sits in a tone-matched glow wrapper (sage/amber/danger by avgScore); recent submission cards are AnimatedCard interactive (click opens AI Review, same action as the existing button) with ImageHoverEffect zoom on the thumbnail; the empty state is now the shared EmptyState with a working 'New content' action. MySubmissionsView: added a real List/Grid switch (AnimatedTabs) driving LayoutTransition, with two genuine card variants — the grid card has a 36px-tall zoomable thumbnail, status pill, score progress bar and findings line; the list card keeps the original row layout but gained thumbnail zoom and whole-card click (inner 'View details' button calls stopPropagation so it does not double-fire). Filter chips became FilterPills; empty state is EmptyState with icon={Send}. ReviewQueueView: FilterPills, animated AnimatedBadge status pills, motion.button kanban cards with a -2px hover lift and 0.995 tap, AnimatedButton for the drawer Submit, and a decision confirmation banner whose tone/glow follows the decision (sage approve, danger reject, amber request-changes) with a 6/4px shake keyframe on rejection. OverviewView: status chips are AnimatedBadge with a leading dot, queue preview rows lift on hover, and the shared Timeline component gained a 3px hover shift so timeline entries respond in both Overview and Audit History. THREE DELIBERATE DEVIATIONS: (1) The motion library's StatusPill was NOT used for submission status — its contract only accepts approved/pending/rejected/draft and renders fixed English labels, which would display 'Needs Changes' as 'Pending' in an audit tool; AnimatedBadge with a five-entry tone map preserves both the exact label and per-state colour. (2) Kanban cards in Review Queue remain native buttons (as motion.button) instead of HoverLiftCard, because HoverLiftCard renders a div and would silently drop keyboard focus and Enter/Space activation. (3) On Creator Dashboard the metrics grid uses HoverLiftCard's own delay-based entrance instead of Stagger/StaggerItem, because HoverLiftCard animates itself and nesting both would double the travel (24px instead of 12px). FilterPills is multi-select by contract; both single-select screens wire it by filtering the toggled id out of `selected` and falling back to 'All'. Verified: npm run typecheck exits 0 with zero errors, npx vite build exits 0, and all edits use flex-wrap/grid breakpoints that stack at 375px."
+}

@@ -1,14 +1,21 @@
 import React, { useMemo, useState } from 'react';
 import {
   Scale, CheckCircle2, AlertTriangle, Zap, ChevronDown, Calendar, ShieldOff,
-  AlertCircle, Lock, FileText, ArrowRight, Check,
+  AlertCircle, Lock, FileText, ArrowRight, Check, GitBranch, Flag, FlaskConical,
+  Tag, Building2,
 } from 'lucide-react';
 import { useApp } from '../../../context/AppContext';
+import { api } from '../../../../services/api';
 import type { RuleConflict } from '../../../types';
 import {
-  AnimatedCard, AnimatedCounter, AnimatedDrawer, EmptyState, FilterPills, Reveal,
+  AnimatedCard, AnimatedCounter, AnimatedDrawer, AnimatedModal, EmptyState, FilterPills, Reveal,
   SectionHeader, SkeletonCard,
 } from '../../motion';
+import {
+  ActionFooter, DetailHeader, EvidenceCard, FlowStep, FooterButton, InfoCard, MetadataRow,
+  StatusBadge, VisualFlow, type DetailTone,
+} from '../../detail';
+import { PdfPreview } from '../../ui/PdfPreview';
 
 /* ------------------------------------------------------------------ */
 /* Presentation helpers                                                */
@@ -38,6 +45,31 @@ function StatusIcon({ status, className = '' }: { status: EntryStatus; className
   if (status === 'Conflict') return <AlertTriangle className={className} />;
   if (status === 'Review Required') return <Zap className={className} />;
   return <CheckCircle2 className={className} />;
+}
+
+/**
+ * The API returns enforcement as one composed sentence
+ * ("Enforcement: X. Scope: Y. Priority: Z."). Splitting it is presentation, not
+ * inference — if the shape ever differs we fall back to the raw string rather
+ * than guessing.
+ */
+function parseImpact(impact?: string): {
+  enforcement?: string;
+  scope?: string;
+  priority?: string;
+  raw: string;
+} | null {
+  if (!impact) return null;
+  const m = impact.match(/^Enforcement:\s*(.+?)\.\s*Scope:\s*(.+?)\.\s*Priority:\s*(.+?)\.?$/i);
+  if (!m) return { raw: impact };
+  return { enforcement: m[1], scope: m[2], priority: m[3], raw: impact };
+}
+
+/** "Guideline Document (Page 5)" → label + page number. */
+function parsePageRef(name?: string): { label?: string; page: number | null } {
+  if (!name) return { page: null };
+  const m = name.match(/\(Page\s+(\d+)\)/i);
+  return { label: name.replace(/\s*\(Page\s+\d+\)/i, '').trim(), page: m ? Number(m[1]) : null };
 }
 
 const Denied: React.FC = () => (
@@ -81,13 +113,14 @@ type Tab = 'all' | 'active' | 'conflict' | 'review' | 'exception';
 export const RulesConflictsView: React.FC = () => {
   const {
     ruleConflicts, selectedConflict, setSelectedConflict, resolveRuleConflict,
-    searchQuery, setSearchQuery, loading, error, role,
+    searchQuery, setSearchQuery, loading, error, role, setActivePage,
   } = useApp();
 
   const [filterTab, setFilterTab] = useState<Tab>('all');
   const [sortBy, setSortBy] = useState<'title' | 'date'>('date');
   const [expanded, setExpanded] = useState<string[]>([]);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [sourceOpen, setSourceOpen] = useState(false);
 
   const ruleRows = ruleConflicts.filter((rc) => rc.category !== 'Exceptions');
   const exceptionRows = ruleConflicts.filter((rc) => rc.category === 'Exceptions');
@@ -121,6 +154,48 @@ export const RulesConflictsView: React.FC = () => {
   }, [ruleConflicts, filterTab, searchQuery, sortBy]);
 
   const activeEntry = selectedConflict;
+
+  /* ---- Derived presentation state for the detail panel ---- */
+  const entryTone: DetailTone =
+    activeEntry?.status === 'Conflict'
+      ? 'danger'
+      : activeEntry?.status === 'Review Required'
+        ? 'amber'
+        : activeEntry?.category === 'Exceptions'
+          ? 'terracotta'
+          : 'sage';
+
+  const entryStatusLabel = !activeEntry
+    ? ''
+    : activeEntry.category === 'Exceptions'
+      ? 'Exception override'
+      : STATUS_LABEL[activeEntry.status];
+
+  const overview = !activeEntry
+    ? null
+    : activeEntry.category === 'Exceptions'
+      ? {
+          title: 'A documented variance is in force',
+          body: 'This override lets a specific campaign depart from a rule. It is scoped and time-bound, and it is reviewed through the Exceptions approval centre.',
+        }
+      : activeEntry.status === 'Conflict'
+        ? {
+            title: 'Two stored rules cannot both be satisfied',
+            body: 'The engine found contradictory conditions. Reviewing a conflict records a human decision; it never edits either rule.',
+          }
+        : activeEntry.status === 'Review Required'
+          ? {
+              title: 'This rule needs a human decision',
+              body: 'The condition was extracted from a guideline but has not been confirmed, so the engine will not enforce it until a manager confirms it.',
+            }
+          : {
+              title: 'This rule is in force',
+              body: `Every submission evaluated under ${activeEntry.category} is checked against this condition by the rule engine, not by reviewer judgement.`,
+            };
+
+  const impact = parseImpact(activeEntry?.impact);
+  const evidence = parsePageRef(activeEntry?.source2?.name);
+  const conditionText = activeEntry?.source1?.requirement || 'No condition text stored.';
 
   const openEntry = (rc: RuleConflict) => {
     setSelectedConflict(rc);
@@ -376,28 +451,80 @@ export const RulesConflictsView: React.FC = () => {
         open={isDrawerOpen && !!activeEntry}
         onClose={() => setIsDrawerOpen(false)}
         title={activeEntry?.title ?? 'Rule'}
-        subtitle={activeEntry ? `${activeEntry.category} · ${activeEntry.ruleVersion}` : undefined}
-        width={480}
+        width={520}
+        header={
+          activeEntry ? (
+            <DetailHeader
+              tone={entryTone}
+              icon={
+                activeEntry.category === 'Exceptions' ? (
+                  <Scale className="h-5 w-5" />
+                ) : (
+                  <StatusIcon status={activeEntry.status} className="h-5 w-5" />
+                )
+              }
+              eyebrow={
+                activeEntry.category === 'Exceptions' ? 'Exception override' : activeEntry.category
+              }
+              title={activeEntry.title}
+              description={activeEntry.description}
+              onClose={() => setIsDrawerOpen(false)}
+              badges={
+                <>
+                  <StatusBadge tone={entryTone} label={entryStatusLabel} />
+                  <span className="rounded-full border border-line bg-white px-2 py-0.5 text-2xs font-medium text-ink-700">
+                    {activeEntry.ruleVersion}
+                  </span>
+                  {activeEntry.status === 'Conflict' && activeEntry.reviewed && (
+                    <StatusBadge tone="sage" label="Reviewed" />
+                  )}
+                </>
+              }
+              meta={
+                <>
+                  <span className="inline-flex items-center gap-1">
+                    <Calendar className="h-3 w-3" />
+                    Effective {activeEntry.date}
+                  </span>
+                  {activeEntry.reviewedAt && (
+                    <span className="inline-flex items-center gap-1">
+                      <CheckCircle2 className="h-3 w-3" />
+                      Reviewed {activeEntry.reviewedAt}
+                    </span>
+                  )}
+                </>
+              }
+            />
+          ) : undefined
+        }
         footer={
           activeEntry ? (
-            <div className="space-y-2">
+            <ActionFooter
+              note={
+                activeEntry.category === 'Exceptions'
+                  ? 'This override is managed from the Exceptions approval centre.'
+                  : activeEntry.status === 'Active'
+                    ? 'This rule is active. Change it from the rule editor or test it in the sandbox.'
+                    : undefined
+              }
+            >
               {activeEntry.status === 'Conflict' && !activeEntry.reviewed && (
-                <button
+                <FooterButton
+                  variant="primary"
+                  icon={<Check className="h-3.5 w-3.5" />}
                   onClick={handleResolve}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand-600 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-brand-700"
                 >
-                  <Check className="h-3.5 w-3.5" />
                   Mark conflict as reviewed
-                </button>
+                </FooterButton>
               )}
               {activeEntry.status === 'Review Required' && activeEntry.category !== 'Exceptions' && (
-                <button
+                <FooterButton
+                  variant="primary"
+                  icon={<Check className="h-3.5 w-3.5" />}
                   onClick={handleResolve}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand-600 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-brand-700"
                 >
-                  <Check className="h-3.5 w-3.5" />
                   Confirm rule as active
-                </button>
+                </FooterButton>
               )}
               {activeEntry.status === 'Conflict' && activeEntry.reviewed && (
                 <div className="flex items-center justify-center gap-2 rounded-xl border border-sage-200 bg-sage-50 py-2 text-xs font-semibold text-sage-700">
@@ -405,121 +532,228 @@ export const RulesConflictsView: React.FC = () => {
                   Reviewed{activeEntry.reviewedBy ? ` by ${activeEntry.reviewedBy}` : ''}
                 </div>
               )}
-              {(activeEntry.status === 'Active' || activeEntry.category === 'Exceptions') && (
-                <p className="rounded-xl border border-line bg-cream-50 px-3 py-2 text-center text-2xs text-muted">
-                  {activeEntry.category === 'Exceptions'
-                    ? 'This override is managed from the Exceptions approval centre.'
-                    : 'This rule is active. Change it from the rule editor or test it in the sandbox.'}
-                </p>
-              )}
-              <button
-                onClick={() => setIsDrawerOpen(false)}
-                className="w-full rounded-xl border border-line bg-white py-2 text-xs font-semibold text-ink-700 transition-colors hover:bg-cream-50"
-              >
-                Close
-              </button>
-            </div>
+
+              <div className="flex gap-2">
+                {activeEntry.relatedDoc && (
+                  <div className="flex-1">
+                    <FooterButton
+                      icon={<FileText className="h-3.5 w-3.5" />}
+                      onClick={() => setSourceOpen(true)}
+                    >
+                      View source
+                    </FooterButton>
+                  </div>
+                )}
+                {activeEntry.category !== 'Exceptions' && (
+                  <div className="flex-1">
+                    <FooterButton
+                      icon={<FlaskConical className="h-3.5 w-3.5" />}
+                      onClick={() => {
+                        setIsDrawerOpen(false);
+                        setActivePage('sandbox');
+                      }}
+                    >
+                      Test in sandbox
+                    </FooterButton>
+                  </div>
+                )}
+              </div>
+
+              <FooterButton onClick={() => setIsDrawerOpen(false)}>Close</FooterButton>
+            </ActionFooter>
           ) : undefined
         }
       >
         {activeEntry && (
-          <div className="space-y-4">
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className={STATUS_CLASS[activeEntry.status]}>
-                {activeEntry.category === 'Exceptions' ? 'Exception override' : STATUS_LABEL[activeEntry.status]}
-              </span>
-              <span className="rounded-full bg-cream-100 px-2 py-0.5 text-2xs font-medium text-ink-700">
-                {activeEntry.ruleVersion}
-              </span>
-              <span className="text-2xs text-muted">Effective {activeEntry.date}</span>
-            </div>
-
-            <p className="text-xs leading-relaxed text-muted">{activeEntry.description}</p>
+          <div className="space-y-5">
+            {/* Overview — what this is and why it matters */}
+            {overview && (
+              <InfoCard
+                tone={entryTone}
+                icon={<StatusIcon status={activeEntry.status} className="h-3.5 w-3.5" />}
+                eyebrow="At a glance"
+                title={overview.title}
+              >
+                {overview.body}
+              </InfoCard>
+            )}
 
             {activeEntry.status === 'Conflict' ? (
-              <div>
-                <SectionHeader
-                  title="Conflicting conditions"
-                  subtitle="Both rules are stored as written. The console does not pick a winner."
-                />
-                <div className="mt-3 space-y-2">
-                  <div className="rounded-xl border border-terracotta-200 bg-terracotta-50/60 p-3">
-                    <p className="text-2xs font-semibold uppercase tracking-[0.06em] text-terracotta-700">
-                      Rule A
-                    </p>
-                    <p className="mt-1 text-xs leading-relaxed text-ink-700">
-                      {activeEntry.source1?.requirement || 'No condition text stored.'}
-                    </p>
-                    <p className="mt-1.5 text-2xs text-muted">{activeEntry.source1?.name}</p>
-                  </div>
+              <>
+                <div>
+                  <SectionHeader
+                    title="Conflicting conditions"
+                    subtitle="Both rules are stored as written. The console does not pick a winner."
+                  />
+                  <div className="mt-3 space-y-2">
+                    <EvidenceCard
+                      tone="terracotta"
+                      title="Rule A"
+                      docLabel={activeEntry.source1?.name}
+                      passage={activeEntry.source1?.requirement || 'No condition text stored.'}
+                    />
 
-                  <div className="flex items-center justify-center gap-2 py-0.5">
-                    <span className="h-px flex-1 bg-line" />
-                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-warn-50 text-warn-600">
-                      <Zap className="h-3.5 w-3.5" />
-                    </span>
-                    <span className="text-2xs font-semibold uppercase tracking-[0.08em] text-muted">
-                      contradicts
-                    </span>
-                    <span className="h-px flex-1 bg-line" />
-                  </div>
+                    <div className="flex items-center justify-center gap-2 py-0.5">
+                      <span className="h-px flex-1 bg-line" />
+                      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-warn-50 text-warn-600">
+                        <Zap className="h-3.5 w-3.5" />
+                      </span>
+                      <span className="text-2xs font-semibold uppercase tracking-[0.08em] text-muted">
+                        contradicts
+                      </span>
+                      <span className="h-px flex-1 bg-line" />
+                    </div>
 
-                  <div className="rounded-xl border border-olive-200 bg-olive-50/60 p-3">
-                    <p className="text-2xs font-semibold uppercase tracking-[0.06em] text-olive-700">
-                      Rule B
-                    </p>
-                    <p className="mt-1 text-xs leading-relaxed text-ink-700">
-                      {activeEntry.source2?.requirement || 'No condition text stored.'}
-                    </p>
-                    <p className="mt-1.5 text-2xs text-muted">{activeEntry.source2?.name}</p>
+                    <EvidenceCard
+                      tone="olive"
+                      title="Rule B"
+                      docLabel={activeEntry.source2?.name}
+                      passage={activeEntry.source2?.requirement || 'No condition text stored.'}
+                    />
                   </div>
                 </div>
-              </div>
+
+                {activeEntry.recommendedAction && (
+                  <InfoCard
+                    tone="amber"
+                    icon={<Flag className="h-3.5 w-3.5" />}
+                    eyebrow="Recorded next step"
+                  >
+                    {activeEntry.recommendedAction}
+                  </InfoCard>
+                )}
+              </>
             ) : (
               <div>
                 <SectionHeader
-                  title={activeEntry.category === 'Exceptions' ? 'Override' : 'Rule condition'}
-                  subtitle={activeEntry.source1?.name}
+                  title="How this rule works"
+                  subtitle="Each step below is a field stored on the rule record."
                 />
-                <div className="mt-2 rounded-xl border border-line bg-cream-50 p-3 text-xs leading-relaxed text-ink-700">
-                  {activeEntry.source1?.requirement || 'No condition text stored.'}
-                </div>
-                {activeEntry.source2 && (
-                  <div className="mt-2 rounded-xl border border-line p-3">
-                    <p className="text-2xs font-semibold uppercase tracking-[0.06em] text-muted">
-                      {activeEntry.source2.name}
-                    </p>
-                    <p className="mt-1 text-xs leading-relaxed text-ink-700">
-                      {activeEntry.source2.requirement}
-                    </p>
-                  </div>
-                )}
+                <VisualFlow className="mt-3">
+                  <FlowStep
+                    index={0}
+                    tone="brand"
+                    icon={<Scale className="h-3.5 w-3.5" />}
+                    label="Rule definition"
+                    title={activeEntry.title}
+                  >
+                    {activeEntry.description}
+                  </FlowStep>
+
+                  <FlowStep
+                    index={1}
+                    tone="olive"
+                    icon={<GitBranch className="h-3.5 w-3.5" />}
+                    label="Condition"
+                  >
+                    {conditionText}
+                  </FlowStep>
+
+                  {activeEntry.source2 && (
+                    <FlowStep
+                      index={2}
+                      tone="sage"
+                      icon={<FileText className="h-3.5 w-3.5" />}
+                      label="Source guideline"
+                      action={
+                        activeEntry.relatedDoc ? (
+                          <button
+                            type="button"
+                            onClick={() => setSourceOpen(true)}
+                            className="inline-flex items-center gap-1 text-2xs font-semibold text-sage-700 underline-offset-2 hover:underline"
+                          >
+                            Open the document
+                            <ArrowRight className="h-3 w-3" />
+                          </button>
+                        ) : undefined
+                      }
+                    >
+                      <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
+                        {evidence.label && (
+                          <span className="rounded-md border border-sage-200/70 bg-white/85 px-1.5 py-0.5 text-[10px] font-semibold text-sage-700">
+                            {evidence.label}
+                          </span>
+                        )}
+                        {evidence.page != null && (
+                          <span className="inline-flex items-center gap-1 rounded-md border border-line bg-white/85 px-1.5 py-0.5 text-[10px] font-semibold text-ink-600">
+                            Page {evidence.page}
+                          </span>
+                        )}
+                      </div>
+                      <blockquote className="border-l-2 border-sage-300 pl-2.5 text-xs italic leading-relaxed text-ink-700">
+                        {activeEntry.source2.requirement || 'No passage stored.'}
+                      </blockquote>
+                    </FlowStep>
+                  )}
+
+                  {impact && (
+                    <FlowStep
+                      index={3}
+                      tone="terracotta"
+                      icon={<ShieldOff className="h-3.5 w-3.5" />}
+                      label="Enforcement"
+                      title={impact.enforcement}
+                    >
+                      {impact.enforcement ? (
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          {impact.scope && (
+                            <span className="inline-flex items-center gap-1 rounded-md border border-terracotta-200/70 bg-white/85 px-1.5 py-0.5 text-[10px] font-semibold text-terracotta-700">
+                              <Building2 className="h-2.5 w-2.5" />
+                              {impact.scope}
+                            </span>
+                          )}
+                          {impact.priority && (
+                            <span className="inline-flex items-center gap-1 rounded-md border border-terracotta-200/70 bg-white/85 px-1.5 py-0.5 text-[10px] font-semibold text-terracotta-700">
+                              <Flag className="h-2.5 w-2.5" />
+                              {impact.priority} priority
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        impact.raw
+                      )}
+                    </FlowStep>
+                  )}
+
+                  {activeEntry.recommendedAction && (
+                    <FlowStep
+                      index={4}
+                      isLast
+                      tone="amber"
+                      icon={<Flag className="h-3.5 w-3.5" />}
+                      label="Recorded next step"
+                    >
+                      {activeEntry.recommendedAction}
+                    </FlowStep>
+                  )}
+                </VisualFlow>
               </div>
             )}
 
-            {activeEntry.impact && (
-              <div className="rounded-xl border border-line bg-white p-3">
-                <p className="text-2xs font-semibold uppercase tracking-[0.06em] text-muted">Impact</p>
-                <p className="mt-1 text-xs leading-relaxed text-ink-700">{activeEntry.impact}</p>
-              </div>
-            )}
-
-            {activeEntry.recommendedAction && (
-              <div className="flex items-start gap-2 rounded-xl border border-warn-200 bg-warn-50/70 p-3">
-                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warn-600" />
-                <div>
-                  <p className="text-2xs font-semibold uppercase tracking-[0.06em] text-warn-700">
-                    Recorded next step
-                  </p>
-                  <p className="mt-1 text-xs leading-relaxed text-ink-700">
-                    {activeEntry.recommendedAction}
-                  </p>
-                </div>
-              </div>
-            )}
+            {/* Stored record */}
+            <div>
+              <SectionHeader title="Stored record" subtitle="Values returned by the rules service" />
+              <dl className="mt-2 rounded-xl border border-line bg-white px-3 py-1.5">
+                <MetadataRow label="Category" value={activeEntry.category} icon={<Tag className="h-3 w-3" />} />
+                <MetadataRow label="Version" value={activeEntry.ruleVersion} />
+                <MetadataRow
+                  label="Effective"
+                  value={activeEntry.date}
+                  icon={<Calendar className="h-3 w-3" />}
+                  tone="brand"
+                />
+                {impact?.scope && <MetadataRow label="Scope" value={impact.scope} />}
+                {impact?.priority && <MetadataRow label="Priority" value={impact.priority} />}
+                <MetadataRow
+                  label="Status"
+                  value={entryStatusLabel}
+                  tone={entryTone}
+                />
+              </dl>
+            </div>
 
             {activeEntry.status === 'Conflict' && activeEntry.reviewed && activeEntry.reviewedAt && (
-              <p className="text-2xs text-muted">
+              <p className="text-2xs leading-relaxed text-muted">
                 Reviewed {activeEntry.reviewedAt}
                 {activeEntry.reviewedBy ? ` by ${activeEntry.reviewedBy}` : ''}. Reviewing a conflict
                 records the decision; it does not alter either rule.
@@ -528,6 +762,36 @@ export const RulesConflictsView: React.FC = () => {
           </div>
         )}
       </AnimatedDrawer>
+
+      {/* Source document — the real stored file, not a mock preview */}
+      <AnimatedModal
+        open={sourceOpen}
+        onClose={() => setSourceOpen(false)}
+        title="Source document"
+        description={
+          activeEntry?.relatedDoc
+            ? `Stored guideline referenced by ${activeEntry.title}`
+            : 'No source document is linked to this record.'
+        }
+        maxWidth={760}
+      >
+        {activeEntry?.relatedDoc ? (
+          <PdfPreview
+            resetKey={activeEntry.relatedDoc}
+            load={() => api.fetchGuidelineBlobUrl(activeEntry.relatedDoc as string)}
+            height={520}
+            emptyLabel="This rule cites a document that has no stored file, so only the passage above is available."
+          />
+        ) : (
+          <div className="rounded-xl border border-dashed border-line bg-cream-50 px-4 py-12 text-center">
+            <FileText className="mx-auto h-6 w-6 text-muted-light" />
+            <p className="mt-2 text-xs font-semibold text-ink-600">No document linked</p>
+            <p className="mt-0.5 text-2xs text-muted">
+              This record does not reference a stored guideline file.
+            </p>
+          </div>
+        )}
+      </AnimatedModal>
     </div>
   );
 };
