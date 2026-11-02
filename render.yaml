@@ -6,14 +6,17 @@ services:
     rootDir: backend
     buildCommand: pip install -r requirements.txt && python seed.py
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
     plan: free
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.7
       - key: SECRET_KEY
         generateValue: true
+      - key: JOBS_INLINE
+        value: "true"
       - key: CORS_ORIGINS
-        value: http://localhost:5173
+        value: "https://precedent-web.onrender.com,http://localhost:5173,http://127.0.0.1:5173"
 
   # 2. React / Vite Frontend Static Site
   - type: static
@@ -28,4 +31,3 @@ services:
     envVars:
       - key: VITE_API_BASE
         value: https://precedent-api.onrender.com
-
