@@ -6,6 +6,7 @@ import { Toaster } from 'sonner'
 import { Sidebar } from './components/layout/Sidebar'
 import { Header } from './components/layout/Header'
 import { AiCompareModal } from './components/modals/AiCompareModal'
+import { FloatingAgentChat } from './components/agent/FloatingAgentChat'
 import { useApp } from './context/AppContext'
 import { EASE } from './components/motion'
 
@@ -58,9 +59,8 @@ export function V2Layout() {
         </main>
       </div>
       <AiCompareModal />
-      {/* Toasts — Sonner owns the queue, animation and a11y announcements.
-          Icons are overridden so success/error stay inside the warm palette
-          instead of Sonner's stock emerald/red. */}
+      <FloatingAgentChat />
+      {/* Toasts — Sonner owns the queue, animation and a11y announcements. */}
       <Toaster
         position="bottom-right"
         offset={20}

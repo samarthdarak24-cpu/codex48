@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   ShieldCheck, LogOut, Compass, Inbox, FolderOpen, BookOpen, Scale, Ban, Box,
   Radar, Images, BarChart2, History, Sparkles, ArrowRight, LayoutDashboard,
-  FilePlus, Send, AlertTriangle, Bell, CheckCircle2, User, X, Bot, Activity,
+  FilePlus, Send, AlertTriangle, Bell, CheckCircle2, User, X,
 } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { useApp } from '../../context/AppContext';
@@ -28,9 +28,6 @@ export const Sidebar: React.FC<{ mobileOpen?: boolean; onClose?: () => void }> =
 
   const managerNav: NavItem[] = [
     { id: 'overview',         label: 'Overview',            icon: <Compass    className="w-4 h-4" /> },
-    { id: 'agent-studio',     label: 'Agent Studio',        icon: <Sparkles   className="w-4 h-4" /> },
-    { id: 'my-agents',        label: 'My Agents',           icon: <Bot        className="w-4 h-4" /> },
-    { id: 'agent-executions', label: 'Agent Executions',    icon: <Activity   className="w-4 h-4" /> },
     { id: 'review-queue',     label: 'Review Queue',        icon: <Inbox      className="w-4 h-4" />, badge: cnt(submissions.filter(s => s.status === 'In Review' || s.status === 'Pending').length) },
     { id: 'all-submissions',  label: 'All Submissions',     icon: <FolderOpen className="w-4 h-4" /> },
     { id: 'brand-guidelines', label: 'Brand Guidelines',    icon: <BookOpen   className="w-4 h-4" /> },
@@ -45,7 +42,6 @@ export const Sidebar: React.FC<{ mobileOpen?: boolean; onClose?: () => void }> =
 
   const creatorNav: NavItem[] = [
     { id: 'creator-dashboard', label: 'Dashboard',          icon: <LayoutDashboard className="w-4 h-4" /> },
-    { id: 'my-assistants',     label: 'My AI Assistants',   icon: <Bot             className="w-4 h-4" /> },
     { id: 'new-content',       label: 'New Content',        icon: <FilePlus        className="w-4 h-4" /> },
     { id: 'my-submissions',    label: 'My Submissions',     icon: <Send            className="w-4 h-4" />, badge: cnt(submissions.length) },
     { id: 'ai-review',         label: 'AI Review',          icon: <Sparkles        className="w-4 h-4" />, badge: cnt(submissions.filter(s => (s.findingsCount ?? 0) > 0).length) },
@@ -68,20 +64,18 @@ export const Sidebar: React.FC<{ mobileOpen?: boolean; onClose?: () => void }> =
     <>
       {/* Brand */}
       <div className="flex h-16 shrink-0 items-center gap-3 border-b border-line px-5">
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 shadow-sm shadow-brand-500/25">
-          <ShieldCheck className="h-5 w-5 text-white" />
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-500 text-white shadow-2xs">
+          <ShieldCheck className="h-5 w-5" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[15px] font-bold leading-tight tracking-tight text-ink">Precedent</p>
-          <p className="mt-0.5 flex items-center gap-1.5 text-[10px] leading-tight text-muted">
-            {role === 'manager' ? 'Brand Governance' : 'Content Team'}
-            <span className="inline-block h-1.5 w-1.5 rounded-full bg-sage-500" />
-          </p>
+          <p className="truncate text-sm font-bold tracking-tight text-ink">Precedent</p>
+          <p className="truncate text-2xs text-muted">Brand Governance</p>
         </div>
-        {onClose && (
+        {mobileOpen && (
           <button
+            type="button"
             onClick={onClose}
-            className="rounded-lg p-1.5 text-muted transition-colors hover:bg-cream-100 hover:text-ink lg:hidden"
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-cream-100 hover:text-ink lg:hidden"
             aria-label="Close navigation"
           >
             <X className="h-4 w-4" />
@@ -89,44 +83,40 @@ export const Sidebar: React.FC<{ mobileOpen?: boolean; onClose?: () => void }> =
         )}
       </div>
 
-      {/* Nav */}
-      <nav className="styled-scroll flex-1 space-y-0.5 overflow-y-auto px-3 py-3" aria-label="Main">
+      {/* Role Switcher Pill */}
+      <div className="px-3 pt-3">
+        <div className="flex items-center justify-between rounded-xl border border-line bg-cream-50 p-1 text-2xs font-semibold">
+          <span className="px-2 py-1 text-muted">WORKSPACE</span>
+          <span className="rounded-lg bg-white px-2 py-1 font-bold text-ink shadow-2xs">
+            {role === 'manager' ? 'Brand Manager' : 'Content Creator'}
+          </span>
+        </div>
+      </div>
+
+      {/* Navigation */}
+      <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-3" aria-label="Sidebar">
         {navItems.map((item) => {
           const isActive = activePage === item.id;
           return (
             <button
               key={item.id}
               onClick={() => handleNav(item.id)}
-              aria-current={isActive ? 'page' : undefined}
-              className={`sidebar-nav-item group relative flex h-11 w-full cursor-pointer items-center justify-between rounded-xl px-3 text-left text-[13px] font-medium transition-colors lg:h-9 ${
+              className={`group flex w-full items-center justify-between rounded-xl px-3 py-2 text-xs font-semibold transition-all duration-150 ${
                 isActive
-                  ? 'bg-brand-50 font-semibold text-brand-800'
-                  : 'text-ink-600 hover:text-ink'
+                  ? 'bg-brand-50 text-brand-700 shadow-2xs font-bold'
+                  : 'text-ink-600 hover:bg-cream-100 hover:text-ink'
               }`}
             >
-              {isActive && (
-                <motion.span
-                  layoutId={reduce ? undefined : 'sidebar-active'}
-                  className="absolute left-0 top-[24%] bottom-[24%] w-[3px] rounded-r-[3px] bg-gradient-to-b from-brand-500 to-sage-500 shadow-[0_0_8px_rgba(36,76,58,0.45)]"
-                  transition={{ duration: 0.28, ease: EASE }}
-                />
-              )}
-              <div className="flex min-w-0 items-center gap-2.5">
-                <span
-                  className={`shrink-0 transition-all duration-200 group-hover:translate-x-[2px] ${
-                    isActive ? 'text-brand-600' : 'text-muted-light group-hover:text-brand-500'
-                  }`}
-                >
+              <div className="flex items-center gap-2.5">
+                <span className={`transition-colors ${isActive ? 'text-brand-600' : 'text-muted group-hover:text-ink'}`}>
                   {item.icon}
                 </span>
                 <span className="truncate">{item.label}</span>
               </div>
               {item.badge && (
                 <motion.span
-                  key={item.badge}
-                  initial={reduce ? false : { scale: 0.6, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  transition={{ duration: 0.25, ease: EASE }}
+                  initial={reduce ? false : { scale: 0.8 }}
+                  animate={{ scale: 1 }}
                   className={`ml-1 shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold transition-colors ${
                     isActive
                       ? 'bg-brand-100 text-brand-700'

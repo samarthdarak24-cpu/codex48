@@ -20,27 +20,36 @@ import {
   FileCheck2,
   FileSearch,
   FileText,
+  Flame,
   FlaskConical,
   HelpCircle,
   History,
   Layers,
   Lock,
   MessageSquare,
+  Minus,
   Plus,
+  Radio,
   Scale,
+  ScanLine,
   ScrollText,
   ShieldAlert,
   ShieldCheck,
   Sparkles,
+  Star,
   Terminal,
   TriangleAlert,
+  Upload,
   Users,
+  Workflow,
   Zap,
 } from 'lucide-react'
 import { MarketingNav } from '@/components/marketing/MarketingNav'
 import { MarketingFooter } from '@/components/marketing/MarketingFooter'
 import { AssetCard, ASSETS } from '@/components/marketing/AssetArt'
 import { Reveal } from '@/components/marketing/Reveal'
+import { ThreeOrb } from '@/components/marketing/ThreeOrb'
+import { FloatingAgentChat } from '@/v2/components/agent/FloatingAgentChat'
 import { cn } from '@/lib/utils'
 
 /* ------------------------------------------------------------------ */
@@ -284,7 +293,7 @@ function TrustStrip() {
 }
 
 /* ------------------------------------------------------------------ */
-/* 4. Problem We Solve                                                */
+/* 4. Problem We Solve (Visual & Interactive Upgrade)                 */
 /* ------------------------------------------------------------------ */
 
 function ProblemSection() {
@@ -294,24 +303,102 @@ function ProblemSection() {
       title: 'Unrecorded Approvals & Slack Chaos',
       desc: 'Campaign sign-offs happen across direct messages, WhatsApp, and unrecorded email chains. When legal audits hit, there is zero verifiable proof of approval.',
       impact: 'Average 5 days lost per campaign waiting for manual confirmations.',
+      mockup: (
+        <div className="mt-4 rounded-xl border border-red-200/60 bg-red-950/[0.03] p-3 text-left font-sans shadow-xs">
+          <div className="flex items-center justify-between text-[10px] font-semibold text-muted border-b border-red-100 pb-1.5">
+            <span className="flex items-center gap-1.5"><MessageSquare className="h-3 w-3 text-red-500" /> #campaign-approvals</span>
+            <span className="text-red-600 font-bold">Unrecorded</span>
+          </div>
+          <div className="mt-2 space-y-1.5 text-[11px]">
+            <div className="rounded bg-white p-2 border border-ink/[0.05] shadow-2xs">
+              <p className="text-[10px] text-muted">Creator (10:14 AM)</p>
+              <p className="text-ink-700 font-medium leading-tight">“Can we post the holiday poster with 50% discount claim?”</p>
+            </div>
+            <div className="rounded bg-white p-2 border border-red-200/80 shadow-2xs">
+              <p className="text-[10px] text-muted">Legal (11:02 AM)</p>
+              <p className="text-red-600 font-medium leading-tight">“Wait, who approved this? Can’t find the email thread!”</p>
+            </div>
+          </div>
+        </div>
+      ),
     },
     {
       num: '02',
       title: 'Ambiguous, Hallucinated AI Scores',
       desc: 'Generic AI checkers give subjective 7/10 grades with zero cited guideline passages. Creators cannot decipher what broke or how to fix it.',
       impact: '68% of creator frustration stems from unsupported, ungrounded feedback.',
+      mockup: (
+        <div className="mt-4 rounded-xl border border-red-200/60 bg-red-950/[0.03] p-3 text-left font-sans shadow-xs">
+          <div className="flex items-center justify-between text-[10px] font-semibold text-muted border-b border-red-100 pb-1.5">
+            <span className="flex items-center gap-1.5"><TriangleAlert className="h-3 w-3 text-red-500" /> Generic LLM Checker</span>
+            <span className="text-red-600 font-bold">Vague 6.8/10</span>
+          </div>
+          <div className="mt-2 rounded bg-white p-2.5 border border-red-200/80 shadow-2xs">
+            <div className="flex items-center justify-between text-[10px] font-bold text-red-700">
+              <span>Arbitrary Score Generated</span>
+              <span className="bg-red-100 text-red-800 px-1 rounded text-[9px]">No Source Doc</span>
+            </div>
+            <p className="mt-1 text-[10.5px] text-muted leading-tight italic">
+              “Tone feels too aggressive. Consider revising copy to align better with industry standards.”
+            </p>
+          </div>
+        </div>
+      ),
     },
     {
       num: '03',
       title: 'Rigid Guidelines Blocking Seasonality',
       desc: 'Inflexible brand books block legitimate festival discounts, regional promotions, or co-branded partnerships because exceptions cannot be tracked safely.',
       impact: 'Campaign delays cause missed seasonal retail revenue windows.',
+      mockup: (
+        <div className="mt-4 rounded-xl border border-red-200/60 bg-red-950/[0.03] p-2.5 shadow-xs">
+          <div className="relative aspect-[16/9] w-full overflow-hidden rounded-lg">
+            <img src="/images/assets/festival.jpg" alt="Festival Campaign Blocked" className="h-full w-full object-cover" />
+            <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center p-2 text-center">
+              <span className="rounded bg-red-600 px-2 py-0.5 text-[9.5px] font-bold uppercase tracking-wider text-white shadow-sm">
+                Policy Block: Out-of-Palette
+              </span>
+              <p className="mt-1 text-[9.5px] text-white/90">Zero temporal exception tracking</p>
+            </div>
+          </div>
+        </div>
+      ),
     },
     {
       num: '04',
       title: 'Blind Rule Deployments',
       desc: 'When brand teams update a logo clear space or color rule, they have no visibility into how many historical or scheduled assets will break overnight.',
       impact: 'Unchecked policy shifts cause costly emergency creative rework.',
+      mockup: (
+        <div className="mt-4 rounded-xl border border-red-200/60 bg-red-950/[0.03] p-3 text-left font-sans shadow-xs">
+          <div className="flex items-center justify-between text-[10px] font-semibold text-muted border-b border-red-100 pb-1.5">
+            <span className="flex items-center gap-1.5"><Flame className="h-3 w-3 text-red-500" /> Untested Policy Push</span>
+            <span className="text-red-600 font-bold">High Blast Radius</span>
+          </div>
+          <div className="mt-2 rounded-xl bg-white p-2.5 border border-red-200/80 shadow-2xs">
+            <div className="flex items-center justify-between text-[10px] font-bold text-red-700">
+              <span>Rule BR-04 Updated</span>
+              <span className="bg-red-100 text-red-800 px-1.5 py-0.5 rounded text-[9px] font-mono font-bold">+38 Assets Broken</span>
+            </div>
+            {/* SVG Blast Radius Area Sparkline */}
+            <div className="mt-2 h-14 w-full">
+              <svg viewBox="0 0 160 50" className="h-full w-full overflow-visible">
+                <defs>
+                  <linearGradient id="blastGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#EF4444" stopOpacity="0.4" />
+                    <stop offset="100%" stopColor="#EF4444" stopOpacity="0.0" />
+                  </linearGradient>
+                </defs>
+                <path d="M 0 38 Q 40 36 70 35 T 100 34 L 115 8 L 130 20 L 160 14" fill="none" stroke="#DC2626" strokeWidth="2.5" />
+                <path d="M 0 38 Q 40 36 70 35 T 100 34 L 115 8 L 130 20 L 160 14 L 160 50 L 0 50 Z" fill="url(#blastGrad)" />
+                <circle cx="115" cy="8" r="3.5" fill="#DC2626" className="animate-ping" />
+                <circle cx="115" cy="8" r="3.5" fill="#B91C1C" />
+              </svg>
+            </div>
+            <p className="mt-1 text-[10px] text-muted leading-tight">Emergency rework spike across 38 scheduled retail campaigns.</p>
+          </div>
+        </div>
+      ),
     },
   ]
 
@@ -331,16 +418,25 @@ function ProblemSection() {
             <Reveal
               key={p.num}
               delay={i * 60}
-              className="relative flex flex-col justify-between rounded-2xl border border-red-200/50 bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-1.5 hover:shadow-lg"
+              className="relative flex flex-col justify-between rounded-2xl border border-red-200/60 bg-white p-5 shadow-sm transition-all duration-300 hover:-translate-y-2 hover:shadow-xl hover:border-red-300"
             >
               <div>
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-50 text-[11px] font-bold text-red-700 border border-red-200">
-                  {p.num}
-                </span>
+                <div className="flex items-center justify-between">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-50 text-[11px] font-bold text-red-700 border border-red-200">
+                    {p.num}
+                  </span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-red-600 bg-red-50/80 px-2 py-0.5 rounded border border-red-100">
+                    Critical Pain
+                  </span>
+                </div>
+
                 <h4 className="mt-4 text-[16px] font-bold text-ink leading-snug">{p.title}</h4>
-                <p className="mt-2 text-[12.5px] leading-[20px] text-muted">{p.desc}</p>
+                <p className="mt-1.5 text-[12px] leading-[18px] text-muted">{p.desc}</p>
+
+                {p.mockup}
               </div>
-              <div className="mt-5 border-t border-red-100 pt-3 text-[11px] font-semibold text-red-600 flex items-center gap-1.5">
+
+              <div className="mt-4 border-t border-red-100 pt-3 text-[11px] font-semibold text-red-600 flex items-center gap-1.5">
                 <ShieldAlert className="h-3.5 w-3.5 shrink-0" />
                 <span>{p.impact}</span>
               </div>
@@ -379,7 +475,7 @@ function SolutionSection() {
       title: 'Pre-Activation Rule Impact Sandbox',
       tag: 'Pre-Deployment Simulation',
       desc: 'Simulate proposed rule drafts across historical campaigns before activation to forecast pass, review, and fail rates with complete clarity.',
-      image: '/images/assets/summer.jpg',
+      image: '/images/platform/sandbox-ui.png',
       badge: '14 Historical Assets Replayed',
     },
   ]
@@ -451,7 +547,7 @@ function KeyFeaturesSection() {
       title: 'Brand Guideline Document Engine',
       desc: 'Ingest PDF and DOCX brand books with automatic page-level text chunking, heading hierarchy indexing, and citation coordinates.',
       icon: BookOpen,
-      image: '/images/brand/guidelines.webp',
+      image: '/images/platform/rules-ui.png',
       badge: 'PyMuPDF Engine',
     },
     {
@@ -472,21 +568,21 @@ function KeyFeaturesSection() {
       title: 'Version-Locked Approvals',
       desc: 'Cryptographic SHA-256 asset hash binding approvals strictly to a specific file version. Any pixel change safely invalidates old sign-offs.',
       icon: CheckCircle2,
-      image: '/images/brand/jar.webp',
+      image: '/images/platform/exceptions-ui.png',
       badge: 'SHA-256 Hash Binding',
     },
     {
       title: 'Rule Conflict & Contradiction Sentinel',
       desc: 'Automated static analyzer that blocks conflicting rules or contradictory guidelines before they can be saved to the active policy set.',
       icon: TriangleAlert,
-      image: '/images/assets/sensitive.jpg',
+      image: '/images/platform/manager-sentinel.png',
       badge: 'Static Policy Check',
     },
     {
       title: 'Rule Impact Sandbox Simulator',
       desc: 'Simulate draft rule revisions against historical campaign archives to forecast pass, review, and fail rates before pushing policy updates live.',
       icon: FlaskConical,
-      image: '/images/assets/summer.jpg',
+      image: '/images/platform/sandbox-ui.png',
       badge: 'Historical Replay',
     },
   ]
@@ -536,7 +632,7 @@ function KeyFeaturesSection() {
 }
 
 /* ------------------------------------------------------------------ */
-/* 7. How It Works                                                    */
+/* 7. How It Works (Visual & Flow Upgrade)                            */
 /* ------------------------------------------------------------------ */
 
 function HowItWorksSection() {
@@ -546,24 +642,72 @@ function HowItWorksSection() {
       action: 'Create & Ingest',
       desc: 'Creator submits promotional posters, banners, or campaign copy directly into Precedent or via automated webhook.',
       detail: 'PDF, DOCX, JPG, PNG, and WebP supported with full metadata preservation.',
+      preview: (
+        <div className="relative mt-4 h-28 w-full overflow-hidden rounded-xl border-2 border-dashed border-brand-300/80 bg-brand-50/30 p-3 flex flex-col items-center justify-center text-center group-hover:border-brand-500 transition-colors">
+          <Upload className="h-5 w-5 text-brand-600 animate-bounce" />
+          <p className="mt-1.5 text-[11px] font-bold text-ink">Drop creative poster here</p>
+          <span className="text-[9.5px] text-muted">Supports JPG, PNG, PDF, DOCX</span>
+        </div>
+      ),
     },
     {
       num: '02',
       action: 'Analyse & Extract',
       desc: 'Dual OCR pipelines extract text strings, measure typography scale, and sample CIE-Lab background color palettes.',
       detail: 'RapidOCR + Tesseract with Hindi & Marathi bilingual extraction support.',
+      preview: (
+        <div className="relative mt-4 h-28 w-full overflow-hidden rounded-xl border border-ink/10 bg-black shadow-inner">
+          <img src="/images/assets/poster_audit.jpg" alt="OCR Scan" className="h-full w-full object-cover opacity-70" />
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-emerald-500/20 to-transparent animate-pulse" />
+          <div className="absolute top-2 left-2 flex items-center gap-1 rounded bg-black/75 px-1.5 py-0.5 text-[8.5px] font-mono text-emerald-300">
+            <ScanLine className="h-3 w-3 animate-spin" /> RapidOCR · CIE-Lab Active
+          </div>
+          <div className="absolute bottom-2 left-2 right-2 rounded bg-black/80 px-2 py-1 text-[9px] text-white/90">
+            Extracted: <strong className="text-emerald-400">#7AB93B Palette</strong>
+          </div>
+        </div>
+      ),
     },
     {
       num: '03',
       action: 'Verify Citations',
       desc: 'Deterministic engine matches extracted content against active brand guidelines, citing exact source passages.',
       detail: 'Hybrid BM25 + multilingual-e5 ONNX dense vectors ensure exact passage anchoring.',
+      preview: (
+        <div className="relative mt-4 h-28 w-full overflow-hidden rounded-xl border border-emerald-300 bg-emerald-50/60 p-2.5 flex flex-col justify-between">
+          <div className="flex items-center justify-between text-[9px] font-bold text-emerald-800">
+            <span className="flex items-center gap-1"><BookOpen className="h-3 w-3" /> Guideline Match</span>
+            <span className="bg-emerald-200/80 px-1.5 py-0.2 rounded text-[8.5px]">Page 12 §3.2</span>
+          </div>
+          <p className="text-[9.5px] italic text-emerald-950 leading-tight">
+            “Primary green (#7AB93B) and neutral sand (#F4EFE3) are approved.”
+          </p>
+          <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-700">
+            <CheckCircle2 className="h-3 w-3 text-emerald-600" /> 100% Grounded in PDF
+          </span>
+        </div>
+      ),
     },
     {
       num: '04',
       action: 'Decide & Approve',
       desc: 'Brand Manager reviews findings, accepts minimal fixes, grants scoped exceptions, or issues a ProofPass seal.',
       detail: 'Tamper-proof SHA-256 digital passport locks decision strictly to the file version.',
+      preview: (
+        <div className="relative mt-4 h-28 w-full overflow-hidden rounded-xl border border-purple-300 bg-purple-950/80 p-2.5 text-white flex flex-col justify-between shadow-inner">
+          <div className="flex items-center justify-between text-[9px] font-bold">
+            <span className="text-purple-300">ProofPass Minted</span>
+            <span className="bg-emerald-500 text-ink px-1.5 py-0.2 rounded text-[8.5px] font-bold">SEALED</span>
+          </div>
+          <p className="text-[8.5px] font-mono text-purple-200/80 truncate">
+            SHA: e3b0c44298fc1c149afbf4c899...
+          </p>
+          <div className="flex items-center justify-between text-[9px] text-white/80 border-t border-purple-800/80 pt-1">
+            <span>David Kim (Mgr)</span>
+            <span className="text-emerald-300 font-bold">v2.0 Approved</span>
+          </div>
+        </div>
+      ),
     },
   ]
 
@@ -572,27 +716,38 @@ function HowItWorksSection() {
       <div className="mkt-container">
         <Reveal>
           <SectionHeading
-            eyebrow={<><Zap className="h-3 w-3" /> Execution Pipeline</>}
+            eyebrow={<><Workflow className="h-3 w-3" /> Execution Pipeline</>}
             title="Create → Analyse → Verify → Approve"
             sub="A transparent 4-stage pipeline that keeps creators fast and brand managers firmly in control."
           />
         </Reveal>
 
         <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-4 relative">
+          {/* Connecting glowing flow bar on desktop */}
+          <div className="hidden lg:block absolute top-[28px] left-[10%] right-[10%] h-[2px] bg-gradient-to-r from-brand-400 via-emerald-400 to-purple-400 z-0 opacity-40 pointer-events-none" />
           {steps.map((st, idx) => (
             <Reveal
               key={st.num}
               delay={idx * 70}
-              className="relative flex flex-col justify-between rounded-2xl border border-ink/[0.08] bg-sand-50/60 p-6 shadow-sm"
+              className="group relative z-10 flex flex-col justify-between rounded-2xl border border-ink/[0.08] bg-sand-50/60 p-5 shadow-sm transition-all hover:-translate-y-2 hover:shadow-xl hover:border-brand-300 backdrop-blur-xs"
             >
               <div>
-                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-ink text-white font-bold text-[13px] shadow-xs">
-                  {st.num}
-                </span>
-                <h4 className="mt-5 text-[17px] font-bold text-ink">{st.action}</h4>
-                <p className="mt-2 text-[13px] leading-[20px] text-muted">{st.desc}</p>
+                <div className="flex items-center justify-between">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-ink text-white font-bold text-[12px] shadow-xs">
+                    {st.num}
+                  </span>
+                  <span className="text-[10px] font-bold text-brand-700 bg-brand-50 px-2 py-0.5 rounded border border-brand-200">
+                    STAGE {st.num}
+                  </span>
+                </div>
+
+                <h4 className="mt-4 text-[16px] font-bold text-ink">{st.action}</h4>
+                <p className="mt-1.5 text-[12.5px] leading-[19px] text-muted">{st.desc}</p>
+
+                {st.preview}
               </div>
-              <div className="mt-5 border-t border-ink/[0.06] pt-3 text-[11px] text-muted-light font-medium">
+
+              <div className="mt-4 border-t border-ink/[0.06] pt-3 text-[10.5px] text-muted-light font-medium">
                 {st.detail}
               </div>
             </Reveal>
@@ -685,10 +840,12 @@ function ProductShowcaseSection() {
 }
 
 /* ------------------------------------------------------------------ */
-/* 9. AI Agent Studio                                                 */
+/* 9. AI Agent Studio (3D WebGL Orb & Live Studio Screenshots)         */
 /* ------------------------------------------------------------------ */
 
 function AgentStudioSection() {
+  const [studioPreview, setStudioPreview] = useState<'builder' | 'executions'>('builder')
+
   const agents = [
     {
       title: 'Prompt-to-Agent Builder',
@@ -711,17 +868,77 @@ function AgentStudioSection() {
   ]
 
   return (
-    <section className="border-t border-ink/[0.06] bg-white py-20 lg:py-28">
+    <section className="border-t border-ink/[0.06] bg-white py-20 lg:py-28 relative overflow-hidden">
       <div className="mkt-container">
         <Reveal>
           <SectionHeading
-            eyebrow={<><BrainCircuit className="h-3 w-3 text-brand-600" /> Autonomous Intelligence</>}
+            eyebrow={<><BrainCircuit className="h-3 w-3 text-brand-600" /> Autonomous Brand Intelligence</>}
             title="AI Agent Studio: Prompt-to-Agent Automation"
             sub="Deploy specialized autonomous agents that inspect brand assets, monitor repository drift, and orchestrate review crews 24/7."
           />
         </Reveal>
 
-        <div className="mt-12 grid gap-6 lg:grid-cols-3">
+        {/* Heroic 3D Orb + Live Agent Studio Showcase */}
+        <Reveal delay={80} className="mt-12 rounded-[32px] border border-white/10 bg-gradient-to-br from-[#121B16] via-[#16231C] to-[#0A120E] p-6 sm:p-10 text-white shadow-2xl relative">
+          <div className="grid gap-8 lg:grid-cols-12 items-center">
+            {/* Left Column: Interactive 3D Three.js Orb */}
+            <div className="lg:col-span-5 flex flex-col items-center text-center p-4 rounded-2xl bg-white/[0.04] border border-white/10 backdrop-blur-md">
+              <span className="rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-3 py-1 text-[10px] font-bold uppercase tracking-wider mb-2">
+                WebGL Interactive 3D Constellation
+              </span>
+              <p className="text-[13px] text-white/70">Move your cursor to interact with the Brand Rule Orb</p>
+
+              <ThreeOrb className="h-[280px] w-full" />
+
+              <div className="flex flex-wrap items-center justify-center gap-2 mt-2 text-[10px] font-mono text-emerald-300">
+                <span className="bg-white/10 px-2 py-0.5 rounded">Sentinel Active</span>
+                <span className="bg-white/10 px-2 py-0.5 rounded">e5-Embeddings</span>
+                <span className="bg-white/10 px-2 py-0.5 rounded">ProofPass Mint</span>
+              </div>
+            </div>
+
+            {/* Right Column: Agent Studio Screenshots */}
+            <div className="lg:col-span-7 flex flex-col">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
+                  <span className="text-[12px] font-bold uppercase tracking-wider text-white">Live Studio Interface</span>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setStudioPreview('builder')}
+                    className={cn(
+                      'rounded-full px-3 py-1 text-[11px] font-bold transition-all',
+                      studioPreview === 'builder' ? 'bg-emerald-500 text-ink shadow-sm' : 'bg-white/10 text-white hover:bg-white/20',
+                    )}
+                  >
+                    Prompt Builder
+                  </button>
+                  <button
+                    onClick={() => setStudioPreview('executions')}
+                    className={cn(
+                      'rounded-full px-3 py-1 text-[11px] font-bold transition-all',
+                      studioPreview === 'executions' ? 'bg-emerald-500 text-ink shadow-sm' : 'bg-white/10 text-white hover:bg-white/20',
+                    )}
+                  >
+                    Executions Run
+                  </button>
+                </div>
+              </div>
+
+              <div className="relative aspect-[16/10] w-full overflow-hidden rounded-2xl border border-white/20 shadow-2xl bg-black/60">
+                <img
+                  src={studioPreview === 'builder' ? '/images/platform/agent-builder.png' : '/images/platform/agent-executions.png'}
+                  alt="Agent Studio Screenshot"
+                  className="h-full w-full object-cover transition-opacity duration-300"
+                />
+              </div>
+            </div>
+          </div>
+        </Reveal>
+
+        {/* 3 Agent Studio Cards */}
+        <div className="mt-8 grid gap-6 lg:grid-cols-3">
           {agents.map((ag, i) => (
             <Reveal
               key={ag.title}
@@ -741,13 +958,29 @@ function AgentStudioSection() {
             </Reveal>
           ))}
         </div>
+
+        {/* Floating Copilot Banner Announcement */}
+        <Reveal delay={120} className="mt-8 rounded-2xl border border-emerald-500/20 bg-gradient-to-r from-emerald-950/[0.04] via-emerald-500/[0.08] to-emerald-950/[0.04] p-4 text-center flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-ink text-emerald-400 shadow-md">
+              <Bot className="h-5 w-5" />
+            </div>
+            <div className="text-left">
+              <p className="text-[13.5px] font-bold text-ink">Ambient AI Copilot Always On-Call</p>
+              <p className="text-[11.5px] text-muted">Click the floating AI shield icon at the bottom-right corner of your screen anytime to ask questions, verify citations, or inspect telemetry.</p>
+            </div>
+          </div>
+          <span className="shrink-0 rounded-full bg-ink text-white px-3.5 py-1.5 text-[11px] font-bold shadow-xs">
+            Floating Chatbot Ready ↘
+          </span>
+        </Reveal>
       </div>
     </section>
   )
 }
 
 /* ------------------------------------------------------------------ */
-/* 10. Security & Governance                                          */
+/* 10. Security & Governance (Visual Ledger & Certificate Preview)     */
 /* ------------------------------------------------------------------ */
 
 function SecuritySection() {
@@ -756,21 +989,60 @@ function SecuritySection() {
       title: 'Role-Based Access Control',
       desc: 'Explicit permissions distinguish Content Creators, Brand Managers, and Compliance Auditors with zero cross-tenant leakage.',
       icon: Users,
+      graphic: (
+        <div className="mt-3 rounded-lg border border-ink/10 bg-sand-50 p-2 text-[10px] space-y-1 font-mono">
+          <div className="flex justify-between items-center bg-white px-2 py-1 rounded shadow-2xs">
+            <span className="font-bold text-ink">Brand Manager</span>
+            <span className="text-emerald-700 font-bold bg-emerald-100 px-1 rounded text-[8.5px]">Approve · Admin</span>
+          </div>
+          <div className="flex justify-between items-center bg-white px-2 py-1 rounded shadow-2xs">
+            <span className="font-bold text-ink">Content Creator</span>
+            <span className="text-blue-700 font-bold bg-blue-100 px-1 rounded text-[8.5px]">Draft · Submit</span>
+          </div>
+        </div>
+      ),
     },
     {
       title: 'Deterministic Rule Primacy',
       desc: 'Code-level checks always overrule probabilistic LLM guesses. Ambiguous or unsupported claims are flagged for human review.',
       icon: ShieldCheck,
+      graphic: (
+        <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50/60 p-2 text-[10px] space-y-1 font-mono text-emerald-950">
+          <div className="flex items-center justify-between font-bold">
+            <span>Rule Engine Authority</span>
+            <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+          </div>
+          <p className="text-[9px] text-emerald-800">13 Hardened Logic Checkers override LLM outputs automatically.</p>
+        </div>
+      ),
     },
     {
       title: 'Cryptographic ProofPass',
       desc: 'Signed SHA-256 digest + 64-bit perceptual hash seals every approved asset to guarantee tampering is detected immediately.',
       icon: Lock,
+      graphic: (
+        <div className="mt-3 rounded-lg border border-purple-200 bg-purple-50/60 p-2 text-[10px] font-mono text-purple-950">
+          <div className="flex items-center justify-between font-bold">
+            <span>ProofPass Sealed</span>
+            <span className="bg-purple-200 px-1 rounded text-[8.5px]">SHA-256</span>
+          </div>
+          <p className="text-[8.5px] truncate text-purple-800 mt-1">hash: 9a7b4f2c019d...</p>
+        </div>
+      ),
     },
     {
       title: 'Immutable Audit History',
       desc: 'Append-only ledger records all uploads, evaluations, manual overrides, and exception rulings for regulatory readiness.',
       icon: History,
+      graphic: (
+        <div className="mt-3 rounded-lg border border-ink/10 bg-sand-50 p-2 text-[10px] space-y-1 font-mono">
+          <div className="flex justify-between text-muted text-[8.5px]">
+            <span>Block #1042</span>
+            <span>02 Nov 2026</span>
+          </div>
+          <p className="text-[9px] text-ink font-semibold truncate">EX-12 Override Granted: David Kim</p>
+        </div>
+      ),
     },
   ]
 
@@ -785,18 +1057,38 @@ function SecuritySection() {
           />
         </Reveal>
 
-        <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        {/* Real Audit History Screenshot Banner */}
+        <Reveal delay={80} className="mt-12 overflow-hidden rounded-[26px] border border-ink/10 bg-white shadow-xl">
+          <div className="flex items-center justify-between border-b border-ink/10 bg-sand-100/60 px-5 py-3 text-[11px] font-mono text-muted">
+            <span className="font-bold text-ink">IMMUTABLE APPEND-ONLY AUDIT REPOSITORY · REAL DATABASE RECORD</span>
+            <span className="rounded bg-emerald-100 text-emerald-800 px-2 py-0.5 text-[9.5px] font-bold">
+              Tamper-Proof Ledger Active
+            </span>
+          </div>
+          <div className="relative aspect-[21/9] w-full overflow-hidden bg-black/10">
+            <img
+              src="/images/platform/manager-audit-live.png"
+              alt="Audit History View Interface"
+              className="w-full object-cover"
+            />
+          </div>
+        </Reveal>
+
+        <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {securityPillars.map((p, i) => (
             <Reveal
               key={p.title}
               delay={i * 60}
-              className="rounded-2xl border border-ink/[0.08] bg-white p-6 shadow-sm"
+              className="flex flex-col justify-between rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-sm transition-all hover:-translate-y-1.5 hover:shadow-lg"
             >
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-canvas text-ink-700 border border-ink/10">
-                <p.icon className="h-5 w-5" />
+              <div>
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-canvas text-ink-700 border border-ink/10 shadow-2xs">
+                  <p.icon className="h-5 w-5" />
+                </div>
+                <h4 className="mt-4 text-[16px] font-bold text-ink">{p.title}</h4>
+                <p className="mt-1.5 text-[12px] leading-[18px] text-muted">{p.desc}</p>
+                {p.graphic}
               </div>
-              <h4 className="mt-4 text-[16px] font-bold text-ink">{p.title}</h4>
-              <p className="mt-2 text-[12.5px] leading-[19px] text-muted">{p.desc}</p>
             </Reveal>
           ))}
         </div>
@@ -806,7 +1098,7 @@ function SecuritySection() {
 }
 
 /* ------------------------------------------------------------------ */
-/* 11. Who It's For                                                   */
+/* 11. Who It's For (Visual Persona Cards with Real Photography)      */
 /* ------------------------------------------------------------------ */
 
 function WhoItsForSection() {
@@ -815,25 +1107,29 @@ function WhoItsForSection() {
       title: 'In-House Content Teams',
       role: 'Creators & Designers',
       benefit: 'Get instant pre-submission feedback with exact guideline page citations and one-click minimal copy fixes.',
-      icon: Sparkles,
+      image: '/images/brand/lifestyle.webp',
+      badge: 'Creative Velocity',
     },
     {
       title: 'Brand Governance Managers',
       role: 'Approvers & Policy Owners',
       benefit: 'Centralize brand rules, simulate rule modifications before activation, and grant scoped expiring exceptions with ease.',
-      icon: ShieldCheck,
+      image: '/images/platform/manager-sentinel.png',
+      badge: 'Zero Email Chains',
     },
     {
       title: 'Creative & Media Agencies',
       role: 'Multi-Client Deliverables',
       benefit: 'Manage multiple client guideline repositories simultaneously with verifiable ProofPass sign-off certificates.',
-      icon: Building2,
+      image: '/images/brand/summer.webp',
+      badge: 'Client Audit Ready',
     },
     {
       title: 'Enterprise Global Brands',
       role: 'Legal & Risk Teams',
       benefit: 'Eliminate regulatory claim liabilities across high-volume retail campaigns with continuous 24/7 sentinel audits.',
-      icon: Lock,
+      image: '/images/brand/guidelines.webp',
+      badge: '24/7 Sentinel Shield',
     },
   ]
 
@@ -853,14 +1149,26 @@ function WhoItsForSection() {
             <Reveal
               key={per.title}
               delay={i * 60}
-              className="rounded-2xl border border-ink/[0.08] bg-sand-50/50 p-6 shadow-sm transition-all hover:-translate-y-1.5 hover:shadow-lg"
+              className="group flex flex-col justify-between rounded-2xl border border-ink/[0.08] bg-sand-50/50 p-4 shadow-sm transition-all duration-300 hover:-translate-y-2 hover:shadow-xl hover:border-brand-300"
             >
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-ink text-white">
-                <per.icon className="h-5 w-5" />
+              <div>
+                <div className="relative h-36 w-full overflow-hidden rounded-xl border border-ink/10 bg-canvas">
+                  <img src={per.image} alt={per.title} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                  <span className="absolute top-2 left-2 rounded-full bg-black/60 px-2 py-0.5 text-[9px] font-bold text-white backdrop-blur-md">
+                    {per.badge}
+                  </span>
+                </div>
+
+                <h4 className="mt-4 text-[16px] font-bold text-ink">{per.title}</h4>
+                <p className="text-[10.5px] font-bold text-brand-700 uppercase tracking-wider mt-0.5">{per.role}</p>
+                <p className="mt-2 text-[12px] leading-[18px] text-muted">{per.benefit}</p>
               </div>
-              <h4 className="mt-4 text-[16px] font-bold text-ink">{per.title}</h4>
-              <p className="text-[11px] font-semibold text-brand-700 uppercase tracking-wider mt-0.5">{per.role}</p>
-              <p className="mt-2.5 text-[12.5px] leading-[19px] text-muted">{per.benefit}</p>
+
+              <div className="mt-4 pt-3 border-t border-ink/[0.06] text-[10.5px] font-bold text-brand-600 flex items-center justify-between">
+                <span>Tailored Workflow</span>
+                <span className="text-muted-light group-hover:text-brand-600 transition-colors">See Role →</span>
+              </div>
             </Reveal>
           ))}
         </div>
@@ -870,24 +1178,30 @@ function WhoItsForSection() {
 }
 
 /* ------------------------------------------------------------------ */
-/* 12. Success Stories                                                */
+/* 12. Success Stories (Visual Proof & Verified Case Studies)         */
 /* ------------------------------------------------------------------ */
 
 function SuccessStoriesSection() {
   const stories = [
     {
       brand: 'PureGlow Botanicals',
-      tagline: 'D2C Skincare Brand',
+      tagline: 'D2C Skincare Brand · 14 Products',
       stats: '94% Faster Campaign Approvals',
       quote: 'Precedent eliminated endless Slack debates between creative and legal. When an ungrounded claim is flagged, creators see the exact guideline citation in seconds.',
       author: 'David Kim, Head of Brand Governance',
+      image: '/images/brand/serum.webp',
+      stamp: 'ProofPass Verified',
+      roi: '28 min Turnaround (down from 5 days)',
     },
     {
       brand: 'Nexus Omnichannel Media',
-      tagline: 'Retail Advertising Agency',
+      tagline: 'Retail Advertising Agency · 14 Sub-Brands',
       stats: '100% Exception Traceability',
       quote: 'The Rule Impact Sandbox is an absolute game-changer. We can simulate a new guideline across 1,400 client assets in seconds before presenting policy updates.',
       author: 'Elena Rostova, Managing Director',
+      image: '/images/assets/festival.jpg',
+      stamp: 'Sandbox Simulation Passed',
+      roi: '2,400+ Campaign Assets Tested',
     },
   ]
 
@@ -907,22 +1221,42 @@ function SuccessStoriesSection() {
             <Reveal
               key={st.brand}
               delay={i * 80}
-              className="rounded-[26px] border border-ink/[0.08] bg-white p-8 shadow-sm flex flex-col justify-between"
+              className="rounded-[26px] border border-ink/[0.08] bg-white p-7 shadow-sm flex flex-col justify-between hover:shadow-xl transition-all"
             >
               <div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[18px] font-bold text-ink">{st.brand}</span>
-                  <span className="rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 px-3 py-1 text-[11px] font-bold">
-                    {st.stats}
-                  </span>
+                <div className="flex items-center gap-4">
+                  <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-ink/10 bg-black/10 shadow-md">
+                    <img src={st.image} alt={st.brand} className="h-full w-full object-cover" />
+                    <span className="absolute bottom-1 left-1 rounded bg-emerald-600/90 px-1 py-0.2 text-[7.5px] font-bold text-white">
+                      VERIFIED
+                    </span>
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[18px] font-bold text-ink">{st.brand}</span>
+                      <span className="rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold">
+                        {st.stats}
+                      </span>
+                    </div>
+                    <p className="text-[11.5px] text-muted mt-0.5">{st.tagline}</p>
+                    <div className="flex items-center gap-1 mt-1 text-amber-500">
+                      {[...Array(5)].map((_, idx) => (
+                        <Star key={idx} className="h-3 w-3 fill-current" />
+                      ))}
+                    </div>
+                  </div>
                 </div>
-                <p className="text-[12px] text-muted mt-0.5">{st.tagline}</p>
-                <p className="mt-5 text-[14px] italic leading-[22px] text-ink-700">
+
+                <p className="mt-5 text-[13.5px] italic leading-[22px] text-ink-700 bg-sand-50/60 p-4 rounded-xl border border-ink/[0.04]">
                   “{st.quote}”
                 </p>
               </div>
-              <div className="mt-6 border-t border-ink/[0.06] pt-4 text-[12px] font-semibold text-ink">
-                {st.author}
+
+              <div className="mt-5 pt-3 border-t border-ink/[0.06] flex items-center justify-between text-[11.5px]">
+                <span className="font-bold text-ink">{st.author}</span>
+                <span className="text-[10px] font-semibold text-brand-700 bg-brand-50 px-2 py-0.5 rounded border border-brand-200">
+                  {st.roi}
+                </span>
               </div>
             </Reveal>
           ))}
@@ -1231,6 +1565,9 @@ export default function Home() {
 
       {/* 16. Footer */}
       <MarketingFooter />
+
+      {/* Floating AI Agent Copilot Chatbox */}
+      <FloatingAgentChat />
 
       {/* Back to top floating pill */}
       <button
