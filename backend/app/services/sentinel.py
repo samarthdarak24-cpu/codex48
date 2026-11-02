@@ -34,6 +34,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -1039,7 +1040,7 @@ def lapse_exceptions(db: Session, *, workspace: str, actor_id: str = "") -> dict
 def _submission_title(task: models.ReassessmentTask) -> str:
     """Title lookup for a task.
 
-    `ReassessmentTask.submission_id` has no ORM relationship, so this reads the
+    `models.ReassessmentTask.submission_id` has no ORM relationship, so this reads the
     session the task belongs to. A detached task simply serializes an empty
     title instead of raising.
     """
@@ -1210,6 +1211,8 @@ def list_tasks(
 
 
 # --- Canonical v1 Sentinel Hook ---
+from app.engine.evaluator import evaluate_submission
+
 def trigger_sentinel_scan(
     db: Session,
     workspace_id: str,
@@ -1222,12 +1225,12 @@ def trigger_sentinel_scan(
     Idempotent: Only creates tasks for newly surfaced violations or unknowns.
     """
     scan_id = str(uuid.uuid4())
-    scan_run = ScanRun(
+    scan_run = models.ScanRun(
         id=scan_id,
         workspace_id=workspace_id,
         trigger_type=trigger_type,
         trigger_ref=trigger_ref,
-        started_at=utcnow(),
+        started_at=models.utcnow(),
         status="running",
     )
     db.add(scan_run)
@@ -1235,18 +1238,17 @@ def trigger_sentinel_scan(
 
     # Find candidate submissions in workspace (status 'Approved' or published)
     candidates = (
-        db.query(Submission)
-        .filter(Submission.workspace == workspace_id)
-        .filter(Submission.status.in_(["Approved", "published", "in_review"]))
+        db.query(models.Submission)
+        .filter(models.Submission.workspace == workspace_id)
+        .filter(models.Submission.status.in_(["Approved", "published", "in_review"]))
         .all()
     )
 
     # Active rules and active exceptions for evaluation
-    active_rules = db.query(Rule).filter(Rule.workspace == workspace_id, Rule.status == "active").all()
-    from app.models import ExceptionRequest
+    active_rules = db.query(models.Rule).filter(models.Rule.workspace == workspace_id, models.Rule.status == "active").all()
     active_exceptions = (
-        db.query(ExceptionRequest)
-        .filter(ExceptionRequest.workspace == workspace_id, ExceptionRequest.status == "Approved")
+        db.query(models.ExceptionRequest)
+        .filter(models.ExceptionRequest.workspace == workspace_id, models.ExceptionRequest.status == "Approved")
         .all()
     )
 
@@ -1288,17 +1290,17 @@ def trigger_sentinel_scan(
             top_v = new_violations[0]
             # Check for existing task to maintain idempotency
             existing = (
-                db.query(ReassessmentTask)
+                db.query(models.ReassessmentTask)
                 .filter(
-                    ReassessmentTask.submission_id == sub.id,
-                    ReassessmentTask.trigger_type == trigger_type,
-                    ReassessmentTask.trigger_ref == trigger_ref,
+                    models.ReassessmentTask.submission_id == sub.id,
+                    models.ReassessmentTask.trigger_type == trigger_type,
+                    models.ReassessmentTask.trigger_ref == trigger_ref,
                 )
                 .first()
             )
 
             if not existing:
-                task = ReassessmentTask(
+                task = models.ReassessmentTask(
                     workspace_id=workspace_id,
                     submission_id=sub.id,
                     submission_version_id=sub.current_version_id or str(sub.version),
@@ -1320,7 +1322,7 @@ def trigger_sentinel_scan(
 
                 # Add task event
                 db.add(
-                    TaskEvent(
+                    models.TaskEvent(
                         task_id=task.id,
                         kind="created",
                         actor_id="system:sentinel",
@@ -1331,7 +1333,7 @@ def trigger_sentinel_scan(
                 # Send notifications
                 if sub.creator_id:
                     db.add(
-                        Notification(
+                        models.Notification(
                             user_id=sub.creator_id,
                             type="sentinel_task_created",
                             title=f"Action Required: Policy Reassessment for '{sub.title}'",
@@ -1344,7 +1346,7 @@ def trigger_sentinel_scan(
                 tasks_created += 1
 
     scan_run.status = "completed"
-    scan_run.finished_at = utcnow()
+    scan_run.finished_at = models.utcnow()
     scan_run.stats = {
         "scanned_submissions": scanned_count,
         "tasks_created": tasks_created,

@@ -348,18 +348,42 @@ class AssetAnalysis(Base):
     __tablename__ = "asset_analysis"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
-    asset_id: Mapped[str] = mapped_column(ForeignKey("brand_assets.id", ondelete="CASCADE"), index=True)
+    workspace: Mapped[str] = mapped_column(String, default="PureGlow", server_default="PureGlow", nullable=True, index=True)
+    workspace_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    asset_id: Mapped[Optional[str]] = mapped_column(String, nullable=True, index=True)
     asset_version: Mapped[int] = mapped_column(Integer, default=1)
-    status: Mapped[str] = mapped_column(String, default="pending")  # pending | running | completed | failed
+    submission_id: Mapped[Optional[str]] = mapped_column(String, nullable=True, index=True)
+    file_path: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+
+    status: Mapped[str] = mapped_column(String, default="pending", index=True)  # pending | running | complete | completed | failed
     stage: Mapped[str] = mapped_column(String, default="queued")
-    ocr_blocks: Mapped[list] = mapped_column(JSON, default=list)
-    ocr_text: Mapped[str] = mapped_column(Text, default="")
-    colors: Mapped[list] = mapped_column(JSON, default=list)
-    logo_matches: Mapped[list] = mapped_column(JSON, default=list)
-    layout: Mapped[dict] = mapped_column(JSON, default=dict)
-    contrast: Mapped[list] = mapped_column(JSON, default=list)
-    analyzer_versions: Mapped[dict] = mapped_column(JSON, default=dict)
     error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    width: Mapped[int] = mapped_column(Integer, default=0)
+    height: Mapped[int] = mapped_column(Integer, default=0)
+
+    ocr_text: Mapped[str] = mapped_column(Text, default="")
+    ocr_blocks: Mapped[list] = mapped_column(JSON, default=list)
+    text_blocks: Mapped[list] = mapped_column(JSON, default=list)
+
+    dominant_colors: Mapped[list] = mapped_column(JSON, default=list)
+    colors: Mapped[list] = mapped_column(JSON, default=list)
+
+    logo_detections: Mapped[list] = mapped_column(JSON, default=list)
+    logo_matches: Mapped[list] = mapped_column(JSON, default=list)
+
+    layout_facts: Mapped[dict] = mapped_column(JSON, default=dict)
+    layout_metrics: Mapped[dict] = mapped_column(JSON, default=dict)
+    layout: Mapped[dict] = mapped_column(JSON, default=dict)
+
+    contrast_samples: Mapped[list] = mapped_column(JSON, default=list)
+    contrast_findings: Mapped[list] = mapped_column(JSON, default=list)
+    contrast: Mapped[list] = mapped_column(JSON, default=list)
+
+    analyzer_versions: Mapped[dict] = mapped_column(JSON, default=dict)
+    unreadable: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_by_id: Mapped[str] = mapped_column(String, default="")
+
     completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
@@ -441,6 +465,7 @@ class PassageEmbedding(Base):
     __tablename__ = "passage_embeddings"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    workspace: Mapped[str] = mapped_column(String, default="PureGlow", server_default="PureGlow", nullable=True, index=True)
     passage_id: Mapped[str] = mapped_column(ForeignKey("guideline_passages.id", ondelete="CASCADE"), index=True)
     model_name: Mapped[str] = mapped_column(String, default="bge-m3")
     dim: Mapped[int] = mapped_column(Integer, default=1024)
@@ -555,7 +580,7 @@ class Evaluation(Base):
     __tablename__ = "evaluations"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
-    submission_version_id: Mapped[str] = mapped_column(String, index=True)
+    submission_version_id: Mapped[Optional[str]] = mapped_column(String, nullable=True, index=True)
     engine_version: Mapped[str] = mapped_column(String, default="1.0.0")
     rule_set_hash: Mapped[str] = mapped_column(String, default="")
     triggered_by: Mapped[str] = mapped_column(String, default="system")
@@ -597,8 +622,13 @@ class AiFinding(Base):
     __tablename__ = "ai_findings"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
-    submission_version_id: Mapped[str] = mapped_column(String, index=True)
+    workspace: Mapped[str] = mapped_column(String, default="PureGlow", server_default="PureGlow", nullable=True, index=True)
+    submission_id: Mapped[str] = mapped_column(String, default="", index=True)
+    submission_version_id: Mapped[Optional[str]] = mapped_column(String, nullable=True, index=True)
     rule_code: Mapped[str] = mapped_column(String, default="")
+    rule_title: Mapped[str] = mapped_column(String, default="")
+    source_type: Mapped[str] = mapped_column(String, default="ai_suggestion")
+    similarity: Mapped[float] = mapped_column(Float, default=0.0)
     passage_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     quote: Mapped[str] = mapped_column(Text, default="")
     rationale: Mapped[str] = mapped_column(Text, default="")
@@ -763,8 +793,9 @@ class Publication(Base):
     __tablename__ = "publications"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    workspace: Mapped[str] = mapped_column(String, default="PureGlow", server_default="PureGlow", nullable=True, index=True)
     submission_id: Mapped[str] = mapped_column(ForeignKey("submissions.id", ondelete="CASCADE"), index=True)
-    submission_version_id: Mapped[str] = mapped_column(String, index=True)
+    submission_version_id: Mapped[Optional[str]] = mapped_column(String, nullable=True, index=True)
     channel: Mapped[str] = mapped_column(String, default="Instagram")
     published_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     published_by: Mapped[str] = mapped_column(String, default="")
@@ -777,12 +808,15 @@ class ReassessmentTask(Base):
     __tablename__ = "reassessment_tasks"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    workspace: Mapped[str] = mapped_column(String, default="PureGlow", server_default="PureGlow", nullable=True, index=True)
     workspace_id: Mapped[str] = mapped_column(String, default="PureGlow", index=True)
     submission_id: Mapped[str] = mapped_column(ForeignKey("submissions.id", ondelete="CASCADE"), index=True)
-    submission_version_id: Mapped[str] = mapped_column(String, index=True)
+    submission_version_id: Mapped[Optional[str]] = mapped_column(String, nullable=True, index=True)
     trigger_type: Mapped[str] = mapped_column(String, nullable=False)  # rule_activated | rule_edited | rule_deactivated | exception_expired | exception_revoked | guideline_replaced | claim_changed | manual_scan
     trigger_ref: Mapped[str] = mapped_column(String, default="")
     trigger_hash: Mapped[str] = mapped_column(String, default="")
+    reason: Mapped[str] = mapped_column(Text, default="")
+    affected_rule_codes: Mapped[list] = mapped_column(JSON, default=list)
     assignee_id: Mapped[Optional[str]] = mapped_column(String, nullable=True, index=True)
     priority: Mapped[str] = mapped_column(String, default="High")
     status: Mapped[str] = mapped_column(String, default="open")  # open | in_progress | resolution_submitted | reassessing | awaiting_verification | resolved | closed
@@ -790,8 +824,11 @@ class ReassessmentTask(Base):
     previous_outcome: Mapped[str] = mapped_column(String, default="compliant")
     new_outcome: Mapped[str] = mapped_column(String, default="violation")
     recommended_steps: Mapped[list] = mapped_column(JSON, default=list)
-    resolution: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    resolution: Mapped[Optional[Any]] = mapped_column(JSON, nullable=True)
+    resolution_note: Mapped[str] = mapped_column(Text, default="")
     resolved_version_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    resolved_by_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    resolved_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
 
@@ -826,12 +863,14 @@ class Notification(Base):
     __tablename__ = "notifications"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    workspace: Mapped[str] = mapped_column(String, default="PureGlow", server_default="PureGlow", nullable=True, index=True)
+    workspace_id: Mapped[Optional[str]] = mapped_column(String, nullable=True, index=True)
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     type: Mapped[str] = mapped_column(String, default="system")  # submission_approved | changes_requested | submission_rejected | comment_added | exception_decided | exception_expiring | exception_revoked | guideline_activated | rule_activated | sentinel_task_created | sentinel_task_verified | system
     title: Mapped[str] = mapped_column(String, nullable=False)
     body: Mapped[str] = mapped_column(Text, default="")
     payload: Mapped[dict] = mapped_column(JSON, default=dict)
-    idempotency_key: Mapped[str] = mapped_column(String, default="")
+    idempotency_key: Mapped[Optional[str]] = mapped_column(String, nullable=True, default=None)
     read_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
@@ -875,7 +914,7 @@ class SimulationItem(Base):
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
     simulation_id: Mapped[str] = mapped_column(ForeignKey("simulations.id", ondelete="CASCADE"), index=True)
-    submission_version_id: Mapped[str] = mapped_column(String, index=True)
+    submission_version_id: Mapped[Optional[str]] = mapped_column(String, nullable=True, index=True)
     previous_outcome: Mapped[str] = mapped_column(String, default="compliant")
     proposed_outcome: Mapped[str] = mapped_column(String, default="violation")
     impact_reason: Mapped[str] = mapped_column(Text, default="")
@@ -909,6 +948,7 @@ class AiCallLog(Base):
     __tablename__ = "ai_call_log"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    workspace: Mapped[str] = mapped_column(String, default="PureGlow", server_default="PureGlow", nullable=True, index=True)
     purpose: Mapped[str] = mapped_column(String, default="review")
     provider: Mapped[str] = mapped_column(String, default="openai")
     model: Mapped[str] = mapped_column(String, default="gpt-4o-mini")
@@ -918,6 +958,12 @@ class AiCallLog(Base):
     tokens_out: Mapped[int] = mapped_column(Integer, default=0)
     status: Mapped[str] = mapped_column(String, default="success")  # success | error | fallback
     error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    citations_verified: Mapped[int] = mapped_column(Integer, default=0)
+    citations_rejected: Mapped[int] = mapped_column(Integer, default=0)
+    redaction_count: Mapped[int] = mapped_column(Integer, default=0)
+    citations_verified: Mapped[int] = mapped_column(Integer, default=0)
+    citations_rejected: Mapped[int] = mapped_column(Integer, default=0)
+    redaction_count: Mapped[int] = mapped_column(Integer, default=0)
     redacted_pii_count: Mapped[int] = mapped_column(Integer, default=0)
     request_id: Mapped[str] = mapped_column(String, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
@@ -927,7 +973,7 @@ class AgentRun(Base):
     __tablename__ = "agent_runs"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
-    submission_version_id: Mapped[str] = mapped_column(String, index=True)
+    submission_version_id: Mapped[Optional[str]] = mapped_column(String, nullable=True, index=True)
     status: Mapped[str] = mapped_column(String, default="running")  # running | succeeded | failed
     started_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     finished_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)

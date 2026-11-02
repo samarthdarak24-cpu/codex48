@@ -248,4 +248,3 @@ def log_ai_interaction(
     )
     db.add(entry)
     db.commit()
-

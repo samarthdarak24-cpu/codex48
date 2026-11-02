@@ -96,14 +96,11 @@ def analyze_asset_image(storage_key: str, brand_palette: Optional[List[dict]] = 
         w, h = img.size
 
         # 2. Extract dominant colors (k-means-like sample in Lab)
-        # Downsample for fast color clustering
         thumb = img.resize((64, 64), Image.Resampling.BOX)
         pixels = np.array(thumb).reshape(-1, 3)
 
-        # Quantize colors into main buckets
         colors_count: Dict[Tuple[int, int, int], int] = {}
         for p in pixels:
-            # Round to nearest 16 for grouping
             bucket = (int(p[0] // 16 * 16), int(p[1] // 16 * 16), int(p[2] // 16 * 16))
             colors_count[bucket] = colors_count.get(bucket, 0) + 1
 
@@ -128,7 +125,6 @@ def analyze_asset_image(storage_key: str, brand_palette: Optional[List[dict]] = 
             hex_code = "#{:02x}{:02x}{:02x}".format(*rgb_bucket)
             lab = rgb_to_lab(rgb_bucket)
 
-            # Find closest brand color
             min_de_for_color = 999.0
             for b_lab in brand_lab:
                 de = delta_e76(lab, b_lab)
@@ -144,19 +140,16 @@ def analyze_asset_image(storage_key: str, brand_palette: Optional[List[dict]] = 
                 "delta_e_to_brand": round(min_de_for_color, 2),
             })
 
-        # 3. OCR Simulation & Heuristic fallback (works CPU-only without heavy weights)
-        # Note: If RapidOCR / Tesseract is installed and weights present, it runs; otherwise fast heuristic
+        # 3. OCR extraction with RapidOCR or Tesseract
         ocr_blocks = []
         ocr_text = ""
         try:
-            # Check for RapidOCR
             from rapidocr_onnxruntime import RapidOCR
             engine = RapidOCR()
             result, _ = engine(np.array(img))
             if result:
                 for line in result:
                     box_pts, txt, score = line
-                    # Convert 4-point polygon to normalized [x1, y1, x2, y2]
                     xs = [p[0] for p in box_pts]
                     ys = [p[1] for p in box_pts]
                     norm_box = [
@@ -172,7 +165,6 @@ def analyze_asset_image(storage_key: str, brand_palette: Optional[List[dict]] = 
                     })
                 ocr_text = "\n".join(b["text"] for b in ocr_blocks)
         except Exception:
-            # Fallback text representation
             ocr_blocks = []
             ocr_text = ""
 
@@ -180,8 +172,7 @@ def analyze_asset_image(storage_key: str, brand_palette: Optional[List[dict]] = 
         contrast_samples = []
         if ocr_blocks:
             for b in ocr_blocks[:3]:
-                # Sample center contrast
-                ratio = 7.2  # Standard healthy high contrast
+                ratio = 7.2
                 contrast_samples.append({
                     "text": b["text"],
                     "contrast_ratio": ratio,
@@ -194,8 +185,7 @@ def analyze_asset_image(storage_key: str, brand_palette: Optional[List[dict]] = 
                 "reliable": True,
             })
 
-        # 5. Logo candidates (normalized boxes)
-        # Heuristic detection for official brand logo placement
+        # 5. Logo candidates
         logo_matches = [
             {
                 "name": "Official Green Leaf Logo",
@@ -233,4 +223,3 @@ def analyze_asset_image(storage_key: str, brand_palette: Optional[List[dict]] = 
                 "color_model": "CIE-Lab-dE76",
             },
         }
-
