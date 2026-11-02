@@ -5,6 +5,13 @@ dist-ssr
 *.local
 *.log
 
+# Throwaway verification builds (never committed)
+.tmp_build*/
+.tmp_shots/
+.tmp_*.json
+.tmp_*.png
+.tmp_*.mjs
+
 # Editor
 .vscode/*
 !.vscode/extensions.json

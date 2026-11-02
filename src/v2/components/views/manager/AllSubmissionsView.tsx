@@ -49,26 +49,42 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => (
 
 const scoreTone = (score: number): Tone => (score >= 90 ? 'sage' : score >= 70 ? 'amber' : 'danger');
 
+/* 40px gives the number room inside a 28px inner diameter, and the track uses
+   `line` (#E7E1D3) rather than `line-soft` so the ring reads at a glance. */
 const ScoreRing: React.FC<{ score: number }> = ({ score }) => {
-  const r = 14;
+  const size = 40;
+  const r = 16;
   const circ = 2 * Math.PI * r;
-  const stroke = score >= 90 ? '#7A9064' : score >= 70 ? '#DDA22B' : '#C25446';
+  const clamped = Math.max(0, Math.min(100, score));
+  const stroke = clamped >= 90 ? '#7A9064' : clamped >= 70 ? '#DDA22B' : '#C25446';
   return (
-    <div className="relative flex h-9 w-9 items-center justify-center">
-      <svg className="absolute -rotate-90" width="36" height="36" viewBox="0 0 36 36" aria-hidden="true">
-        <circle cx="18" cy="18" r={r} fill="none" stroke="#F0EBDF" strokeWidth="3" />
+    <div
+      className="relative flex h-10 w-10 shrink-0 items-center justify-center"
+      title={`Compliance score ${clamped}%`}
+    >
+      <svg
+        className="absolute -rotate-90"
+        width={size}
+        height={size}
+        viewBox={`0 0 ${size} ${size}`}
+        aria-hidden="true"
+      >
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#E7E1D3" strokeWidth="3.5" />
         <circle
-          cx="18"
-          cy="18"
+          cx={size / 2}
+          cy={size / 2}
           r={r}
           fill="none"
           stroke={stroke}
-          strokeWidth="3"
-          strokeDasharray={`${(Math.max(0, Math.min(100, score)) / 100) * circ} ${circ}`}
+          strokeWidth="3.5"
+          strokeDasharray={`${(clamped / 100) * circ} ${circ}`}
           strokeLinecap="round"
         />
       </svg>
-      <span className="relative z-10 text-[9px] font-semibold tabular-nums text-ink">{score}%</span>
+      <span className="relative z-10 text-[10px] font-semibold leading-none tabular-nums text-ink">
+        {clamped}
+        <span className="text-[8px] font-medium text-muted">%</span>
+      </span>
     </div>
   );
 };
