@@ -12,7 +12,10 @@ export type ManagerPage =
   | 'sentinel'
   | 'asset-library'
   | 'analytics'
-  | 'audit-history';
+  | 'audit-history'
+  | 'agent-studio'
+  | 'my-agents'
+  | 'agent-executions';
 
 export type CreatorPage =
   | 'creator-dashboard'
@@ -27,7 +30,8 @@ export type CreatorPage =
   | 'creator-tasks'
   | 'notifications'
   | 'approved-content'
-  | 'profile';
+  | 'profile'
+  | 'my-assistants';
 
 export type PageId = ManagerPage | CreatorPage;
 

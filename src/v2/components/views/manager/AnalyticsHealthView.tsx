@@ -12,9 +12,10 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../../context/AppContext';
 import {
-  AnimatedCard, AnimatedCounter, AnimatedProgress, AnimatedTabs, BarSeries, ChartContainer,
+  AnimatedCard, AnimatedCounter, AnimatedProgress, AnimatedTabs, ChartContainer,
   PageTransition, RingProgress, Sparkline, Stagger, StaggerItem,
 } from '../../motion';
+import { StatusDonut, TrendArea, VolumeBars } from '../../ui/charts';
 
 /* ------------------------------------------------------------------ */
 /* Helpers                                                             */
@@ -33,40 +34,17 @@ const EmptyPanel: React.FC<{ title: string; description: string }> = ({ title, d
   </div>
 );
 
-const TrendLine: React.FC<{ points: { date: string; score: number }[] }> = ({ points }) => {
-  const W = 640;
-  const H = 160;
-  const PAD = 12;
-  const y = (score: number) => H - PAD - (Math.max(0, Math.min(100, score)) / 100) * (H - PAD * 2);
-  const x = (i: number) => (points.length <= 1 ? W / 2 : (i / (points.length - 1)) * W);
-  const line = points.map((p, i) => `${x(i).toFixed(1)},${y(p.score).toFixed(1)}`).join(' L');
-
-  return (
-    <div>
-      <svg
-        viewBox={`0 0 ${W} ${H}`}
-        preserveAspectRatio="none"
-        className="h-[170px] w-full"
-        role="img"
-        aria-label={`Compliance score across ${points.length} buckets`}
-      >
-        {[0, 25, 50, 75, 100].map((v) => (
-          <line key={v} x1="0" x2={W} y1={y(v)} y2={y(v)} stroke="#F0EBDF" strokeWidth="1" />
-        ))}
-        <line x1="0" x2={W} y1={y(90)} y2={y(90)} stroke="#DAD2C0" strokeWidth="1.5" strokeDasharray="4 4" />
-        <path d={`M${line} L${W},${H} L0,${H} Z`} fill="#4E7A3D" fillOpacity="0.07" />
-        <path d={`M${line}`} fill="none" stroke="#4E7A3D" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-        {points.map((p, i) => (
-          <circle key={`${p.date}-${i}`} cx={x(i)} cy={y(p.score)} r="2.6" fill="#4E7A3D" />
-        ))}
-      </svg>
-      <div className="mt-2 flex items-center justify-between text-2xs text-muted">
-        <span>{shortDate(points[0].date)}</span>
-        <span className="text-muted-light">Dashed line = 90% target</span>
-        <span>{shortDate(points[points.length - 1].date)}</span>
-      </div>
-    </div>
-  );
+/** Status strings come straight from the DB, so unknown keys still get a slot. */
+const STATUS_TONE: Record<string, 'sage' | 'brand' | 'amber' | 'danger' | 'olive'> = {
+  Approved: 'sage',
+  'In Review': 'brand',
+  'Ready for Approval': 'brand',
+  'Changes Requested': 'amber',
+  'Needs Changes': 'amber',
+  Declined: 'danger',
+  Rejected: 'danger',
+  Pending: 'olive',
+  Draft: 'olive',
 };
 
 /* ------------------------------------------------------------------ */
@@ -156,6 +134,10 @@ export const AnalyticsHealthView: React.FC = () => {
   const exceptionTotal = exceptionEntries.reduce((n, [, v]) => n + v, 0);
   const avgHours = reviewPerformance.avgReviewHours;
   const scoreSeries = points.map((p) => p.score);
+  const statusSlices = Object.entries(analytics.statusBreakdown)
+    .filter(([, v]) => v > 0)
+    .map(([name, value]) => ({ name, value, tone: STATUS_TONE[name] ?? 'olive' }));
+  const statusTotal = statusSlices.reduce((n, s) => n + s.value, 0);
 
   return (
     <PageTransition className="p-4 sm:p-6">
@@ -288,7 +270,11 @@ export const AnalyticsHealthView: React.FC = () => {
             }
           >
             {points.length >= 2 ? (
-              <TrendLine points={points} />
+              <TrendArea
+                data={points.map((p) => ({ label: shortDate(p.date), score: p.score }))}
+                height={196}
+                ariaLabel={`Compliance score across ${points.length} ${analyticsTrends?.bucket ?? 'day'} buckets`}
+              />
             ) : (
               <EmptyPanel
                 title="No trend data yet"
@@ -334,8 +320,8 @@ export const AnalyticsHealthView: React.FC = () => {
           </AnimatedCard>
         </div>
 
-        {/* Volume + categories */}
-        <div className="grid gap-4 lg:grid-cols-2">
+        {/* Volume + categories + status mix */}
+        <div className="grid gap-4 lg:grid-cols-3">
           <ChartContainer
             title="Submission volume"
             subtitle={
@@ -345,11 +331,12 @@ export const AnalyticsHealthView: React.FC = () => {
             }
           >
             {points.length > 0 ? (
-              <BarSeries
+              <VolumeBars
                 data={points.map((p) => ({ label: shortDate(p.date), value: p.submissions }))}
-                height={150}
+                height={158}
                 tone="brand"
-                formatValue={(v) => `${v} submissions`}
+                unit=" subs"
+                ariaLabel={`Submissions per ${analyticsTrends?.bucket ?? 'day'}`}
               />
             ) : (
               <EmptyPanel
@@ -371,11 +358,15 @@ export const AnalyticsHealthView: React.FC = () => {
           >
             {analytics.findingsByCategory.length > 0 ? (
               <div className="space-y-4">
-                <BarSeries
-                  data={analytics.findingsByCategory.map((c) => ({ label: c.category, value: c.count }))}
-                  height={140}
+                <VolumeBars
+                  data={analytics.findingsByCategory.map((c) => ({
+                    label: c.category,
+                    value: c.count,
+                  }))}
+                  height={146}
                   tone="terracotta"
-                  formatValue={(v) => `${v} findings`}
+                  unit=" findings"
+                  ariaLabel="Findings by category"
                 />
                 <ul className="space-y-1.5">
                   {analytics.findingsByCategory.map((c) => (
@@ -393,6 +384,60 @@ export const AnalyticsHealthView: React.FC = () => {
               <EmptyPanel
                 title="No findings recorded"
                 description="Categories appear once the rule engine has raised at least one finding."
+              />
+            )}
+          </ChartContainer>
+
+          <ChartContainer
+            title="Status mix"
+            subtitle={
+              statusTotal > 0
+                ? `${statusTotal} submissions by stored status`
+                : 'No submissions in range'
+            }
+          >
+            {statusSlices.length > 0 ? (
+              <div>
+                <StatusDonut
+                  data={statusSlices}
+                  height={158}
+                  centerLabel={statusTotal}
+                  centerSublabel="submissions"
+                  ariaLabel="Submissions grouped by stored status"
+                />
+                <ul className="mt-3 space-y-1.5">
+                  {statusSlices.map((slice) => (
+                    <li key={slice.name} className="flex items-center gap-2 text-2xs">
+                      <span
+                        className="h-1.5 w-1.5 shrink-0 rounded-full"
+                        style={{
+                          backgroundColor:
+                            slice.tone === 'sage'
+                              ? '#7A9064'
+                              : slice.tone === 'brand'
+                                ? '#4E7A3D'
+                                : slice.tone === 'amber'
+                                  ? '#DDA22B'
+                                  : slice.tone === 'danger'
+                                    ? '#C25446'
+                                    : '#6B7350',
+                        }}
+                      />
+                      <span className="min-w-0 flex-1 truncate text-ink-600">{slice.name}</span>
+                      <span className="shrink-0 tabular-nums text-muted">
+                        {slice.value}
+                        <span className="ml-1 text-muted-light">
+                          {statusTotal > 0 ? `${Math.round((slice.value / statusTotal) * 100)}%` : ''}
+                        </span>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              <EmptyPanel
+                title="No submissions in range"
+                description="The mix is counted from stored submission rows, so an empty range stays empty."
               />
             )}
           </ChartContainer>

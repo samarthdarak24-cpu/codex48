@@ -7,22 +7,22 @@
  */
 import React, { useMemo, useState } from 'react';
 import {
-  AlertTriangle, ArrowRight, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight,
-  Clock, Download, FileText, Lock, Search, X,
+  AlertTriangle, ArrowRight, CheckCircle2, ChevronDown, Clock, Download, FileText, Lock,
+  Search, X,
 } from 'lucide-react';
 import { useApp } from '../../../context/AppContext';
 import { api } from '@/services/api';
 import type { Submission, SubmissionStatus } from '../../../types';
 import {
-  AnimatedCard, AnimatedCounter, AnimatedDrawer, BarSeries, ChartContainer, FilterPills,
+  AnimatedCard, AnimatedCounter, AnimatedDrawer, ChartContainer, FilterPills,
   PageTransition, SectionHeader, Stagger, StaggerItem, type Tone,
 } from '../../motion';
+import { DataTable, type DataTableColumn } from '../../ui/DataTable';
+import { VolumeBars } from '../../ui/charts';
 
 /* ------------------------------------------------------------------ */
 /* Helpers                                                             */
 /* ------------------------------------------------------------------ */
-
-const PAGE_SIZE = 8;
 
 const STATUS_CLASS: Record<string, string> = {
   Approved: 'badge-approved',
@@ -82,7 +82,6 @@ const timestampOf = (s: Submission): number => {
 
 const typeOf = (s: Submission): string => (s.type ?? s.assetType ?? '').toString().toLowerCase();
 
-type SortKey = 'newest' | 'oldest' | 'score';
 type StatusFilter = 'All' | 'Approved' | 'Pending' | 'Needs Changes' | 'Rejected';
 type TypeFilter = 'All' | 'image' | 'video' | 'text' | 'social';
 
@@ -99,8 +98,6 @@ export const AllSubmissionsView: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('All');
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('All');
   const [query, setQuery] = useState(searchQuery);
-  const [sortKey, setSortKey] = useState<SortKey>('newest');
-  const [currentPage, setCurrentPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [drawerSub, setDrawerSub] = useState<Submission | null>(null);
 
@@ -109,32 +106,106 @@ export const AllSubmissionsView: React.FC = () => {
   const needsChangesCount = submissions.filter((s) => s.status === 'Needs Changes').length;
   const rejectedCount = submissions.filter((s) => s.status === 'Rejected').length;
 
+  /* Status and type are categorical, so they pre-filter the rows we hand to
+     TanStack; free-text search and column sorting stay inside the table. */
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    const list = submissions.filter((sub) => {
+    return submissions.filter((sub) => {
       if (statusFilter === 'Approved' && sub.status !== 'Approved') return false;
       if (statusFilter === 'Pending' && sub.status !== 'In Review' && sub.status !== 'Pending') return false;
       if (statusFilter === 'Needs Changes' && sub.status !== 'Needs Changes') return false;
       if (statusFilter === 'Rejected' && sub.status !== 'Rejected') return false;
       if (typeFilter !== 'All' && typeOf(sub) !== typeFilter) return false;
-      if (!q) return true;
-      return (
-        sub.title.toLowerCase().includes(q) ||
-        sub.campaign.toLowerCase().includes(q) ||
-        sub.creator.name.toLowerCase().includes(q)
-      );
+      return true;
     });
+  }, [submissions, statusFilter, typeFilter]);
 
-    return [...list].sort((a, b) => {
-      if (sortKey === 'score') return b.complianceScore - a.complianceScore;
-      if (sortKey === 'oldest') return timestampOf(a) - timestampOf(b);
-      return timestampOf(b) - timestampOf(a);
-    });
-  }, [submissions, statusFilter, typeFilter, query, sortKey]);
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const safePage = Math.min(currentPage, totalPages);
-  const paginated = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const columns = useMemo<DataTableColumn<Submission>[]>(
+    () => [
+      {
+        id: 'title',
+        header: 'Submission',
+        accessor: (sub) => sub.title,
+        cell: (sub) => (
+          <div className="flex items-center gap-2.5">
+            <img
+              src={sub.thumbnail}
+              alt=""
+              className="h-10 w-10 shrink-0 rounded-lg border border-line object-cover"
+            />
+            <div className="min-w-0">
+              <p className="truncate text-xs font-semibold text-ink">{sub.title}</p>
+              <p className="text-2xs text-muted-light">{sub.version ?? 'v1.0'}</p>
+            </div>
+          </div>
+        ),
+      },
+      {
+        id: 'campaign',
+        header: 'Campaign',
+        accessor: (sub) => sub.campaign,
+        cell: (sub) => (
+          <span className="line-clamp-2 text-xs font-medium text-brand-700">{sub.campaign}</span>
+        ),
+      },
+      {
+        id: 'creator',
+        header: 'Creator',
+        accessor: (sub) => sub.creator.name,
+        cell: (sub) => (
+          <div className="flex items-center gap-2">
+            <img src={sub.creator.avatar} alt="" className="h-6 w-6 rounded-full object-cover" />
+            <span className="truncate text-xs text-ink-700">{sub.creator.name}</span>
+          </div>
+        ),
+      },
+      {
+        id: 'status',
+        header: 'Status',
+        accessor: (sub) => sub.status,
+        cell: (sub) => <StatusBadge status={sub.status} />,
+      },
+      {
+        id: 'score',
+        header: 'Score',
+        accessor: (sub) => sub.complianceScore,
+        align: 'right',
+        width: '90px',
+        cell: (sub) => <ScoreRing score={sub.complianceScore} />,
+      },
+      {
+        id: 'submitted',
+        header: 'Submitted',
+        accessor: (sub) => timestampOf(sub),
+        cell: (sub) => (
+          <span className="whitespace-nowrap text-xs text-muted">
+            {sub.submittedDate ?? sub.submittedAt ?? '—'}
+          </span>
+        ),
+      },
+      {
+        id: 'actions',
+        header: 'Actions',
+        sortable: false,
+        canHide: false,
+        align: 'right',
+        width: '64px',
+        cell: (sub) => (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setSelectedSubmission(sub);
+              setActivePage('review-queue');
+            }}
+            aria-label={`Review ${sub.title}`}
+            className="rounded-lg p-1.5 text-muted transition-colors hover:bg-brand-50 hover:text-brand-700"
+          >
+            <ArrowRight className="h-4 w-4" />
+          </button>
+        ),
+      },
+    ],
+    [setActivePage, setSelectedSubmission],
+  );
 
   const campaignBars = useMemo(() => {
     const map = new Map<string, number>();
@@ -144,14 +215,6 @@ export const AllSubmissionsView: React.FC = () => {
       .slice(0, 6)
       .map(([label, value]) => ({ label, value }));
   }, [submissions]);
-
-  const toggleSelectAll = () =>
-    setSelectedIds(
-      selectedIds.length === paginated.length && paginated.length > 0 ? [] : paginated.map((s) => s.id),
-    );
-
-  const toggleSelect = (id: string) =>
-    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
 
   const openDrawer = (sub: Submission) => {
     setSelectedSubmission(sub);
@@ -224,9 +287,6 @@ export const AllSubmissionsView: React.FC = () => {
     Rejected: rejectedCount,
   };
 
-  const firstShown = filtered.length === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1;
-  const lastShown = Math.min(safePage * PAGE_SIZE, filtered.length);
-
   return (
     <PageTransition className="p-4 sm:p-6">
       <div className="mx-auto max-w-[1500px] space-y-4">
@@ -290,7 +350,6 @@ export const AllSubmissionsView: React.FC = () => {
               onChange={(sel) => {
                 const next = sel.filter((id) => id !== statusFilter);
                 setStatusFilter((next[next.length - 1] as typeof statusFilter) ?? 'All');
-                setCurrentPage(1);
               }}
             />
           </div>
@@ -300,10 +359,7 @@ export const AllSubmissionsView: React.FC = () => {
               <Search className="pointer-events-none absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-light" />
               <input
                 value={query}
-                onChange={(e) => {
-                  setQuery(e.target.value);
-                  setCurrentPage(1);
-                }}
+                onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search title, campaign, creator…"
                 aria-label="Search submissions"
                 className="w-full rounded-xl border border-line bg-white py-1.5 pl-8 pr-8 text-xs text-ink focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-300/40 sm:w-64"
@@ -322,10 +378,7 @@ export const AllSubmissionsView: React.FC = () => {
             <div className="relative">
               <select
                 value={typeFilter}
-                onChange={(e) => {
-                  setTypeFilter(e.target.value as TypeFilter);
-                  setCurrentPage(1);
-                }}
+                onChange={(e) => setTypeFilter(e.target.value as TypeFilter)}
                 aria-label="Filter by content type"
                 className="appearance-none rounded-xl border border-line bg-white py-1.5 pl-3 pr-8 text-xs font-medium text-ink focus:outline-none focus:ring-2 focus:ring-brand-300/40"
               >
@@ -337,175 +390,33 @@ export const AllSubmissionsView: React.FC = () => {
               </select>
               <ChevronDown className="pointer-events-none absolute right-2.5 top-2.5 h-3.5 w-3.5 text-muted-light" />
             </div>
-
-            <div className="relative">
-              <select
-                value={sortKey}
-                onChange={(e) => setSortKey(e.target.value as SortKey)}
-                aria-label="Sort submissions"
-                className="appearance-none rounded-xl border border-line bg-white py-1.5 pl-3 pr-8 text-xs font-medium text-ink focus:outline-none focus:ring-2 focus:ring-brand-300/40"
-              >
-                <option value="newest">Newest first</option>
-                <option value="oldest">Oldest first</option>
-                <option value="score">Highest score</option>
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-2.5 top-2.5 h-3.5 w-3.5 text-muted-light" />
-            </div>
           </div>
         </div>
 
         {/* Table */}
-        <div className="overflow-hidden rounded-2xl border border-line bg-white shadow-card">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[860px] text-left">
-              <thead>
-                <tr className="border-b border-line bg-cream-50">
-                  <th scope="col" className="w-9 px-3 py-3">
-                    <input
-                      type="checkbox"
-                      aria-label="Select all submissions on this page"
-                      checked={selectedIds.length === paginated.length && paginated.length > 0}
-                      onChange={toggleSelectAll}
-                      className="rounded border-line"
-                    />
-                  </th>
-                  <th scope="col" className="px-3 py-3 text-2xs font-semibold uppercase tracking-[0.06em] text-muted">Submission</th>
-                  <th scope="col" className="px-3 py-3 text-2xs font-semibold uppercase tracking-[0.06em] text-muted">Campaign</th>
-                  <th scope="col" className="px-3 py-3 text-2xs font-semibold uppercase tracking-[0.06em] text-muted">Creator</th>
-                  <th scope="col" className="px-3 py-3 text-2xs font-semibold uppercase tracking-[0.06em] text-muted">Status</th>
-                  <th scope="col" className="px-3 py-3 text-2xs font-semibold uppercase tracking-[0.06em] text-muted">Score</th>
-                  <th scope="col" className="px-3 py-3 text-2xs font-semibold uppercase tracking-[0.06em] text-muted">Submitted</th>
-                  <th scope="col" className="px-3 py-3 text-2xs font-semibold uppercase tracking-[0.06em] text-muted">
-                    <span className="sr-only">Actions</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-line-soft">
-                {paginated.length === 0 && (
-                  <tr>
-                    <td colSpan={8} className="px-4 py-14 text-center">
-                      <FileText className="mx-auto h-6 w-6 text-muted-light" />
-                      <p className="mt-2 text-sm font-medium text-ink-600">No submissions match these filters</p>
-                      <p className="mt-0.5 text-2xs text-muted">
-                        {submissions.length === 0
-                          ? 'Nothing has been submitted to this workspace yet.'
-                          : 'Try clearing the search or choosing a different status.'}
-                      </p>
-                    </td>
-                  </tr>
-                )}
-                {paginated.map((sub) => (
-                  <tr
-                    key={sub.id}
-                    tabIndex={0}
-                    onClick={() => openDrawer(sub)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        openDrawer(sub);
-                      }
-                    }}
-                    className="cursor-pointer transition-colors hover:bg-cream-50 focus-visible:bg-cream-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-300"
-                  >
-                    <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
-                      <input
-                        type="checkbox"
-                        aria-label={`Select ${sub.title}`}
-                        checked={selectedIds.includes(sub.id)}
-                        onChange={() => toggleSelect(sub.id)}
-                        className="rounded border-line"
-                      />
-                    </td>
-                    <td className="px-3 py-3">
-                      <div className="flex items-center gap-2.5">
-                        <img
-                          src={sub.thumbnail}
-                          alt=""
-                          className="h-10 w-10 shrink-0 rounded-lg border border-line object-cover"
-                        />
-                        <div className="min-w-0">
-                          <p className="truncate text-xs font-semibold text-ink">{sub.title}</p>
-                          <p className="text-2xs text-muted-light">{sub.version ?? 'v1.0'}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-3 py-3 text-xs font-medium text-brand-700">
-                      <span className="line-clamp-2">{sub.campaign}</span>
-                    </td>
-                    <td className="px-3 py-3">
-                      <div className="flex items-center gap-2">
-                        <img src={sub.creator.avatar} alt="" className="h-6 w-6 rounded-full object-cover" />
-                        <span className="truncate text-xs text-ink-700">{sub.creator.name}</span>
-                      </div>
-                    </td>
-                    <td className="px-3 py-3"><StatusBadge status={sub.status} /></td>
-                    <td className="px-3 py-3"><ScoreRing score={sub.complianceScore} /></td>
-                    <td className="whitespace-nowrap px-3 py-3 text-xs text-muted">
-                      {sub.submittedDate ?? sub.submittedAt ?? '—'}
-                    </td>
-                    <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        onClick={() => {
-                          setSelectedSubmission(sub);
-                          setActivePage('review-queue');
-                        }}
-                        aria-label={`Review ${sub.title}`}
-                        className="rounded-lg p-1.5 text-muted transition-colors hover:bg-brand-50 hover:text-brand-700"
-                      >
-                        <ArrowRight className="h-4 w-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+        <DataTable
+          data={filtered}
+          columns={columns}
+          getRowId={(sub) => sub.id}
+          globalFilter={query}
+          onGlobalFilterChange={setQuery}
+          selectable
+          selectedIds={selectedIds}
+          onSelectionChange={setSelectedIds}
+          onRowClick={openDrawer}
+          initialSort={[{ id: 'submitted', desc: true }]}
+          pageSize={10}
+          minWidth="880px"
+          emptyTitle="No submissions match these filters"
+          emptyDescription={
+            submissions.length === 0
+              ? 'Nothing has been submitted to this workspace yet.'
+              : 'Try clearing the search or choosing a different status.'
+          }
+          emptyIcon={<FileText className="h-6 w-6 text-muted-light" />}
+          footnote="Sort any column by clicking its header. Status and score are the stored values returned by the API."
+        />
 
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-4 py-3">
-            <p className="text-2xs text-muted">
-              Showing {firstShown}–{lastShown} of {filtered.length} submissions
-              {selectedIds.length > 0 && ` · ${selectedIds.length} selected`}
-            </p>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => setCurrentPage(Math.max(1, safePage - 1))}
-                disabled={safePage === 1}
-                aria-label="Previous page"
-                className="rounded-lg border border-line p-1.5 text-muted transition-colors hover:bg-cream-50 disabled:opacity-40"
-              >
-                <ChevronLeft className="h-3.5 w-3.5" />
-              </button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1)
-                .filter((p) => Math.abs(p - safePage) < 3 || p === 1 || p === totalPages)
-                .map((p, idx, arr) => (
-                  <React.Fragment key={p}>
-                    {idx > 0 && p - arr[idx - 1] > 1 && (
-                      <span className="px-1 text-2xs text-muted-light">…</span>
-                    )}
-                    <button
-                      onClick={() => setCurrentPage(p)}
-                      aria-current={p === safePage ? 'page' : undefined}
-                      className={`h-7 w-7 rounded-lg text-xs font-semibold transition-colors ${
-                        p === safePage
-                          ? 'bg-brand-600 text-white'
-                          : 'border border-line text-muted hover:bg-cream-50'
-                      }`}
-                    >
-                      {p}
-                    </button>
-                  </React.Fragment>
-                ))}
-              <button
-                onClick={() => setCurrentPage(Math.min(totalPages, safePage + 1))}
-                disabled={safePage === totalPages}
-                aria-label="Next page"
-                className="rounded-lg border border-line p-1.5 text-muted transition-colors hover:bg-cream-50 disabled:opacity-40"
-              >
-                <ChevronRight className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          </div>
-        </div>
 
         {/* Campaign distribution — real counts */}
         <ChartContainer
@@ -517,7 +428,7 @@ export const AllSubmissionsView: React.FC = () => {
           }
         >
           {campaignBars.length > 0 ? (
-            <BarSeries data={campaignBars} height={130} tone="brand" formatValue={(v) => `${v}`} />
+            <VolumeBars data={campaignBars} height={150} tone="brand" unit=" subs" ariaLabel="Submissions by campaign" />
           ) : (
             <p className="rounded-xl border border-dashed border-line bg-cream-50 px-4 py-8 text-center text-2xs text-muted">
               Campaign distribution appears once submissions exist.

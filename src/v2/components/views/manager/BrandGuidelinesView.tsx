@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   BookOpen, Layers, Clock, Archive, Eye, Download, FileText, Calendar, User, Tag,
   Upload, X, FolderOpen, Library, ShieldAlert, AlertCircle, FileUp, Search,
@@ -7,6 +7,8 @@ import {
 import { useApp } from '../../../context/AppContext';
 import { api } from '@/services/api';
 import type { Guideline } from '../../../types';
+import { FileDrop } from '../../ui/FileDrop';
+import { PdfPreview } from '../../ui/PdfPreview';
 import {
   AnimatedCounter, AnimatedCard, AnimatedDrawer, AnimatedModal, FilterPills, Reveal,
   SkeletonCard, SuccessCheck,
@@ -96,9 +98,7 @@ export const BrandGuidelinesView: React.FC = () => {
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
-  const [dragging, setDragging] = useState(false);
   const [notice, setNotice] = useState('');
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const activeCount = guidelines.filter((g) => g.status === 'Active').length;
   const draftCount = guidelines.filter((g) => g.status === 'Draft').length;
@@ -477,9 +477,12 @@ export const BrandGuidelinesView: React.FC = () => {
       >
         {activeGuide && (
           <div className="space-y-5">
-            <div className="overflow-hidden rounded-2xl border border-line">
-              <img src={activeGuide.thumbnail} alt="" className="h-40 w-full object-cover" />
-            </div>
+            <PdfPreview
+              resetKey={activeGuide.id}
+              load={() => api.fetchGuidelineBlobUrl(activeGuide.id)}
+              height={380}
+              emptyLabel="This record has no stored PDF, so only its metadata is shown."
+            />
 
             <div>
               <div className="flex items-start justify-between gap-2">
@@ -622,53 +625,25 @@ export const BrandGuidelinesView: React.FC = () => {
             <p className="mb-1 text-xs font-semibold text-ink-700">
               File <span className="text-danger-600">*</span>
             </p>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".pdf,.docx,.doc"
-              className="hidden"
-              onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
+            <FileDrop
+              onFile={setUploadFile}
+              accept={{
+                'application/pdf': ['.pdf'],
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+                'application/msword': ['.doc'],
+              }}
+              maxSize={25 * 1024 * 1024}
+              title={uploadFile ? 'Drop a replacement file' : 'Drop a file here, or click to browse'}
+              formats="PDF, DOC or DOCX · up to 25 MB"
+              icon={<FileUp className="h-6 w-6" />}
+              className="[&_div]:min-h-[120px] [&_div]:px-4 [&_div]:py-5"
             />
-            <div
-              role="button"
-              tabIndex={0}
-              aria-label="Choose a PDF or DOCX file, or drop one here"
-              onClick={() => fileInputRef.current?.click()}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  fileInputRef.current?.click();
-                }
-              }}
-              onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
-              onDragLeave={() => setDragging(false)}
-              onDrop={(e) => {
-                e.preventDefault();
-                setDragging(false);
-                const dropped = e.dataTransfer.files?.[0];
-                if (dropped) setUploadFile(dropped);
-              }}
-              className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-4 py-6 text-center transition-colors ${
-                dragging
-                  ? 'border-brand-400 bg-brand-50'
-                  : 'border-line bg-cream-50 hover:border-brand-300 hover:bg-brand-50/50'
-              }`}
-            >
-              <FileUp className="h-5 w-5 text-muted-light" />
-              {uploadFile ? (
-                <>
-                  <p className="mt-1.5 max-w-full truncate text-xs font-semibold text-ink">{uploadFile.name}</p>
-                  <p className="mt-0.5 text-2xs text-muted">
-                    {Math.max(1, Math.round(uploadFile.size / 1024))} KB · click to replace
-                  </p>
-                </>
-              ) : (
-                <>
-                  <p className="mt-1.5 text-xs font-medium text-ink-600">Drop a file here, or click to browse</p>
-                  <p className="mt-0.5 text-2xs text-muted">PDF, DOC or DOCX</p>
-                </>
-              )}
-            </div>
+            {uploadFile && (
+              <p className="mt-1.5 truncate text-2xs text-muted">
+                <span className="font-semibold text-ink">{uploadFile.name}</span> ·{' '}
+                {Math.max(1, Math.round(uploadFile.size / 1024))} KB selected
+              </p>
+            )}
           </div>
 
           {uploadError && (

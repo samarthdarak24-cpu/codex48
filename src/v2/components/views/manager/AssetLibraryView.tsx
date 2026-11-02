@@ -4,11 +4,12 @@
  * Thumbnails, counts, tags and file previews all come from `useApp().assets`
  * and the protected `/assets/:id/file` endpoint. Nothing is seeded.
  */
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle, CheckCircle2, ChevronDown, Download, Eye, Images, LayoutGrid,
-  List, Loader2, Lock, Search, Upload, X,
+  List, Loader2, Lock, Search, Upload, UploadCloud, X,
 } from 'lucide-react';
+import { useDropzone } from 'react-dropzone';
 import { useApp } from '../../../context/AppContext';
 import { api } from '@/services/api';
 import type { Asset } from '../../../types';
@@ -16,6 +17,7 @@ import {
   AnimatedCard, AnimatedCounter, AnimatedModal, EmptyState, FilterPills, PageTransition,
   SectionHeader, Stagger, StaggerItem, SuccessCheck,
 } from '../../motion';
+import { DataTable, type DataTableColumn } from '../../ui/DataTable';
 
 /* ------------------------------------------------------------------ */
 /* Helpers                                                             */
@@ -65,7 +67,6 @@ export const AssetLibraryView: React.FC = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [isApproving, setIsApproving] = useState(false);
   const [uploadedName, setUploadedName] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const approvedCount = assets.filter((a) => a.status === 'Approved').length;
   const pendingCount = assets.filter((a) => a.status === 'In Review' || a.status === 'Pending').length;
@@ -100,6 +101,79 @@ export const AssetLibraryView: React.FC = () => {
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
   const paginated = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+
+  const columns = useMemo<DataTableColumn<Asset>[]>(
+    () => [
+      {
+        id: 'name',
+        header: 'Asset',
+        accessor: (ast) => ast.name,
+        cell: (ast) => (
+          <div className="flex items-center gap-2.5">
+            <img src={ast.thumbnail} alt="" className="h-9 w-9 rounded-lg border border-line object-cover" />
+            <span className="text-xs font-medium text-ink">{ast.name}</span>
+          </div>
+        ),
+      },
+      {
+        id: 'format',
+        header: 'Type',
+        accessor: (ast) => ast.format,
+        cell: (ast) => <span className="text-xs text-muted">{ast.format}</span>,
+      },
+      {
+        id: 'status',
+        header: 'Status',
+        accessor: (ast) => ast.status,
+        cell: (ast) => <StatusBadge status={ast.status} />,
+      },
+      {
+        id: 'campaign',
+        header: 'Campaign',
+        accessor: (ast) => ast.campaign,
+        cell: (ast) => <span className="text-xs text-muted">{ast.campaign}</span>,
+      },
+      {
+        id: 'uploaded',
+        header: 'Uploaded',
+        accessor: (ast) => ast.uploadedAt,
+        cell: (ast) => <span className="text-xs text-muted">{ast.uploadedAt}</span>,
+      },
+      {
+        id: 'actions',
+        header: 'Actions',
+        sortable: false,
+        canHide: false,
+        align: 'right',
+        width: '88px',
+        cell: (ast) => (
+          <div className="flex items-center gap-1">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                openPreview(ast);
+              }}
+              aria-label={`Preview ${ast.name}`}
+              className="rounded-lg p-1.5 text-muted transition-colors hover:bg-cream-100 hover:text-ink"
+            >
+              <Eye className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDownload(ast);
+              }}
+              aria-label={`Download ${ast.name}`}
+              className="rounded-lg p-1.5 text-muted transition-colors hover:bg-cream-100 hover:text-ink"
+            >
+              <Download className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        ),
+      },
+    ],
+    [],
+  );
 
   /* ---- Fetch the real file for the preview modal ---- */
   useEffect(() => {
@@ -148,9 +222,35 @@ export const AssetLibraryView: React.FC = () => {
       showToast(err instanceof Error ? err.message : 'Upload failed.', 'error');
     } finally {
       setIsUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
+
+  /* Whole-library drop target: drag a file anywhere onto the gallery, or use
+     the header button (which delegates to the same dropzone picker). */
+  const { getRootProps, getInputProps, open: openPicker, isDragActive, isDragReject } = useDropzone({
+    onDrop: (accepted, rejections) => {
+      if (rejections.length > 0) {
+        const code = rejections[0].errors[0]?.code;
+        showToast(
+          code === 'file-too-large'
+            ? 'That file is larger than 40 MB.'
+            : 'That file type is not supported in the asset library.',
+          'error',
+        );
+        return;
+      }
+      if (accepted[0]) handleFile(accepted[0]);
+    },
+    accept: {
+      'image/*': ['.png', '.jpg', '.jpeg', '.webp', '.svg'],
+      'video/*': ['.mp4', '.webm'],
+      'application/pdf': ['.pdf'],
+    },
+    maxSize: 40 * 1024 * 1024,
+    multiple: false,
+    noClick: true,
+    disabled: isUploading,
+  });
 
   const handleApprove = async () => {
     if (!preview) return;
@@ -223,7 +323,22 @@ export const AssetLibraryView: React.FC = () => {
 
   return (
     <PageTransition className="p-4 sm:p-6">
-      <div className="mx-auto max-w-[1500px] space-y-4">
+      {isDragActive && (
+        <div className="pointer-events-none fixed inset-0 z-[70] flex items-center justify-center bg-brand-900/25 backdrop-blur-[2px]">
+          <div
+            className={`flex flex-col items-center gap-2 rounded-3xl border-2 border-dashed px-10 py-8 shadow-pop ${
+              isDragReject ? 'border-danger-300 bg-danger-50' : 'border-brand-300 bg-cream-50'
+            }`}
+          >
+            <UploadCloud className={`h-9 w-9 ${isDragReject ? 'text-danger-500' : 'text-brand-500'}`} />
+            <p className="text-sm font-semibold text-ink">
+              {isDragReject ? 'That file type is not accepted' : 'Drop to add to the library'}
+            </p>
+            <p className="text-2xs text-muted">PNG, JPG, WEBP, SVG, MP4, WEBM or PDF · up to 40 MB</p>
+          </div>
+        </div>
+      )}
+      <div {...getRootProps()} className="mx-auto max-w-[1500px] space-y-4">
 
         {error && (
           <div role="alert" className="flex items-start gap-2.5 rounded-2xl border border-danger-200 bg-danger-50 px-4 py-3 text-xs text-danger-700">
@@ -244,24 +359,14 @@ export const AssetLibraryView: React.FC = () => {
             </p>
           </div>
           <button
-            onClick={() => fileInputRef.current?.click()}
+            onClick={openPicker}
             disabled={isUploading}
             className="btn-primary-glow inline-flex items-center gap-2 rounded-xl px-3.5 py-2.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isUploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
             {isUploading ? 'Uploading…' : 'Upload asset'}
           </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*,video/*,.pdf,.docx"
-            className="hidden"
-            aria-label="Choose a file to upload"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) handleFile(f);
-            }}
-          />
+          <input {...getInputProps()} aria-label="Choose a file to upload" />
         </div>
 
         {uploadedName && (
@@ -393,7 +498,7 @@ export const AssetLibraryView: React.FC = () => {
             }
             action={
               assets.length === 0
-                ? { label: 'Upload asset', onClick: () => fileInputRef.current?.click() }
+                ? { label: 'Upload asset', onClick: openPicker }
                 : undefined
             }
           />
@@ -440,74 +545,25 @@ export const AssetLibraryView: React.FC = () => {
             ))}
           </div>
         ) : (
-          <div className="overflow-hidden rounded-2xl border border-line bg-white shadow-card">
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[720px] text-left">
-                <thead>
-                  <tr className="border-b border-line bg-cream-50">
-                    {['Asset', 'Type', 'Status', 'Campaign', 'Uploaded', 'Actions'].map((h) => (
-                      <th
-                        key={h}
-                        scope="col"
-                        className="px-3 py-3 text-2xs font-semibold uppercase tracking-[0.06em] text-muted"
-                      >
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-line-soft">
-                  {paginated.map((ast) => (
-                    <tr
-                      key={ast.id}
-                      tabIndex={0}
-                      onClick={() => openPreview(ast)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          openPreview(ast);
-                        }
-                      }}
-                      className="cursor-pointer transition-colors hover:bg-cream-50 focus-visible:bg-cream-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-300"
-                    >
-                      <td className="px-3 py-3">
-                        <div className="flex items-center gap-2.5">
-                          <img src={ast.thumbnail} alt="" className="h-9 w-9 rounded-lg border border-line object-cover" />
-                          <span className="text-xs font-medium text-ink">{ast.name}</span>
-                        </div>
-                      </td>
-                      <td className="px-3 py-3 text-xs text-muted">{ast.format}</td>
-                      <td className="px-3 py-3"><StatusBadge status={ast.status} /></td>
-                      <td className="px-3 py-3 text-xs text-muted">{ast.campaign}</td>
-                      <td className="px-3 py-3 text-xs text-muted">{ast.uploadedAt}</td>
-                      <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center gap-1">
-                          <button
-                            onClick={() => openPreview(ast)}
-                            aria-label={`Preview ${ast.name}`}
-                            className="rounded-lg p-1.5 text-muted transition-colors hover:bg-cream-100 hover:text-ink"
-                          >
-                            <Eye className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            onClick={() => handleDownload(ast)}
-                            aria-label={`Download ${ast.name}`}
-                            className="rounded-lg p-1.5 text-muted transition-colors hover:bg-cream-100 hover:text-ink"
-                          >
-                            <Download className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <DataTable
+            data={filtered}
+            columns={columns}
+            getRowId={(ast) => ast.id}
+            globalFilter={query}
+            onGlobalFilterChange={setQuery}
+            onRowClick={openPreview}
+            pageSize={12}
+            pageSizeOptions={[12, 24, 48]}
+            minWidth="760px"
+            emptyTitle="No assets match these filters"
+            emptyDescription="Try another category, status or search term."
+            emptyIcon={<Images className="h-6 w-6 text-muted-light" />}
+            footnote="List view sorts and pages independently of grid view; both read the same stored assets."
+          />
         )}
 
-        {/* Pagination */}
-        {filtered.length > 0 && (
+        {/* Pagination — grid view only; the table pages itself */}
+        {viewMode === 'grid' && filtered.length > 0 && (
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-2xs text-muted">
               Showing {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, filtered.length)} of{' '}

@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Bell, HelpCircle, X, ChevronDown, LogOut, UserRound, Shield, Sparkles } from 'lucide-react';
+import { Search, Bell, HelpCircle, X, ChevronDown, LogOut, UserRound, Shield, Sparkles, Menu } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '@/context/AuthContext';
 
-export const Header: React.FC = () => {
+export const Header: React.FC<{ onOpenNav?: () => void }> = ({ onOpenNav }) => {
   const { searchQuery, setSearchQuery, notifications, role, currentUser, setActivePage } = useApp();
   const { logout } = useAuth();
   const navigate = useNavigate();
@@ -21,7 +21,17 @@ export const Header: React.FC = () => {
 
   return (
     <>
-      <header className="h-16 header-glass px-6 flex items-center gap-4 justify-between shrink-0 sticky top-0 z-20">
+      <header className="h-16 header-glass px-4 sm:px-6 flex items-center gap-3 justify-between shrink-0 sticky top-0 z-20">
+
+        {/* Mobile nav toggle */}
+        <button
+          type="button"
+          onClick={onOpenNav}
+          className="lg:hidden shrink-0 rounded-xl p-2 text-ink-600 transition-colors hover:bg-cream-100 hover:text-ink"
+          aria-label="Open navigation"
+        >
+          <Menu className="h-5 w-5" />
+        </button>
 
         {/* Search bar */}
         <div className="flex-1 max-w-[480px]">
@@ -32,7 +42,8 @@ export const Header: React.FC = () => {
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder={placeholder}
-              className="w-full pl-9 pr-9 py-2 text-xs bg-[#F7F7F5] border border-line rounded-full text-ink placeholder-muted-light focus:outline-none focus:border-brand-400 focus:bg-white focus:ring-2 focus:ring-brand-500/12 focus:shadow-glow-brand transition-all duration-200"
+              aria-label="Search"
+              className="w-full pl-9 pr-9 py-2 text-xs bg-cream-100 border border-line rounded-full text-ink placeholder-muted-light focus:outline-none focus:border-brand-400 focus:bg-white focus:ring-2 focus:ring-brand-500/12 transition-all duration-200"
             />
             {searchQuery && (
               <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-light hover:text-ink-600 transition-colors">
@@ -46,14 +57,14 @@ export const Header: React.FC = () => {
         <div className="flex items-center gap-1.5">
 
           {/* Role pill */}
-          <div className={`hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold border transition-all ${
+          <div className={`hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold border ${
             role === 'manager'
-              ? 'bg-gradient-to-r from-brand-50 to-emerald-50 border-brand-200/80 text-brand-700'
-              : 'bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200/80 text-blue-700'
+              ? 'bg-brand-50 border-brand-200 text-brand-700'
+              : 'bg-sage-50 border-sage-200 text-sage-700'
           }`}>
             {role === 'manager'
               ? <><Shield className="w-3 h-3 text-brand-600" />Governance Portal</>
-              : <><Sparkles className="w-3 h-3 text-blue-500" />Creator Studio</>
+              : <><Sparkles className="w-3 h-3 text-sage-600" />Creator Studio</>
             }
           </div>
 

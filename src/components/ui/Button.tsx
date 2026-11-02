@@ -3,7 +3,7 @@ import { Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 type Variant = 'primary' | 'outline' | 'ghost' | 'subtle' | 'danger' | 'success'
-type Size = 'xs' | 'sm' | 'md' | 'lg'
+type Size = 'xs' | 'sm' | 'md' | 'lg' | 'icon' | 'icon-sm'
 
 const variants: Record<Variant, string> = {
   primary:
@@ -21,6 +21,8 @@ const sizes: Record<Size, string> = {
   sm: 'h-8 gap-1.5 rounded-lg px-2.5 text-sm',
   md: 'h-[34px] gap-1.5 rounded-lg px-3.5 text-base',
   lg: 'h-10 gap-2 rounded-lg px-4 text-md',
+  icon: 'h-[34px] w-[34px] rounded-lg',
+  'icon-sm': 'h-8 w-8 rounded-lg',
 }
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {

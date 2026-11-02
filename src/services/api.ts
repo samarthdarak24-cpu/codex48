@@ -34,6 +34,18 @@ import type {
   SystemHealth,
   User,
 } from '@/lib/types'
+import type {
+  AgentDetail,
+  AgentRun,
+  AgentSpec,
+  AgentStats,
+  AgentSummary,
+  AgentTemplate,
+  DraftFromPromptResponse,
+  ToolCatalog,
+  ValidationResult,
+  WorkflowGraph,
+} from '@/lib/agentTypes'
 
 export const API_BASE: string = import.meta.env.VITE_API_BASE || 'http://127.0.0.1:8000'
 
@@ -833,4 +845,116 @@ export async function downloadFile(path: string, defaultFilename: string): Promi
 }
 
 export type Api = typeof api
+
+/* ------------------------------------------------------------------ */
+/* Agent Studio                                                        */
+/* ------------------------------------------------------------------ */
+
+function qs(params: Record<string, string | number | undefined | null>): string {
+  const search = new URLSearchParams()
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null && value !== '') search.set(key, String(value))
+  }
+  const text = search.toString()
+  return text ? `?${text}` : ''
+}
+
+export const agentApi = {
+  stats: () => request<AgentStats>('/agents/stats'),
+
+  list: (params: { q?: string; status?: string; category?: string } = {}) =>
+    request<AgentSummary[]>(`/agents${qs(params)}`),
+
+  get: (agentId: string) => request<AgentDetail>(`/agents/${encodeURIComponent(agentId)}`),
+
+  draftFromPrompt: (prompt: string, category?: string, brand?: string) =>
+    request<DraftFromPromptResponse>('/agents/draft-from-prompt', {
+      method: 'POST',
+      body: JSON.stringify({ prompt, category: category || null, brand: brand || null }),
+    }),
+
+  fromTemplate: (templateId: string) =>
+    request<DraftFromPromptResponse>(`/agents/from-template/${encodeURIComponent(templateId)}`, {
+      method: 'POST',
+    }),
+
+  create: (spec: AgentSpec) =>
+    request<{ agent: AgentDetail; validation: ValidationResult }>('/agents', {
+      method: 'POST',
+      body: JSON.stringify(spec),
+    }),
+
+  update: (agentId: string, patch: Partial<AgentSpec>) =>
+    request<{ agent: AgentDetail; validation: ValidationResult }>(
+      `/agents/${encodeURIComponent(agentId)}`,
+      { method: 'PATCH', body: JSON.stringify(patch) },
+    ),
+
+  remove: (agentId: string) =>
+    request<{ deleted: boolean; archived: boolean }>(`/agents/${encodeURIComponent(agentId)}`, {
+      method: 'DELETE',
+    }),
+
+  validate: (agentId: string) =>
+    request<ValidationResult>(`/agents/${encodeURIComponent(agentId)}/validate`, { method: 'POST' }),
+
+  publish: (agentId: string) =>
+    request<{ agent: AgentDetail; validation: ValidationResult }>(
+      `/agents/${encodeURIComponent(agentId)}/publish`,
+      { method: 'POST' },
+    ),
+
+  pause: (agentId: string) =>
+    request<{ agent: AgentDetail }>(`/agents/${encodeURIComponent(agentId)}/pause`, { method: 'POST' }),
+
+  resume: (agentId: string) =>
+    request<{ agent: AgentDetail }>(`/agents/${encodeURIComponent(agentId)}/resume`, { method: 'POST' }),
+
+  saveWorkflow: (agentId: string, graph: WorkflowGraph) =>
+    request<{ agent: AgentDetail; validation: ValidationResult }>(
+      `/agents/${encodeURIComponent(agentId)}/workflow`,
+      { method: 'PUT', body: JSON.stringify({ graph }) },
+    ),
+
+  test: (agentId: string, input: Record<string, unknown>, message?: string) =>
+    request<{ run: AgentRun; validation: ValidationResult }>(
+      `/agents/${encodeURIComponent(agentId)}/test`,
+      { method: 'POST', body: JSON.stringify({ input, message }) },
+    ),
+
+  execute: (agentId: string, input: Record<string, unknown>, triggerType = 'manual') =>
+    request<{ run: AgentRun }>(`/agents/${encodeURIComponent(agentId)}/execute`, {
+      method: 'POST',
+      body: JSON.stringify({ input, trigger_type: triggerType }),
+    }),
+
+  runs: (agentId: string, limit = 50) =>
+    request<AgentRun[]>(`/agents/${encodeURIComponent(agentId)}/runs?limit=${limit}`),
+
+  allRuns: (params: { status?: string; agent_id?: string; limit?: number } = {}) =>
+    request<AgentRun[]>(`/agent-runs${qs(params)}`),
+
+  run: (runId: string) => request<AgentRun>(`/agent-runs/${encodeURIComponent(runId)}`),
+
+  cancelRun: (runId: string) =>
+    request<{ run: AgentRun }>(`/agent-runs/${encodeURIComponent(runId)}/cancel`, { method: 'POST' }),
+
+  approveRun: (runId: string, decision: 'approve' | 'reject', note = '') =>
+    request<{ run: AgentRun; approved: boolean }>(
+      `/agent-runs/${encodeURIComponent(runId)}/approve`,
+      { method: 'POST', body: JSON.stringify({ decision, note }) },
+    ),
+
+  tools: () => request<ToolCatalog>('/agent-tools'),
+
+  templates: () => request<AgentTemplate[]>('/agents/templates'),
+
+  memory: (agentId: string) =>
+    request<{ id: string; key: string; value: Record<string, unknown>; sessionId: string; updatedAt: string | null }[]>(
+      `/agents/${encodeURIComponent(agentId)}/memory`,
+    ),
+
+  clearMemory: (agentId: string) =>
+    request<{ deleted: number }>(`/agents/${encodeURIComponent(agentId)}/memory`, { method: 'DELETE' }),
+}
 

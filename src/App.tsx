@@ -30,6 +30,13 @@ import { CreatorExceptionRequestsView } from '@/v2/components/views/creator/Crea
 import { CreatorGuidelinesView } from '@/v2/components/views/creator/CreatorGuidelinesView'
 import { MyProfileView } from '@/v2/components/views/creator/MyProfileView'
 
+// Agent Studio
+import AgentStudioPage from '@/pages/agents/AgentStudioPage'
+import AgentDetailPage from '@/pages/agents/AgentDetailPage'
+import AgentBuilderPage from '@/pages/agents/AgentBuilderPage'
+import AgentRunsPage from '@/pages/agents/AgentRunsPage'
+import CreatorAssistantsPage from '@/pages/agents/CreatorAssistantsPage'
+
 function Splash() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-canvas">
@@ -134,7 +141,19 @@ export default function App() {
         <Route path="approved" element={<ApprovedContentView />} />
         <Route path="approved-content" element={<ApprovedContentView />} />
         <Route path="profile" element={<MyProfileView />} />
+        <Route path="ai-assistants" element={<CreatorAssistantsPage />} />
+        <Route path="ai-assistants/:agentId" element={<CreatorAssistantsPage />} />
       </Route>
+
+      {/* Agent Studio — full-screen workflow builder (outside the dashboard chrome). */}
+      <Route
+        path="/manager/agents/:agentId/builder"
+        element={
+          <RequireRole role="manager">
+            <AgentBuilderPage />
+          </RequireRole>
+        }
+      />
 
       {/* v2 Brand Manager — 11 pages */}
       <Route
@@ -164,6 +183,11 @@ export default function App() {
         <Route path="audit-history" element={<AuditHistoryView />} />
         <Route path="audit-events" element={<AuditHistoryView />} />
         <Route path="notifications" element={<NotificationsView />} />
+        <Route path="agent-studio" element={<AgentStudioPage />} />
+        <Route path="agents" element={<AgentStudioPage />} />
+        <Route path="agents/:agentId" element={<AgentDetailPage />} />
+        <Route path="agents/:agentId/runs" element={<AgentRunsPage />} />
+        <Route path="agent-executions" element={<AgentRunsPage />} />
       </Route>
 
       <Route

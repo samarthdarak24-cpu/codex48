@@ -1,15 +1,16 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Bookmark, Calendar, Check, CheckCircle2, ChevronRight, FileText, Info, Instagram, Loader2,
-  Package, Play, ShieldCheck, UploadCloud, Users, X,
+  Package, Play, ShieldCheck, Users, X,
 } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
 import { useApp } from '../../../context/AppContext';
 import { api } from '@/services/api';
 import {
   AnimatedBadge, AnimatedCard, AnimatedCounter, EASE, HoverLiftCard, PageTransition,
-  ProcessingSpinner, ScrollReveal, SectionHeader, SuccessCheck, UploadAnimation,
+  ProcessingSpinner, ScrollReveal, SectionHeader, SuccessCheck,
 } from '../../motion';
+import { FileDrop } from '../../ui/FileDrop';
 
 const FIELD =
   'w-full rounded-xl border border-line bg-white px-3 py-2.5 text-xs text-ink placeholder:text-muted-light focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20';
@@ -39,14 +40,12 @@ export const NewContentView: React.FC = () => {
   const [posterFile, setPosterFile] = useState<File | null>(null);
   const [posterPreviewUrl, setPosterPreviewUrl] = useState<string | null>(null);
   const [previewLoaded, setPreviewLoaded] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
   const [findingsCount, setFindingsCount] = useState<number | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [check1, setCheck1] = useState(false);
   const [check2, setCheck2] = useState(false);
   const [check3, setCheck3] = useState(false);
 
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const objectUrlRef = useRef<string | null>(null);
   const reduce = useReducedMotion();
   const charCount = copyText.length;
@@ -370,55 +369,15 @@ export const NewContentView: React.FC = () => {
                 subtitle="The file is previewed locally in your browser and is not uploaded to the server."
               />
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                <div
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    setIsDragging(true);
+                <FileDrop
+                  onFile={handleFileChange}
+                  accept={{
+                    'image/*': ['.png', '.jpg', '.jpeg', '.webp'],
+                    'video/*': ['.mp4', '.webm'],
                   }}
-                  onDragLeave={() => setIsDragging(false)}
-                >
-                  <UploadAnimation
-                    isDragging={isDragging}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      setIsDragging(false);
-                      const file = e.dataTransfer.files?.[0];
-                      if (file) handleFileChange(file);
-                    }}
-                    className="flex min-h-[190px] flex-col items-center justify-center p-6 text-center"
-                  >
-                    <motion.div
-                      className="flex flex-col items-center"
-                      animate={reduce ? undefined : { y: isDragging ? -3 : 0 }}
-                      transition={{ duration: 0.2, ease: EASE }}
-                    >
-                      <UploadCloud
-                        className={`mb-2 h-8 w-8 transition-colors ${isDragging ? 'text-brand-600' : 'text-brand-400'}`}
-                      />
-                      <p className="text-xs font-semibold text-ink-700">
-                        {isDragging ? 'Drop to attach' : 'Drag and drop your file here'}
-                      </p>
-                      <label
-                        htmlFor="creative-file"
-                        className="mt-1 cursor-pointer text-2xs font-semibold text-brand-600 underline-offset-2 hover:underline focus-within:underline"
-                      >
-                        or browse your device
-                      </label>
-                      <input
-                        id="creative-file"
-                        ref={fileInputRef}
-                        type="file"
-                        accept="image/*,video/*"
-                        className="sr-only"
-                        onChange={(e) => {
-                          const f = e.target.files?.[0];
-                          if (f) handleFileChange(f);
-                        }}
-                      />
-                      <p className="mt-2 text-2xs text-muted-light">JPG, PNG, WEBP or MP4</p>
-                    </motion.div>
-                  </UploadAnimation>
-                </div>
+                  maxSize={40 * 1024 * 1024}
+                  formats="JPG, PNG, WEBP or MP4 · up to 40 MB"
+                />
 
                 {posterPreviewUrl && posterFile ? (
                   <AnimatedCard className="flex flex-col gap-2 p-2">

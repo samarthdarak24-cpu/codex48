@@ -23,6 +23,7 @@ import React, {
   type ReactNode,
 } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
 import { useAuth } from '@/context/AuthContext'
 import {
   api,
@@ -348,6 +349,9 @@ const PAGE_PATH: Record<PageId, string> = {
   'asset-library': '/manager/asset-library',
   analytics: '/manager/analytics',
   'audit-history': '/manager/audit-history',
+  'agent-studio': '/manager/agent-studio',
+  'my-agents': '/manager/agents',
+  'agent-executions': '/manager/agent-executions',
   'creator-dashboard': '/creator/dashboard',
   'new-content': '/creator/new-content',
   'my-submissions': '/creator/submissions',
@@ -361,6 +365,7 @@ const PAGE_PATH: Record<PageId, string> = {
   notifications: '/creator/notifications',
   'approved-content': '/creator/approved',
   profile: '/creator/profile',
+  'my-assistants': '/creator/ai-assistants',
 }
 
 const PATH_PAGE: Record<string, PageId> = {
@@ -392,6 +397,10 @@ const PATH_PAGE: Record<string, PageId> = {
   '/manager/guidelines': 'brand-guidelines',
   '/manager/assets': 'asset-library',
   '/manager/audit-events': 'audit-history',
+  '/manager/agent-studio': 'agent-studio',
+  '/manager/agents': 'my-agents',
+  '/manager/agent-executions': 'agent-executions',
+  '/creator/ai-assistants': 'my-assistants',
 }
 
 /* ------------------------------------------------------------------ */
@@ -440,21 +449,31 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [toasts, setToasts] = useState<Toast[]>([])
   const [isAiCompareOpen, setIsAiCompareOpen] = useState(false)
 
-  const activePage: PageId =
-    PATH_PAGE[location.pathname] ?? (role === 'manager' ? 'overview' : 'creator-dashboard')
+  const activePage: PageId = location.pathname.startsWith('/manager/agents')
+    ? 'my-agents'
+    : location.pathname.startsWith('/manager/agent-executions')
+      ? 'agent-executions'
+      : location.pathname.startsWith('/creator/ai-assistants')
+        ? 'my-assistants'
+        : PATH_PAGE[location.pathname] ?? (role === 'manager' ? 'overview' : 'creator-dashboard')
 
   const dismissToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id))
   }, [])
 
-  const showToast = useCallback(
-    (message: string, type: Toast['type'] = 'success') => {
-      const id = Math.random().toString(36).slice(2, 9)
-      setToasts((prev) => [...prev, { id, message, type }])
-      window.setTimeout(() => dismissToast(id), 4200)
-    },
-    [dismissToast],
-  )
+  /* Sonner owns presentation; we keep the array + dismiss helpers so the
+     existing context contract (toasts, removeToast, dismissToast) is intact. */
+  const showToast = useCallback((message: string, type: Toast['type'] = 'success') => {
+    const notify =
+      type === 'error'
+        ? toast.error
+        : type === 'warning'
+          ? toast.warning
+          : type === 'info'
+            ? toast.info
+            : toast.success
+    notify(message)
+  }, [])
 
   const setActivePage = useCallback(
     (page: PageId) => {

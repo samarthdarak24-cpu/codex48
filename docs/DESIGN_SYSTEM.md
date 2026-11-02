@@ -153,10 +153,61 @@ All exported from `src/v2/components/motion/index.tsx`.
 
 ---
 
-## 6. Verification
+## 6. Third-party layer
+
+Every library below is wired to real API data. Nothing is a demo component
+dropped in for decoration.
+
+| Library | Version | Where it is used | Why |
+| --- | --- | --- | --- |
+| `@tanstack/react-table` | 8.21 | `ui/DataTable.tsx` → All Submissions, Asset Library (list), Sentinel Monitoring | Replaced five hand-rolled tables that each re-implemented sorting, paging and selection. Adds column-header sorting, column visibility and row selection. |
+| `recharts` | 3.10 | `ui/charts.tsx` → Analytics & Health, All Submissions | Replaced hand-drawn SVG with axes, gridlines and hover tooltips. |
+| `react-dropzone` | 20 | `ui/FileDrop.tsx`, Asset Library page target | Real type/size validation with explicit rejection reasons. |
+| `react-pdf` | 9.2 | `ui/PdfPreview.tsx` → Brand Guidelines drawer | Renders the actual stored guideline PDF, replacing a placeholder thumbnail. |
+| `@xyflow/react` | 12.12 | `ui/RuleFlowDiagram.tsx` → Impact Sandbox | Draws the stored rule chain (source → when → then → scope). |
+| `react-hook-form` + `zod` | 7 / 4 | Exception Requests | One schema drives inline errors and the submit gate. |
+| `sonner` | 2.0 | `V2Layout` toaster, `AppContext.showToast` | Queueing, dismissal and `aria-live` announcements for free. |
+| `shadcn/ui` | — | `components.json` | Configured against the existing aliases and tokens; **no** CSS-variable theme was introduced, so the warm palette is unchanged. |
+
+### Compatibility decisions
+
+- `react-pdf@11` requires React 19. This project is on React 18.3.1, so the
+  package is pinned to `9.2.x`, whose peer range includes React 18.
+- `@tanstack/react-table@9` ships a new feature-registration API. Pinned to
+  `8.21.x` — the stable API, and the one whose docs match the code written here.
+- `recharts@2` logs React 18 `defaultProps` deprecation warnings on every chart.
+  Upgraded to `recharts@3`, which removes them without an API change.
+
+### Deliberately not adopted
+
+- **TipTap** — there is no rich-text column in the schema. Every submission body
+  is stored as plain text, so introducing a rich-text editor would mean either
+  sending HTML into a plain-text field or stripping formatting on save. Neither
+  is acceptable; the plain textarea stays.
+- **dnd-kit** — the only drag surface that would justify it is the Review Queue
+  kanban, but moving a card between columns implies a decision
+  (`decideSubmission`) that requires a reviewer note. A drag that silently
+  commits a decision would be worse than the current explicit action, so the
+  kanban keeps its keyboard-accessible buttons.
+- **21st-dev/agent-elements** — built against the Vercel AI SDK and React 19
+  patterns; this app has no AI SDK client and is on React 18. Rejected on
+  compatibility, not on looks.
+- **react-bits / magic-ui / motion-primitives** — these are copy-paste component
+  sources, not runtime dependencies. Their visual language (neon gradients,
+  glow, blobs) conflicts with the ivory/forest system, so the motion primitives
+  were written directly in `components/motion` instead.
+
+---
+
+## 7. Verification
 
 - `npm run typecheck` — zero errors.
-- `npx vite build` — main bundle ~318 KB gzipped, CSS ~28 KB gzipped.
-- `node scripts/verify_21_screens.mjs` — walks all 21 screens as both roles,
-  records console/page errors and horizontal overflow, and writes 1920×1080
-  screenshots to `docs/screenshots/`.
+- `npx vite build` — green. Vendor chunks are split in `vite.config.ts`:
+  app shell ~315 KB gzipped, charts ~131 KB, pdf ~111 KB (lazy), motion ~55 KB,
+  ui ~55 KB, react ~53 KB, flow ~42 KB, table ~14 KB.
+- `node scripts/verify_21_screens.mjs` — 27 visits across both roles at 1920px,
+  375px and with `reducedMotion`. Last run: **25 clean**; the only findings are
+  the two pre-existing `/analysis/{id}/file` 404s on AI Review for a submission
+  with no stored analysis file, which the UI already handles with a "No poster
+  attached" state.
+

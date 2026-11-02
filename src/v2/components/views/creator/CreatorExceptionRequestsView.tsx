@@ -2,12 +2,33 @@ import React, { useState } from 'react';
 import {
   AlertTriangle, CalendarDays, CheckCircle2, Clock, FileText, Loader2, Plus, Scale, XCircle,
 } from 'lucide-react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { useApp } from '../../../context/AppContext';
 import type { ExceptionItem } from '../../../types';
 import {
   AnimatedCounter, AnimatedDrawer, AnimatedModal, AnimatedTabs, EmptyState, PageTransition,
   SectionHeader, Stagger, StaggerItem, AnimatedCard, Timeline, type TimelineItem,
 } from '../../motion';
+
+/* Validation lives in one place: the same schema drives inline field errors
+   and the submit gate, so the rules cannot drift apart. */
+const exceptionSchema = z.object({
+  title: z
+    .string()
+    .trim()
+    .min(1, 'A request title is required.')
+    .max(120, 'Keep the title under 120 characters.'),
+  campaign: z.string().trim().max(80, 'Keep the campaign name under 80 characters.'),
+  reason: z
+    .string()
+    .trim()
+    .min(10, 'Give the governance team at least 10 characters of context.')
+    .max(2000, 'Keep the reason under 2000 characters.'),
+});
+
+type ExceptionForm = z.infer<typeof exceptionSchema>;
 
 type Tab = 'All' | 'Pending' | 'Approved' | 'Rejected';
 
@@ -44,11 +65,16 @@ export const CreatorExceptionRequestsView: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>('All');
   const [detailId, setDetailId] = useState<string | null>(null);
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
-  const [newTitle, setNewTitle] = useState('');
-  const [newCampaign, setNewCampaign] = useState('');
-  const [newReason, setNewReason] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm<ExceptionForm>({
+    resolver: zodResolver(exceptionSchema),
+    defaultValues: { title: '', campaign: '', reason: '' },
+    mode: 'onSubmit',
+  });
 
   const totalCount = exceptions.length;
   const approvedCount = exceptions.filter((e) => e.status === 'Approved').length;
@@ -76,26 +102,19 @@ export const CreatorExceptionRequestsView: React.FC = () => {
     Rejected: rejectedCount,
   };
 
-  const handleSubmit = async () => {
-    if (!newReason.trim()) {
-      setFormError('A reason is required before this request can be submitted.');
-      addToast('Please enter a reason for the exception.', 'error');
-      return;
-    }
-    setFormError(null);
-    setIsSubmitting(true);
+  const submitRequest = handleSubmit(async (values) => {
     try {
-      await addNewException({ campaign: newCampaign, requestTitle: newTitle, reason: newReason });
+      await addNewException({
+        campaign: values.campaign,
+        requestTitle: values.title,
+        reason: values.reason,
+      });
       setIsNewModalOpen(false);
-      setNewTitle('');
-      setNewCampaign('');
-      setNewReason('');
+      reset();
     } catch {
-      /* handled by context */
-    } finally {
-      setIsSubmitting(false);
+      /* surfaced by the context's own toast */
     }
-  };
+  });
 
   const historyFor = (ex: ExceptionItem): TimelineItem[] => {
     const items: TimelineItem[] = [
@@ -188,7 +207,7 @@ export const CreatorExceptionRequestsView: React.FC = () => {
             </p>
           </div>
           <button
-            onClick={() => { setFormError(null); setIsNewModalOpen(true); }}
+            onClick={() => { reset(); setIsNewModalOpen(true); }}
             className="btn-primary-glow inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-semibold"
           >
             <Plus className="h-4 w-4" />Request exception
@@ -363,7 +382,8 @@ export const CreatorExceptionRequestsView: React.FC = () => {
               Cancel
             </button>
             <button
-              onClick={handleSubmit}
+              type="submit"
+              form="exception-request-form"
               disabled={isSubmitting}
               className="btn-primary-glow inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-60"
             >
@@ -373,42 +393,86 @@ export const CreatorExceptionRequestsView: React.FC = () => {
           </>
         }
       >
-        <div className="space-y-3">
+        <form
+          id="exception-request-form"
+          onSubmit={submitRequest}
+          noValidate
+          className="space-y-3"
+        >
           <div>
-            <label htmlFor="exception-title" className="mb-1 block text-xs font-semibold text-ink-700">Request title</label>
+            <label htmlFor="exception-title" className="mb-1 block text-xs font-semibold text-ink-700">
+              Request title <span className="text-danger-500">*</span>
+            </label>
             <input
               id="exception-title"
-              value={newTitle}
-              onChange={(e) => setNewTitle(e.target.value)}
+              {...register('title')}
+              aria-invalid={errors.title ? true : undefined}
+              aria-describedby={errors.title ? 'exception-title-error' : undefined}
               placeholder="What does this request cover?"
-              className="w-full rounded-xl border border-line bg-white px-3 py-2.5 text-xs text-ink placeholder:text-muted-light focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+              className={`w-full rounded-xl border bg-white px-3 py-2.5 text-xs text-ink placeholder:text-muted-light focus:outline-none focus:ring-2 ${
+                errors.title
+                  ? 'border-danger-300 focus:border-danger-400 focus:ring-danger-500/20'
+                  : 'border-line focus:border-brand-400 focus:ring-brand-500/20'
+              }`}
             />
+            {errors.title && (
+              <p id="exception-title-error" role="alert" className="mt-1 text-2xs font-medium text-danger-600">
+                {errors.title.message}
+              </p>
+            )}
           </div>
+
           <div>
-            <label htmlFor="exception-campaign" className="mb-1 block text-xs font-semibold text-ink-700">Campaign</label>
+            <label htmlFor="exception-campaign" className="mb-1 block text-xs font-semibold text-ink-700">
+              Campaign
+            </label>
             <input
               id="exception-campaign"
-              value={newCampaign}
-              onChange={(e) => setNewCampaign(e.target.value)}
+              {...register('campaign')}
+              aria-invalid={errors.campaign ? true : undefined}
+              aria-describedby={errors.campaign ? 'exception-campaign-error' : undefined}
               placeholder="Which campaign is this for?"
-              className="w-full rounded-xl border border-line bg-white px-3 py-2.5 text-xs text-ink placeholder:text-muted-light focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+              className={`w-full rounded-xl border bg-white px-3 py-2.5 text-xs text-ink placeholder:text-muted-light focus:outline-none focus:ring-2 ${
+                errors.campaign
+                  ? 'border-danger-300 focus:border-danger-400 focus:ring-danger-500/20'
+                  : 'border-line focus:border-brand-400 focus:ring-brand-500/20'
+              }`}
             />
+            {errors.campaign && (
+              <p id="exception-campaign-error" role="alert" className="mt-1 text-2xs font-medium text-danger-600">
+                {errors.campaign.message}
+              </p>
+            )}
           </div>
+
           <div>
             <label htmlFor="exception-reason" className="mb-1 block text-xs font-semibold text-ink-700">
               Reason <span className="text-danger-500">*</span>
             </label>
             <textarea
               id="exception-reason"
-              value={newReason}
-              onChange={(e) => setNewReason(e.target.value)}
+              {...register('reason')}
               rows={4}
+              aria-invalid={errors.reason ? true : undefined}
+              aria-describedby={errors.reason ? 'exception-reason-error' : undefined}
               placeholder="Explain why this exception is needed…"
-              className="w-full resize-none rounded-xl border border-line bg-white px-3 py-2.5 text-xs text-ink placeholder:text-muted-light focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+              className={`w-full resize-none rounded-xl border bg-white px-3 py-2.5 text-xs text-ink placeholder:text-muted-light focus:outline-none focus:ring-2 ${
+                errors.reason
+                  ? 'border-danger-300 focus:border-danger-400 focus:ring-danger-500/20'
+                  : 'border-line focus:border-brand-400 focus:ring-brand-500/20'
+              }`}
             />
+            {errors.reason ? (
+              <p id="exception-reason-error" role="alert" className="mt-1 text-2xs font-medium text-danger-600">
+                {errors.reason.message}
+              </p>
+            ) : (
+              <p className="mt-1 text-2xs text-muted-light">
+                At least 10 characters. This is what the governance team reviews.
+              </p>
+            )}
           </div>
-          {formError && <p role="alert" className="text-2xs font-medium text-danger-600">{formError}</p>}
-        </div>
+        </form>
       </AnimatedModal>
     </PageTransition>
   );

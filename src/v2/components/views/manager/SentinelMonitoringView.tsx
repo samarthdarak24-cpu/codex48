@@ -9,6 +9,7 @@ import {
   AnimatedCounter, AnimatedDrawer, AnimatedProgress, BarSeries, ChartContainer, EmptyState,
   FilterPills, RingProgress, SectionHeader, SkeletonCard, Timeline, type TimelineItem,
 } from '../../motion';
+import { DataTable, type DataTableColumn } from '../../ui/DataTable';
 
 /* ------------------------------------------------------------------ */
 /* Helpers                                                             */
@@ -150,6 +151,94 @@ export const SentinelMonitoringView: React.FC = () => {
     setSelectedAlert(alert);
     setIsDrawerOpen(true);
   };
+
+  const taskColumns = useMemo<DataTableColumn<SentinelAlert>[]>(
+    () => [
+      {
+        id: 'title',
+        header: 'Task',
+        accessor: (a) => a.title,
+        cell: (a) => (
+          <div className="flex items-center gap-2.5">
+            <img
+              src={a.thumbnail}
+              alt=""
+              className="h-9 w-9 shrink-0 rounded-lg border border-line object-cover"
+            />
+            <div className="min-w-0">
+              <p className="truncate text-xs font-semibold text-ink">{a.title}</p>
+              <p className="mt-0.5 line-clamp-1 text-2xs text-muted">{a.subtitle}</p>
+            </div>
+          </div>
+        ),
+      },
+      {
+        id: 'source',
+        header: 'Source',
+        accessor: (a) => SOURCE_LABEL[a.category],
+        cell: (a) => (
+          <span className={SOURCE_CLASS[a.category]} title={`Stored category: ${a.category}`}>
+            {SOURCE_LABEL[a.category]}
+          </span>
+        ),
+      },
+      {
+        id: 'priority',
+        header: 'Priority',
+        accessor: (a) => a.severity,
+        cell: (a) => {
+          const priority = priorityOf(a);
+          return <span className={priority.className}>{priority.label}</span>;
+        },
+      },
+      {
+        id: 'generated',
+        header: 'Generated',
+        accessor: (a) => Date.parse(a.detectedOn) || 0,
+        cell: (a) => <span className="whitespace-nowrap text-2xs text-muted">{a.detectedOn}</span>,
+      },
+      {
+        id: 'status',
+        header: 'Status',
+        accessor: (a) => a.status,
+        cell: (a) => (
+          <span
+            className={`inline-flex items-center gap-1.5 text-2xs font-semibold ${
+              a.status === 'Resolved' ? 'text-sage-700' : 'text-warn-700'
+            }`}
+          >
+            <span
+              className={`h-1.5 w-1.5 rounded-full ${
+                a.status === 'Resolved' ? 'bg-sage-500' : 'bg-warn-500'
+              }`}
+            />
+            {a.status}
+          </span>
+        ),
+      },
+      {
+        id: 'actions',
+        header: 'Actions',
+        sortable: false,
+        canHide: false,
+        align: 'right',
+        width: '84px',
+        cell: (a) => (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              openAlert(a);
+            }}
+            className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-2xs font-semibold text-brand-700 transition-colors hover:bg-brand-50"
+            aria-label={`Open task ${a.title}`}
+          >
+            Open<ArrowRight className="h-3 w-3" />
+          </button>
+        ),
+      },
+    ],
+    [],
+  );
 
   if (role !== 'manager') return <Denied />;
 
@@ -359,77 +448,18 @@ export const SentinelMonitoringView: React.FC = () => {
                 action={{ label: 'Clear filters', onClick: () => { setFilter('All'); setSearchQuery(''); } }}
               />
             ) : (
-              <div className="overflow-x-auto styled-scroll">
-                <table className="w-full min-w-[680px] text-left">
-                  <thead>
-                    <tr className="border-b border-line bg-cream-50/60">
-                      {['Task', 'Source', 'Priority', 'Generated', 'Status', ''].map((h, i) => (
-                        <th
-                          key={`${h}-${i}`}
-                          className="px-4 py-2.5 text-2xs font-semibold uppercase tracking-[0.06em] text-muted"
-                        >
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-line">
-                    {filtered.map((a) => {
-                      const priority = priorityOf(a);
-                      return (
-                        <tr
-                          key={a.id}
-                          className="cursor-pointer transition-colors hover:bg-cream-50/60"
-                          onClick={() => openAlert(a)}
-                        >
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-2.5">
-                              <img
-                                src={a.thumbnail}
-                                alt=""
-                                className="h-9 w-9 shrink-0 rounded-lg border border-line object-cover"
-                              />
-                              <div className="min-w-0">
-                                <p className="truncate text-xs font-semibold text-ink">{a.title}</p>
-                                <p className="mt-0.5 line-clamp-1 text-2xs text-muted">{a.subtitle}</p>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span
-                              className={SOURCE_CLASS[a.category]}
-                              title={`Stored category: ${a.category}`}
-                            >
-                              {SOURCE_LABEL[a.category]}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className={priority.className}>{priority.label}</span>
-                          </td>
-                          <td className="whitespace-nowrap px-4 py-3 text-2xs text-muted">{a.detectedOn}</td>
-                          <td className="px-4 py-3">
-                            <span className={`inline-flex items-center gap-1.5 text-2xs font-semibold ${
-                              a.status === 'Resolved' ? 'text-sage-700' : 'text-warn-700'
-                            }`}>
-                              <span className={`h-1.5 w-1.5 rounded-full ${a.status === 'Resolved' ? 'bg-sage-500' : 'bg-warn-500'}`} />
-                              {a.status}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            <button
-                              onClick={(e) => { e.stopPropagation(); openAlert(a); }}
-                              className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-2xs font-semibold text-brand-700 transition-colors hover:bg-brand-50"
-                              aria-label={`Open task ${a.title}`}
-                            >
-                              Open<ArrowRight className="h-3 w-3" />
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                data={filtered}
+                columns={taskColumns}
+                getRowId={(a) => a.id}
+                onRowClick={openAlert}
+                pageSize={10}
+                pageSizeOptions={[10, 25, 50]}
+                minWidth="700px"
+                emptyTitle="No tasks match this filter"
+                emptyDescription="Clear the filters to see every generated task."
+                footnote="Tasks are generated by Sentinel when a stored rule changes. Sort any column to reorder."
+              />
             )}
 
             {filtered.length > 0 && (

@@ -10,10 +10,11 @@ import type { Rule, Simulation, SimulationItem } from '@/lib/types';
 import { motion, useReducedMotion } from 'motion/react';
 import {
   AnimatedBadge, AnimatedButton, AnimatedCard, AnimatedCounter, AnimatedModal,
-  AnimatedProgress, BarSeries, EASE, HoverLiftCard, LayoutTransition, NumberTicker,
+  AnimatedProgress, BarSeries, ChartContainer, EASE, HoverLiftCard, LayoutTransition, NumberTicker,
   ProcessingSpinner, Reveal, RingProgress, SectionHeader, SkeletonCard, SuccessCheck,
   type Tone,
 } from '../../motion';
+import { RuleFlowDiagram } from '../../ui/RuleFlowDiagram';
 
 /* ------------------------------------------------------------------ */
 /* Helpers                                                             */
@@ -82,7 +83,7 @@ const Metric: React.FC<{
 /* ------------------------------------------------------------------ */
 
 export const RuleImpactSandboxView: React.FC = () => {
-  const { runRuleSimulation, activateSimulation, showToast, loading, error, role } = useApp();
+  const { runRuleSimulation, activateSimulation, showToast, loading, error, role, guidelines } = useApp();
 
   const [rules, setRules] = useState<Rule[]>([]);
   const [rulesState, setRulesState] = useState<LoadState>('loading');
@@ -411,6 +412,24 @@ export const RuleImpactSandboxView: React.FC = () => {
             </div>
           </div>
         </HoverLiftCard>
+
+        {selectedRule && rules.length > 0 && (
+          <ChartContainer
+            title="Rule logic"
+            subtitle={`${selectedRule.code} · the chain the engine evaluates, exactly as stored`}
+            actions={<span className="badge-draft">{selectedRule.priority} priority</span>}
+          >
+            <RuleFlowDiagram
+              rule={selectedRule}
+              sourceLabel={guidelines.find((g) => g.id === selectedRule.sourceDocId)?.title}
+              height={214}
+            />
+            <p className="mt-2 text-2xs leading-relaxed text-muted-light">
+              Drag to pan and use the controls to zoom. The diagram reflects the stored
+              condition, action and scope — editing a rule still happens in Brand Guidelines.
+            </p>
+          </ChartContainer>
+        )}
 
         {rules.length === 0 && rulesState === 'ready' ? (
           <div className="rounded-2xl border border-dashed border-line bg-white px-6 py-14 text-center">
