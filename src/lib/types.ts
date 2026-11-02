@@ -176,6 +176,9 @@ export interface Submission {
   findings: Finding[]
   comments: Comment[]
   decisions: ReviewDecision[]
+  score?: number
+  creator?: string
+  text?: string
 }
 
 /** Deterministic, dependency-free thumbnail descriptor (no external images). */
@@ -254,6 +257,7 @@ export interface ExceptionRequest {
   revokedAt?: string | null
   revokedById?: string | null
   revokeReason?: string
+  createdAt?: string
 }
 
 export interface ExceptionRulingHistory {
@@ -386,4 +390,218 @@ export interface UpcomingTask {
   title: string
   when: string
   tone: 'blue' | 'grape' | 'green'
+}
+
+/* ------------------------------------------------------------------ */
+/* Agent Studio & Workflow Types                                      */
+/* ------------------------------------------------------------------ */
+
+export type AgentStatus = 'draft' | 'published' | 'paused' | 'archived'
+
+export interface WorkflowNode {
+  id: string
+  type: string
+  position: { x: number; y: number }
+  data: Record<string, any>
+}
+
+export interface WorkflowEdge {
+  id: string
+  source: string
+  target: string
+  sourceHandle?: string | null
+  targetHandle?: string | null
+  label?: string
+  data?: Record<string, any>
+}
+
+export interface WorkflowGraph {
+  nodes: WorkflowNode[]
+  edges: WorkflowEdge[]
+  viewport?: { x: number; y: number; zoom: number }
+}
+
+export interface Agent {
+  id: string
+  workspace: string
+  created_by_id: string
+  name: string
+  slug: string
+  description: string
+  category: string
+  icon: string
+  status: AgentStatus
+  current_version: number
+  published_version?: number | null
+  visibility: 'workspace' | 'creators' | 'private'
+  instructions: string
+  tools: string[]
+  input_schema: Record<string, any>
+  output_schema: Record<string, any>
+  memory_config: { enabled: boolean; scope: 'none' | 'session' | 'workspace'; max_turns?: number }
+  execution_limits: { max_steps: number; timeout_seconds: number; max_tokens: number }
+  approval_policy: { human_approval_required_for_write_actions: boolean; require_manager_approval: boolean }
+  workflow: WorkflowGraph
+  created_at: string
+  updated_at: string
+  total_runs: number
+  success_rate: number
+  last_run_at?: string | null
+}
+
+export interface AgentTool {
+  id: string
+  name: string
+  description: string
+  category: string
+  permission_class: 'read' | 'draft' | 'write' | 'action'
+  requires_approval: boolean
+  timeout_seconds: number
+  input_schema: Record<string, any>
+  output_schema: Record<string, any>
+}
+
+export interface AgentRunStep {
+  id: string
+  run_id: string
+  step_number: number
+  node_id?: string | null
+  node_type: string
+  node_label: string
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'skipped' | 'waiting_for_approval'
+  tool_id?: string | null
+  inputs: Record<string, any>
+  outputs: Record<string, any>
+  explanation?: string | null
+  ms: number
+  error?: string | null
+  created_at: string
+}
+
+export interface AgentApproval {
+  id: string
+  run_id: string
+  step_id?: string | null
+  action_type: string
+  description: string
+  payload: Record<string, any>
+  requested_by_agent: string
+  status: 'pending' | 'approved' | 'rejected'
+  decided_by_user_id?: string | null
+  decided_at?: string | null
+  decision_note?: string | null
+  created_at: string
+}
+
+export interface AgentRun {
+  id: string
+  agent_id?: string | null
+  agent_name?: string | null
+  agent_version?: number | null
+  workspace: string
+  trigger_type: string
+  status: 'queued' | 'running' | 'waiting_for_approval' | 'completed' | 'failed' | 'cancelled'
+  inputs: Record<string, any>
+  outputs: Record<string, any>
+  duration_ms: number
+  tokens_used: number
+  tool_call_count: number
+  error?: string | null
+  started_at: string
+  finished_at?: string | null
+  created_at: string
+  steps: AgentRunStep[]
+  approvals: AgentApproval[]
+}
+
+export interface AgentTemplate {
+  id: string
+  name: string
+  description: string
+  category: string
+  icon: string
+  instructions: string
+  tools: string[]
+  input_schema: Record<string, any>
+  output_schema: Record<string, any>
+  approval_policy: any
+  execution_limits: any
+  workflow: WorkflowGraph
+}
+
+export interface AgentPromptResult {
+  agent: Agent
+  spec: any
+  tool_matches: string[]
+  rejected_tools: string[]
+  warnings: string[]
+}
+
+export interface AssistantStatus {
+  status: 'healthy' | 'degraded' | 'unavailable'
+  provider: string
+  model: string
+  retrieval_only: boolean
+  version: string
+  notice?: string
+}
+
+export interface AssistantCitationItem {
+  passage_id?: string
+  document_name?: string
+  page_number?: number
+  quote: string
+  verified: boolean
+}
+
+export interface AssistantActionItem {
+  label: string
+  action_type: string
+  route?: string
+  payload?: any
+}
+
+export interface AssistantMessage {
+  id: string
+  sender: 'user' | 'assistant' | 'system'
+  content: string
+  citations?: AssistantCitationItem[]
+  suggested_actions?: AssistantActionItem[]
+  draft?: any
+  latency_ms?: number
+  created_at?: string
+}
+
+export interface AssistantConversation {
+  id: string
+  title: string
+  context_route?: string
+  status?: string
+  created_at?: string
+  updated_at?: string
+  messages?: AssistantMessage[]
+}
+
+export interface NavCounts {
+  manager: {
+    review_queue: number
+    exceptions: number
+    sentinel: number
+  }
+  creator: {
+    my_submissions: number
+    ai_review: number
+    exception_requests: number
+    sentinel_tasks: number
+    approved_content: number
+  }
+  unread_notifications: number
+}
+
+export interface SubmissionsSummary {
+  total: number
+  approved: number
+  pending: number
+  needs_changes: number
+  rejected: number
 }

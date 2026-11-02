@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     retrieval_mode: str = "hybrid"  # "hybrid" | "lexical_only"
     reranker_enabled: bool = False
     llm_enabled: bool = False
+    llm_provider: str = "none"
     sentinel_cron: str = "0 0 * * *"
 
     # AI & LLM settings (OpenAI-compatible)

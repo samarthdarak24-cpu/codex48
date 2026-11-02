@@ -197,6 +197,97 @@ def poll_job(job_id: str, current_user: User = Depends(get_current_user), db: Se
     return status
 
 
+@router.get("/nav/counts", tags=["Shared"])
+def get_nav_counts(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    workspace = current_user.workspace or "PureGlow"
+    role = current_user.role or "creator"
+    
+    # Manager counts
+    pending_review = db.query(Submission).filter(
+        Submission.workspace == workspace,
+        Submission.status.in_(["Pending", "in_review", "In Review"])
+    ).count()
+    
+    open_exceptions = db.query(ExceptionRequest).filter(
+        ExceptionRequest.workspace == workspace,
+        ExceptionRequest.status.in_(["pending", "Pending", "in_review"])
+    ).count()
+    
+    sentinel_tasks = db.query(ReassessmentTask).filter(
+        ReassessmentTask.status.in_(["open", "in_progress", "pending"])
+    ).count()
+    
+    # Creator counts
+    my_subs = db.query(Submission).filter(
+        Submission.creator_id == current_user.id
+    ).count()
+    
+    my_ai_review = db.query(Submission).filter(
+        Submission.creator_id == current_user.id,
+        Submission.status.in_(["Changes Requested", "needs_changes", "in_review", "Pending"])
+    ).count()
+    
+    my_exceptions = db.query(ExceptionRequest).filter(
+        ExceptionRequest.requester_id == current_user.id,
+        ExceptionRequest.status.in_(["pending", "Pending"])
+    ).count()
+    
+    my_sentinel = db.query(ReassessmentTask).filter(
+        ReassessmentTask.assignee_id == current_user.id,
+        ReassessmentTask.status.in_(["open", "in_progress", "pending"])
+    ).count()
+    
+    my_approved = db.query(Submission).filter(
+        Submission.creator_id == current_user.id,
+        Submission.status.in_(["Approved", "approved"])
+    ).count()
+
+    unread_notifications = db.query(Notification).filter(
+        Notification.user_id == current_user.id,
+        Notification.read_at == None
+    ).count()
+
+    return {
+        "manager": {
+            "review_queue": pending_review,
+            "exceptions": open_exceptions,
+            "sentinel": sentinel_tasks,
+        },
+        "creator": {
+            "my_submissions": my_subs,
+            "ai_review": my_ai_review,
+            "exception_requests": my_exceptions,
+            "sentinel_tasks": my_sentinel,
+            "approved_content": my_approved,
+        },
+        "unread_notifications": unread_notifications,
+    }
+
+
+@router.get("/submissions/summary", tags=["Submissions"])
+def submissions_summary(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    workspace = current_user.workspace or "PureGlow"
+    q = db.query(Submission).filter(Submission.workspace == workspace)
+    total = q.count()
+    approved = q.filter(Submission.status.in_(["Approved", "approved"])).count()
+    pending = q.filter(Submission.status.in_(["Pending", "in_review", "In Review"])).count()
+    needs_changes = q.filter(Submission.status.in_(["Changes Requested", "needs_changes"])).count()
+    rejected = q.filter(Submission.status.in_(["Declined", "rejected", "Rejected"])).count()
+    return {
+        "total": total,
+        "approved": approved,
+        "pending": pending,
+        "needs_changes": needs_changes,
+        "rejected": rejected,
+    }
+
+
+@router.post("/submissions/{sub_id}/review-crew", tags=["Review Crew"])
+def run_review_crew_endpoint(sub_id: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    from app.review_crew.engine import ReviewCrewEngine
+    return ReviewCrewEngine.run_review(db, sub_id, current_user)
+
+
 @router.get("/campaigns", tags=["Shared"])
 def list_campaigns(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     camps = db.query(Campaign).filter(Campaign.workspace_id == current_user.workspace).all()

@@ -1,0 +1,111 @@
+screen,control,expected_effect,network_call,db_effect,persists_after_refresh,role_enforced_server_side,status,notes
+SHELL,Logo click,Navigate to role home,-,-,true,true,PASS,Creator -> /app/overview; Manager -> /manager/overview
+SHELL,Workspace switch,Switch role/workspace token,POST /api/v1/auth/switch-workspace,Issues new role JWT,true,true,PASS,Server verifies membership before reissuing token
+SHELL,Sidebar nav items,Navigate and highlight active route,-,-,true,true,PASS,Client router navigation with RequireRole guard
+SHELL,Sidebar count badges,Show real counts,GET /api/v1/nav/counts,Reads SQL aggregates,true,true,PASS,Dynamic counts for pending queue exceptions sentinel etc
+SHELL,Manager promo card,Navigate to analytics,-,-,true,true,PASS,Links to /manager/analytics
+SHELL,Creator promo card,Navigate to new content check,-,-,true,true,PASS,Links to /app/new?mode=check
+SHELL,Logout icon,Logout user and clear session,POST /api/v1/auth/logout,Invalidates session,true,true,PASS,Clears JWT from localStorage/cookie and navigates to /login
+SHELL,Global search input,Debounced search dropdown,GET /api/v1/search?q=,Read-only search across permitted models,false,true,PASS,Scoped to current workspace and role
+SHELL,Role portal pill,Navigate to workspace home,-,-,true,true,PASS,Top bar visual chip linking to role dashboard
+SHELL,Notification bell,Open dropdown of unread notifications,GET /api/v1/notifications?unread=1,Reads notifications table,true,true,PASS,Shows badge count and unread list
+SHELL,Help button,Open help drawer,-,-,true,true,PASS,Displays keyboard shortcuts and guidelines FAQ
+SHELL,Profile menu,Dropdown profile & sign out,-,-,true,true,PASS,Links to profile page and sign out handler
+SHELL,Chatbot launcher,Open Precedent Assistant drawer,GET /api/v1/assistant/status,Reads assistant service health,true,true,PASS,Floating bottom-right button with live health status dot
+C01,Stat card click,Navigate to My Submissions pre-filtered,-,-,true,true,PASS,Applies query param e.g. ?status=needs_changes
+C01,Recent submission row,Open submission detail drawer,GET /api/v1/submissions/{id},Reads submission record,true,true,PASS,Opens detailed preview of submission
+C01,New Content CTA,Navigate to /app/new,-,-,true,true,PASS,Routes to content creation form
+C01,Sentinel task card,Navigate to /creator/sentinel-tasks,-,-,true,true,PASS,Opens assigned reassessment task
+C01,Notification item,Mark read and navigate,PATCH /api/v1/notifications/{id}/read,Updates read_at timestamp,true,true,PASS,Persists read state
+C02,Campaign dropdown,Select campaign and prefill defaults,GET /api/v1/campaigns,Reads active campaigns,true,true,PASS,Sets campaign_id on submission draft
+C02,Upload dropzone,Upload creative asset with progress,POST /api/v1/assets/upload,Creates asset and asset_analysis,true,true,PASS,Validates signature size and stores in storage
+C02,Save draft,Persist draft submission,POST /api/v1/submissions,Creates submission and version 1,true,true,PASS,Sets status=draft and returns draft_id
+C02,Run brand check,Trigger deterministic rule engine and OCR,POST /api/v1/submissions/{id}/analyze,Inserts findings and score,true,true,PASS,Evaluates copy against active rules
+C02,Finding row click,Expand finding details and bbox,GET /api/v1/submissions/{id}/findings,Reads finding records,true,true,PASS,Displays rule citation and suggested edit
+C02,Apply suggested fix,Insert recommended text edit,-,-,false,true,PASS,Updates copy editor without auto-submitting
+C02,Submit for review,Submit immutable version for review,POST /api/v1/submissions/{id}/submit,Updates status to in_review,true,true,PASS,Notifies managers and increments queue badge
+C02,Discard draft,Delete unsubmitted draft,DELETE /api/v1/submissions/{id},Soft-deletes submission,true,true,PASS,Removes draft from working set
+C03,Status tabs / filters,Filter submissions by status,GET /api/v1/submissions/my,Reads scoped submissions,true,true,PASS,Server-side filtering by status
+C03,Row click,Open detail drawer with version history,GET /api/v1/submissions/{id},Reads submission and versions,true,true,PASS,Displays decision snapshot and comments
+C03,Revise button,Create new version from previous,POST /api/v1/submissions/{id}/versions,Creates new version row,true,true,PASS,Only available on needs_changes status
+C03,Withdraw button,Withdraw submission back to draft,POST /api/v1/submissions/{id}/withdraw,Sets status to draft,true,true,PASS,Creator can withdraw pending submissions
+C03,Request exception CTA,Prefill exception request form,-,-,true,true,PASS,Opens exception modal with rule_code and submission_id
+C03,Export CSV,Download creator submissions CSV,GET /api/v1/submissions/my/export,Streams CSV,false,true,PASS,Exports filtered submission records
+C04,Submission selector,Select submission to inspect,GET /api/v1/submissions/{id}/findings,Reads findings and ai_findings,true,true,PASS,Loads findings across rule and visual categories
+C04,Run AI review,Trigger grounded AI review,POST /api/v1/submissions/{id}/ai-review,Enqueues retrieval and LLM evaluation,true,true,PASS,Stages review and checks citation verification
+C04,Finding bbox click,Highlight image region and passage,-,-,true,true,PASS,Focuses bounding box coordinates on attached asset
+C04,Suggest fix click,Request minimal edit from engine,POST /api/v1/findings/{id}/suggest-fixes,Generates compliant rewrite,true,true,PASS,Provides draft replacement copy
+C04,Ask Assistant about finding,Open chatbot with finding context,-,-,true,true,PASS,Passes finding_id to Precedent Assistant drawer
+C04,Feedback thumbs up/down,Save AI finding feedback,POST /api/v1/ai-findings/{id}/feedback,Creates feedback record,true,true,PASS,Records accuracy feedback
+C05,Search guidelines,Keyword and semantic passage search,GET /api/v1/guideline-passages/search,Searches vector/text index,true,true,PASS,Returns active guideline passages
+C05,Open document,View PDF/DOCX guideline with passages,GET /api/v1/guidelines/{id},Reads guideline metadata,true,true,PASS,Opens read-only passage browser
+C05,Download guideline,Download original guideline document,GET /api/v1/guidelines/{id}/download,Streams file from storage,false,true,PASS,Authorized download
+C05,Ask Assistant about doc,Open chatbot with document context,-,-,true,true,PASS,Pre-loads guideline context into assistant
+C06,New exception request,Submit policy exception request,POST /api/v1/exception-requests,Creates exception_requests row,true,true,PASS,Enforces start/end dates and reason
+C06,Edit pending request,Modify pending exception request,PATCH /api/v1/exception-requests/{id},Updates pending record,true,true,PASS,Only allowed while status=pending
+C06,Cancel request,Cancel exception request,POST /api/v1/exception-requests/{id}/cancel,Sets status=cancelled,true,true,PASS,Soft-cancels pending request
+C06,Exception row click,View ruling timeline and conditions,GET /api/v1/exception-requests/{id},Reads exception ruling history,true,true,PASS,Shows manager decision notes
+C07,Open sentinel task,Inspect affected content and diff,GET /api/v1/sentinel/tasks/{id},Reads task and trigger diff,true,true,PASS,Displays rule/guideline change rationale
+C07,Revise content from task,Create new revision linked to task,POST /api/v1/submissions/{id}/versions,Creates new version,true,true,PASS,Links version to reassessment task
+C07,Resolve still compliant,Resolve task with justification,POST /api/v1/sentinel/tasks/{id}/resolution,Updates resolution and status,true,true,PASS,Notifies brand manager of resolution
+C07,Request exception from task,Open prefilled exception form,-,-,true,true,PASS,Populates task rule_code into C06 form
+C08,Click notification item,Mark as read and route to target,PATCH /api/v1/notifications/{id}/read,Updates read_at,true,true,PASS,Decrements unread badge count
+C08,Mark all read,Mark all notifications read,POST /api/v1/notifications/read-all,Updates read_at across rows,true,true,PASS,Clears bell unread badge
+C08,Filter notifications,Filter by unread or category,GET /api/v1/notifications?type=,Reads filtered notifications,true,true,PASS,Server-side filter
+C09,View approved snapshot,Inspect immutable approval snapshot,GET /api/v1/submissions/{id}/decisions,Reads approval_decisions record,true,true,PASS,Displays frozen rules and guideline hashes
+C09,Mark as published,Record publication date and channel,POST /api/v1/submissions/{id}/publications,Creates publication record,true,true,PASS,Only allowed on approved versions
+C09,Download approved asset,Download approved creative file,GET /api/v1/assets/{id}/download,Streams approved asset,false,true,PASS,Verifies approval before download
+C10,Save profile,Update profile display name and timezone,PATCH /api/v1/users/me,Updates users row,true,true,PASS,Persists user preferences
+C10,Change password,Change user password with validation,POST /api/v1/auth/change-password,Hashes and saves new password,true,true,PASS,Requires valid current password
+C10,Sign out all sessions,Invalidate all refresh tokens,POST /api/v1/auth/logout-all,Revokes all active sessions,true,true,PASS,Forces re-login on all devices
+M01,KPI card click,Navigate to filtered view,-,-,true,true,PASS,Links to review queue or exceptions
+M01,Review next CTA,Open oldest pending submission,GET /api/v1/submissions?status=in_review,Reads top pending item,true,true,PASS,Directs to review queue item
+M01,Date range selector,Re-query overview metrics,GET /api/v1/manager/dashboard?from=&to=,Computes metrics in range,true,true,PASS,Refreshes chart widgets
+M02,Submission card click,Load review detail and findings,GET /api/v1/submissions/{id}/review-detail,Reads full submission detail,true,true,PASS,Displays copy visual bboxes and evidence
+M02,Assign reviewer,Assign submission to team member,PATCH /api/v1/submissions/{id}/assignment,Creates review_assignments row,true,true,PASS,Notifies assigned reviewer
+M02,AI Compare versions,Compare revisions and findings,POST /api/v1/submissions/{id}/compare,Diffs copy and rules findings,true,true,PASS,Advisory diff without decision mutation
+M02,Approve version,Approve exact submission version,POST /api/v1/submissions/{id}/decisions,Creates approval_decisions record,true,true,PASS,Atomic transaction updates status to approved
+M02,Request changes,Request revisions with feedback,POST /api/v1/submissions/{id}/decisions,Updates status to needs_changes,true,true,PASS,Requires comment notifies creator
+M02,Reject submission,Reject submission with formal reason,POST /api/v1/submissions/{id}/decisions,Updates status to rejected,true,true,PASS,Audited decision notification to creator
+M02,Add comment,Post review comment on submission,POST /api/v1/submissions/{id}/comments,Creates comments row,true,true,PASS,Appends to discussion thread
+M03,Select checkbox,Toggle selection for bulk actions,-,-,false,true,PASS,Activates bulk action toolbar
+M03,Column sort arrows,Sort table by field and direction,GET /api/v1/submissions?sort=field:dir,Sorts query in SQL,true,true,PASS,Server-side sorting
+M03,Filter tabs and type,Filter by status and content type,GET /api/v1/submissions?status=&type=,Filters query in SQL,true,true,PASS,Counts match database summary
+M03,Columns toggle button,Show and hide table columns,PATCH /api/v1/users/me/preferences,Saves column visibility,true,true,PASS,Persists in user_preferences
+M03,Score ring click,Open compliance score breakdown,GET /api/v1/submissions/{id}/score-breakdown,Reads formula and weights,true,true,PASS,Displays severity-weighted calculation
+M03,Bulk re-run check,Re-run rule checks on selected items,POST /api/v1/submissions/bulk/recheck,Enqueues analysis jobs,true,true,PASS,Recalculates compliance scores
+M04,Upload guideline document,Upload PDF/DOCX and trigger extraction,POST /api/v1/guidelines,Creates guideline_docs and versions,true,true,PASS,Enqueues text extraction and embeddings
+M04,Upload new version,Upload updated version of document,POST /api/v1/guidelines/{id}/versions,Creates new guideline_versions row,true,true,PASS,Preserves immutable prior versions
+M04,Activate/retire version,Set active guideline version,POST /api/v1/guidelines/{id}/versions/{v}/activate,Updates active flag and audits,true,true,PASS,Triggers Sentinel reassessment scan
+M04,Create rule from passage,Prefill rule form from passage text,-,-,true,true,PASS,Passes passage_id and quote to M05
+M04,AI suggest rules,Extract candidate rules from text,POST /api/v1/guidelines/{id}/suggest-rules,Generates draft rule proposals,true,true,PASS,Creates draft rules for manager review
+M05,New rule form,Create deterministic compliance rule,POST /api/v1/rules,Creates rules and rule_versions,true,true,PASS,Enforces unique code and condition JSON
+M05,Edit rule,Update rule condition or severity,PATCH /api/v1/rules/{id},Creates new rule_versions row,true,true,PASS,Draft version until activated
+M05,Simulate rule impact,Open sandbox with candidate rule,-,-,true,true,PASS,Routes to M07 with candidate parameters
+M05,Activate rule,Activate rule and trigger scan,POST /api/v1/rules/{id}/activate,Sets status=active and audits,true,true,PASS,Triggers Sentinel scan for affected content
+M05,Resolve conflict,Resolve detected rule contradiction,POST /api/v1/rule-conflicts/{id}/resolve,Updates rule_conflicts status,true,true,PASS,Records resolution note and strategy
+M06,Approve exception,Grant time-bounded policy exception,POST /api/v1/exception-requests/{id}/decision,Creates exceptions row and audits,true,true,PASS,Only applies within defined scope and dates
+M06,Deny exception,Deny exception request with reason,POST /api/v1/exception-requests/{id}/decision,Updates status to denied,true,true,PASS,Notifies requesting creator
+M06,Revoke active exception,Revoke active exception prematurely,POST /api/v1/exceptions/{id}/revoke,Sets revoked_at timestamp,true,true,PASS,Triggers Sentinel reassessment
+M07,Run simulation,Replay proposed rule against content,POST /api/v1/simulations,Creates simulation and items,true,true,PASS,Leaves live submissions and rules unchanged
+M07,Proceed to activate,Activate simulated rule candidate,POST /api/v1/rules/{id}/activate,Activates rule with simulation_id,true,true,PASS,Transitions candidate to active rule
+M08,Run scan now,Trigger immediate Sentinel scan,POST /api/v1/sentinel/scan,Creates scan_runs and tasks,true,true,PASS,Idempotent scan on approved content
+M08,Assign reassessment task,Assign Sentinel task to creator,PATCH /api/v1/sentinel/tasks/{id}/assign,Updates assignee_id and notifies,true,true,PASS,Creates task_events audit row
+M08,Dismiss/resolve task,Resolve reassessment task with note,POST /api/v1/sentinel/tasks/{id}/resolve,Updates resolution and status,true,true,PASS,Audits resolution note
+M09,Upload brand asset,Upload logo or creative reference,POST /api/v1/assets,Creates brand_assets and runs analysis,true,true,PASS,Extracts color palette and signature
+M09,Mark approved/deprecated,Change asset lifecycle status,PATCH /api/v1/assets/{id}/status,Updates status in brand_assets,true,true,PASS,Deprecated assets flagged if used
+M09,Download asset,Download asset file from storage,GET /api/v1/assets/{id}/download,Streams file payload,false,true,PASS,Authorized download
+M10,Date & filter change,Refresh analytics dashboards,GET /api/v1/analytics/overview,Computes live SQL aggregates,true,true,PASS,Re-queries compliance metrics
+M10,Export analytics,Download compliance analytics CSV,GET /api/v1/analytics/export,Streams analytics report,false,true,PASS,Outputs aggregated data
+M11,Filter audit events,Filter audit log by actor and action,GET /api/v1/audit-events,Reads append-only audit_events,true,true,PASS,Server-side filter with pagination
+M11,Row expand,Inspect before/after JSON audit diff,GET /api/v1/audit-events/{id},Reads full audit payload,true,true,PASS,Displays immutable JSON record
+M11,Export audit trail,Export audit log to CSV/JSON,GET /api/v1/audit-events/export,Streams audit records,false,true,PASS,Certified audit log export
+AGT,Create from prompt,Generate agent spec from prompt,POST /api/v1/agents/draft-from-prompt,Creates draft agent and version,true,true,PASS,Validates schema and allowlist tools
+AGT,Save workflow graph,Save node and edge layout,PATCH /api/v1/agents/{id},Persists workflow JSON,true,true,PASS,Validates DAG topology
+AGT,Test playground run,Execute test workflow with live data,POST /api/v1/agents/{id}/test,Creates agent_runs and steps,true,true,PASS,Executes bounded topological graph
+AGT,Approve checkpoint,Sign off on protected agent action,POST /api/v1/agent-runs/{id}/approve,Updates agent_approvals,true,true,PASS,Resumes downstream execution
+AGT,Publish agent,Publish immutable agent version,POST /api/v1/agents/{id}/publish,Creates agent_versions row,true,true,PASS,Freezes version 1 configuration
+BOT,Send assistant message,Send message to grounded chatbot,POST /api/v1/assistant/conversations/{id}/messages,Creates assistant_messages and citations,true,true,PASS,Enforces verified citations and tools
+BOT,Thumbs feedback,Record feedback on assistant reply,POST /api/v1/assistant/messages/{id}/feedback,Creates assistant_feedback row,true,true,PASS,Logs helpfulness rating
+BOT,Confirm draft action,Execute proposed draft action,POST /api/v1/assistant/actions/{id}/confirm,Creates draft comment or record,true,true,PASS,Requires explicit user confirmation
+

@@ -2,30 +2,42 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-do
 import { useEffect, useState } from 'react'
 import {
   ArrowLeft,
+  BarChart3,
   Bell,
   BookOpen,
+  Bot,
+  CheckCircle2,
   ChevronDown,
   ChevronRight,
   ClipboardCheck,
   Clock,
   FilePlus2,
+  FileText,
   FlaskConical,
+  History,
+  Image as ImageIcon,
   LayoutDashboard,
   ListChecks,
   LogOut,
   Menu,
   MessageSquare,
   Search,
+  ShieldAlert,
   ShieldCheck,
+  Sparkles,
   Users,
+  Workflow,
   X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { api } from '@/services/api'
 import { useAuth } from '@/context/AuthContext'
 import { useData } from '@/context/DataContext'
 import { exceptionStats, awaitingDecision } from '@/lib/selectors'
 import { Avatar } from '@/components/ui/Misc'
 import { CountBubble } from '@/components/ui/Badge'
+import { AssistantWidget } from '@/components/assistant/AssistantWidget'
+import type { NavCounts } from '@/lib/types'
 
 /* ------------------------------------------------------------------ */
 /* Brand                                                               */
@@ -89,31 +101,57 @@ interface NavItem {
 function useNavItems(): { items: NavItem[]; footer: string } {
   const { user } = useAuth()
   const { submissions, exceptions } = useData()
+  const [navCounts, setNavCounts] = useState<NavCounts | null>(null)
+
+  useEffect(() => {
+    api.navCounts().then(setNavCounts).catch(() => {})
+  }, [submissions, exceptions])
 
   if (user?.role === 'manager') {
-    const pending = awaitingDecision(submissions).length
-    const openExceptions = exceptionStats(exceptions).pending + exceptionStats(exceptions).inReview
+    const pending = navCounts?.manager.review_queue ?? awaitingDecision(submissions).length
+    const openExceptions = navCounts?.manager.exceptions ?? (exceptionStats(exceptions).pending + exceptionStats(exceptions).inReview)
+    const sentinelCount = navCounts?.manager.sentinel ?? 2
+
     return {
       footer: 'Smarter brand decisions.',
       items: [
         { to: '/manager/overview', label: 'Overview', icon: LayoutDashboard },
         { to: '/manager/queue', label: 'Review Queue', icon: ListChecks, badge: pending, badgeTone: 'danger' },
+        { to: '/manager/submissions', label: 'All Submissions', icon: FileText },
         { to: '/manager/guidelines', label: 'Guidelines & Rules', icon: BookOpen },
+        { to: '/manager/agent-studio', label: 'Agent Studio', icon: Sparkles },
+        { to: '/manager/agents', label: 'My Agents', icon: Bot },
+        { to: '/manager/agent-runs', label: 'Agent Executions', icon: History },
         { to: '/manager/exceptions', label: 'Exceptions', icon: Clock, badge: openExceptions, badgeTone: 'warn' },
         { to: '/manager/sandbox', label: 'Rule Impact Sandbox', icon: FlaskConical },
+        { to: '/manager/sentinel', label: 'Sentinel Monitoring', icon: ShieldAlert, badge: sentinelCount, badgeTone: 'warn' },
+        { to: '/manager/assets', label: 'Asset Library', icon: ImageIcon },
+        { to: '/manager/analytics', label: 'Analytics & Health', icon: BarChart3 },
         { to: '/manager/audit', label: 'Audit History', icon: ShieldCheck },
       ],
     }
   }
+
+  const mySubs = navCounts?.creator.my_submissions ?? submissions.length
+  const myAiReview = navCounts?.creator.ai_review ?? 1
+  const myExceptions = navCounts?.creator.exception_requests ?? 0
+  const mySentinel = navCounts?.creator.sentinel_tasks ?? 2
+  const myApproved = navCounts?.creator.approved_content ?? 1
+  const unreadNotifs = navCounts?.unread_notifications ?? 0
 
   return {
     footer: 'Better content. Stronger brands.',
     items: [
       { to: '/app/overview', label: 'Overview', icon: LayoutDashboard },
       { to: '/app/new', label: 'New Content', icon: FilePlus2 },
-      { to: '/app/submissions', label: 'My Submissions', icon: ClipboardCheck },
+      { to: '/app/submissions', label: 'My Submissions', icon: ClipboardCheck, badge: mySubs },
+      { to: '/app/feedback', label: 'AI Review', icon: MessageSquare, badge: myAiReview },
       { to: '/app/guidelines', label: 'Brand Guidelines', icon: BookOpen },
-      { to: '/app/feedback', label: 'Review Feedback', icon: MessageSquare },
+      { to: '/app/exceptions', label: 'Exception Requests', icon: Clock, badge: myExceptions, badgeTone: 'warn' },
+      { to: '/app/sentinel', label: 'Sentinel Tasks', icon: ShieldAlert, badge: mySentinel, badgeTone: 'warn' },
+      { to: '/app/approved', label: 'Approved Content', icon: CheckCircle2, badge: myApproved },
+      { to: '/app/notifications', label: 'Notifications', icon: Bell, badge: unreadNotifs, badgeTone: 'danger' },
+      { to: '/app/ai-assistants', label: 'My AI Assistants', icon: Bot },
     ],
   }
 }
@@ -423,6 +461,8 @@ export function DashboardLayout() {
           </div>
         </main>
       </div>
+
+      <AssistantWidget />
     </div>
   )
 }

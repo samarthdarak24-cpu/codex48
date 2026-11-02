@@ -9,12 +9,27 @@ import NewContent from '@/pages/content/NewContent'
 import MySubmissions from '@/pages/content/Submissions'
 import CreatorGuidelines from '@/pages/content/Guidelines'
 import ReviewFeedback from '@/pages/content/Feedback'
+import CreatorExceptionRequestsPage from '@/pages/content/CreatorExceptionRequests'
+import CreatorSentinelTasksPage from '@/pages/content/CreatorSentinelTasks'
+import CreatorNotificationsPage from '@/pages/content/CreatorNotifications'
+import CreatorApprovedContentPage from '@/pages/content/CreatorApprovedContent'
+import CreatorProfilePage from '@/pages/content/CreatorProfile'
+import CreatorAssistantsPage from '@/pages/content/CreatorAssistants'
 import ManagerOverview from '@/pages/manager/Overview'
 import ReviewQueue from '@/pages/manager/Queue'
+import AllSubmissionsPage from '@/pages/manager/AllSubmissions'
 import GuidelinesRules from '@/pages/manager/GuidelinesRules'
 import ExceptionsPage from '@/pages/manager/Exceptions'
 import Sandbox from '@/pages/manager/Sandbox'
+import SentinelMonitoringPage from '@/pages/manager/SentinelMonitoring'
+import AssetLibraryPage from '@/pages/manager/AssetLibrary'
+import AnalyticsHealthPage from '@/pages/manager/AnalyticsHealth'
 import AuditHistory from '@/pages/manager/Audit'
+import AgentStudioPage from '@/pages/manager/AgentStudio'
+import AgentDetailPage from '@/pages/manager/AgentDetail'
+import WorkflowBuilderPage from '@/pages/manager/WorkflowBuilderPage'
+import AgentRunsPage from '@/pages/manager/AgentRunsPage'
+import AgentRunDetailPage from '@/pages/manager/AgentRunDetailPage'
 
 function Splash() {
   return (
@@ -48,6 +63,22 @@ export default function App() {
       <Route path="/" element={<HomePage />} />
       <Route path="/login" element={<LoginPage />} />
 
+      {/* Aliases for Creator Routes */}
+      <Route path="/creator" element={<Navigate to="/app/overview" replace />} />
+      <Route path="/creator/dashboard" element={<Navigate to="/app/overview" replace />} />
+      <Route path="/creator/new-content" element={<Navigate to="/app/new" replace />} />
+      <Route path="/creator/submissions" element={<Navigate to="/app/submissions" replace />} />
+      <Route path="/creator/guidelines" element={<Navigate to="/app/guidelines" replace />} />
+      <Route path="/creator/ai-review" element={<Navigate to="/app/feedback" replace />} />
+      <Route path="/creator/exception-requests" element={<Navigate to="/app/exceptions" replace />} />
+      <Route path="/creator/sentinel-tasks" element={<Navigate to="/app/sentinel" replace />} />
+      <Route path="/creator/notifications" element={<Navigate to="/app/notifications" replace />} />
+      <Route path="/creator/approved-content" element={<Navigate to="/app/approved" replace />} />
+      <Route path="/creator/profile" element={<Navigate to="/app/profile" replace />} />
+      <Route path="/creator/ai-assistants" element={<Navigate to="/app/ai-assistants" replace />} />
+      <Route path="/creator/ai-assistants/:agentId" element={<Navigate to="/app/ai-assistants" replace />} />
+
+      {/* Primary Creator Workspace */}
       <Route
         path="/app"
         element={
@@ -63,8 +94,16 @@ export default function App() {
         <Route path="guidelines" element={<CreatorGuidelines />} />
         <Route path="feedback" element={<ReviewFeedback />} />
         <Route path="feedback/:id" element={<ReviewFeedback />} />
+        <Route path="exceptions" element={<CreatorExceptionRequestsPage />} />
+        <Route path="sentinel" element={<CreatorSentinelTasksPage />} />
+        <Route path="notifications" element={<CreatorNotificationsPage />} />
+        <Route path="approved" element={<CreatorApprovedContentPage />} />
+        <Route path="profile" element={<CreatorProfilePage />} />
+        <Route path="ai-assistants" element={<CreatorAssistantsPage />} />
+        <Route path="ai-assistants/:agentId" element={<CreatorAssistantsPage />} />
       </Route>
 
+      {/* Manager Workspace */}
       <Route
         path="/manager"
         element={
@@ -77,10 +116,23 @@ export default function App() {
         <Route path="overview" element={<ManagerOverview />} />
         <Route path="queue" element={<ReviewQueue />} />
         <Route path="queue/:id" element={<ReviewQueue />} />
+        <Route path="review-queue" element={<Navigate to="/manager/queue" replace />} />
+        <Route path="submissions" element={<AllSubmissionsPage />} />
         <Route path="guidelines" element={<GuidelinesRules />} />
+        <Route path="rules" element={<GuidelinesRules />} />
         <Route path="exceptions" element={<ExceptionsPage />} />
         <Route path="sandbox" element={<Sandbox />} />
+        <Route path="sentinel" element={<SentinelMonitoringPage />} />
+        <Route path="assets" element={<AssetLibraryPage />} />
+        <Route path="analytics" element={<AnalyticsHealthPage />} />
         <Route path="audit" element={<AuditHistory />} />
+        <Route path="agent-studio" element={<AgentStudioPage />} />
+        <Route path="agents" element={<AgentStudioPage />} />
+        <Route path="agents/:agentId" element={<AgentDetailPage />} />
+        <Route path="agents/:agentId/builder" element={<WorkflowBuilderPage />} />
+        <Route path="agents/:agentId/runs" element={<AgentRunsPage />} />
+        <Route path="agent-runs" element={<AgentRunsPage />} />
+        <Route path="agent-runs/:runId" element={<AgentRunDetailPage />} />
       </Route>
 
       <Route
