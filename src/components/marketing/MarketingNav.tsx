@@ -7,12 +7,10 @@ import { cn } from '@/lib/utils'
 
 const LINKS = [
   { label: 'Platform', href: '#platform' },
-  { label: 'Solution', href: '#solution' },
-  { label: 'Festival Demo', href: '#demo-story' },
+  { label: 'Innovations', href: '#innovations' },
   { label: 'Features', href: '#features' },
-  { label: 'Tech Stack', href: '#tech-stack' },
+  { label: 'Architecture', href: '#architecture' },
   { label: 'Team', href: '#team' },
-  { label: 'FAQ', href: '#faq' },
 ]
 
 export function MarketingNav() {
