@@ -104,6 +104,27 @@ function Hero() {
       </div>
 
       <div className="relative mkt-container">
+        {/* Floating aesthetic feature pills for visual depth */}
+        <div className="pointer-events-none hidden xl:flex absolute -left-8 top-12 animate-float-slow items-center gap-2.5 rounded-2xl border border-white/80 bg-white/75 p-3 shadow-[0_15px_30px_-10px_rgba(15,33,56,0.1)] backdrop-blur-md z-20">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-success-50 text-success-600 border border-success-100 shadow-2xs">
+            <ShieldCheck className="h-5 w-5" />
+          </div>
+          <div className="text-left text-xs pr-2">
+            <p className="font-bold text-ink">Deterministic Primacy</p>
+            <p className="text-[10.5px] text-muted">13 Brand Rule Conditions</p>
+          </div>
+        </div>
+
+        <div className="pointer-events-none hidden xl:flex absolute -right-8 top-8 animate-float-reverse items-center gap-2.5 rounded-2xl border border-white/80 bg-white/75 p-3 shadow-[0_15px_30px_-10px_rgba(15,33,56,0.1)] backdrop-blur-md z-20">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-50 text-brand-600 border border-brand-100 shadow-2xs">
+            <Sparkles className="h-5 w-5 text-brand-500" />
+          </div>
+          <div className="text-left text-xs pr-2">
+            <p className="font-bold text-ink">Verifiable Evidence</p>
+            <p className="text-[10.5px] text-muted">Zero Hallucination Shield</p>
+          </div>
+        </div>
+
         <div className="mx-auto max-w-[860px] text-center">
           <Reveal>
             <span className="inline-flex items-center gap-2 rounded-full border border-ink/10 bg-white/80 px-3.5 py-1.5 text-[11.5px] font-medium text-ink-600 shadow-2xs backdrop-blur transition-transform hover:scale-105">

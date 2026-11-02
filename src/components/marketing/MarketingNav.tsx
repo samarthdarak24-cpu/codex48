@@ -36,7 +36,7 @@ export function MarketingNav() {
   }, [open])
 
   const signedIn = status === 'authenticated' && user
-  const workspace = user?.role === 'manager' ? '/manager/overview' : '/app/overview'
+  const workspace = user?.role === 'manager' ? '/manager/overview' : '/creator/dashboard'
 
   return (
     <>

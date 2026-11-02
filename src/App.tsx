@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { BrandMark } from '@/components/layout/Shell'
+import Home from '@/pages/marketing/Home'
 import LoginPage from '@/pages/Login'
 import ProofPassVerify from '@/pages/ProofPassVerify'
 
@@ -81,7 +82,8 @@ export default function App() {
   return (
     <Routes>
       {/* Single entry point — the v2 21-page workspace is the one and only app UI. */}
-      <Route path="/" element={<Navigate to="/login" replace />} />
+      <Route path="/" element={<Home />} />
+      <Route path="/home" element={<Home />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/verify" element={<ProofPassVerify />} />
       <Route path="/verify/:id" element={<ProofPassVerify />} />
