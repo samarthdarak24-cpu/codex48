@@ -407,3 +407,47 @@ The only warning is the standard chunk-size advisory (> 500 kB). It does not aff
 8. **Automatic retry** is limited to a safe "re-run test" action; failed governance runs are not retried automatically.
 9. **Branching** in `if_else` computes a condition but the executor follows one topological order rather than pruning branches.
 10. **Database-failure injection** was not tested.
+
+---
+
+## 12. Re-verification — 2 November 2026, 18:26 IST
+
+The full suite was re-run against the current source tree (backend restarted on `127.0.0.1:8000`, Vite on `127.0.0.1:5173`).
+
+| Suite | Command | Result |
+|---|---|---|
+| Runtime smoke | `backend/.venv/Scripts/python.exe scripts/agent_studio_smoke.py` | **PASS** — 10 steps, pause at Manager Approval, resume → completed |
+| HTTP API | `scripts/agent_api_smoke.py` | **PASS** — draft 201, creator execute 201, approve 200, run detail 10 steps / 1 approval |
+| Errors & permissions | `scripts/agent_error_smoke.py` | **PASS** — 13/13 (422 invalid prompt, 403 creator, 404 cross-workspace, cycle/unknown-tool gates, persistence) |
+| Browser UI | `node qa_agent_studio.mjs` | **PASS** — 8/8, clean console |
+| Test playground E2E | `node qa_agent_test.mjs sub_dfac9746ad2c` | **PASS** — completed, 10 timeline steps, 0 page errors |
+| TypeScript | `npx tsc --noEmit` | **PASS** — 0 errors |
+| Production bundle | `npx vite build` (fresh outDir) | **PASS** — 2990 modules |
+
+Screenshots were regenerated at `.shots/agent-studio/01-dashboard.png` … `11-test-complete.png`. No regressions were introduced by the visual detail-panel work on the 21 core screens; the Agent Studio routes are independent of `src/v2/`.
+
+---
+
+## 13. Chat integration — real execution from the copilot (2 Nov 2026, 18:36 IST)
+
+`node .tmp_verify_chat.mjs` drives the floating copilot as a signed-in manager:
+
+```text
+open copilot → click "Review latest submission"
+after run:   { hasSteps: true, awaiting: true, completed: false }
+after approve: { completed: true, awaiting: false }
+history:     { hasAgentRuns: true }
+console errors: 0
+```
+
+What this proves:
+
+- The chat called `POST /agents/{id}/execute` and received a real `AgentRun` (9 steps, paused at `manager_approval`).
+- The inline **Approve & resume** action called `POST /agent-runs/{id}/approve`; the run resumed and completed (10 steps).
+- The completed bubble rendered **real findings** — e.g. `Claims & Compliance Playbook v1.3 · Page 22 · verified`, `TV-02`, `BR-01`, `LO-02` — read from `run.output.draft.findings`.
+- **Run history** listed stored runs (Completed / Cancelled / Failed) with step counts and durations from `GET /agent-runs`.
+- TypeScript `tsc --noEmit` → 0 errors; `vite build` → exit 0.
+
+Screenshots: `.tmp_shots2/chat-run.png`, `chat-approved.png`, `chat-history.png`.
+
+**Known data artifact (not a chat defect):** the 21-page sweep flagged `/creator/ai-review` for a single console 404 at `GET /analysis/sub_e90498782d31/file`. That submission has a stored analysis row but no poster file on disk (created by earlier smoke runs). The page handles it gracefully (empty poster state); the network 404 is logged by the browser regardless. All other 22 checks pass.

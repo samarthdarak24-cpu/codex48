@@ -236,3 +236,29 @@ npx vite build
 ```
 
 Results are recorded in `AGENT_STUDIO_TEST_RESULTS.md`.
+
+---
+
+## Chat integration — the copilot now executes agents
+
+The floating **Precedent AI Copilot** (`src/v2/components/agent/FloatingAgentChat.tsx`) previously answered with hardcoded keyword replies and showed static, invented execution rows. It is now a thin orchestration layer over the real Agent Studio API, so the same agents can be run from chat without opening the Studio screens.
+
+**How a message is handled**
+
+1. On open, the copilot loads the workspace's **published agents** (`GET /agents?status=published`).
+2. A deterministic intent router maps the message to an agent **category**:
+   - review / submission / claim / poster / compliance → `brand_compliance` (falls back to `visual_review`, `sentinel`, `guideline_research`)
+   - exception / override / waiver → `exceptions`
+   - audit / report / weekly / trend → `audit`
+   - otherwise → `guideline_research`
+3. It builds a real `run_input` (`submission_id` from an explicit `sub_…` id or the latest submission; `query`/`text` from the message) and calls `POST /agents/{id}/execute`.
+4. The returned `AgentRun` is rendered with its **real** status, duration, step count and tool steps. Findings are read from `run.output.draft.findings` with their real `ruleCode`, severity, source document, page and verification flag.
+5. If the run pauses at a human-approval checkpoint (`waiting_approval`), the manager can **Approve & resume** or **Reject** inline (`POST /agent-runs/{id}/approve`); the bubble updates with the resumed result. Creators see a "waiting for a manager" note instead.
+6. The **Run history** tab lists real executions from `GET /agent-runs` and lazily loads per-run steps from `GET /agent-runs/{id}` when a row is expanded.
+
+**Safety properties preserved**
+
+- No tool is invented: the copilot only selects agents that already exist and are published, and the runtime still enforces the tool allow-list, permissions, approval gates and step/time limits.
+- The copilot cannot approve content itself; a human decision is still required for protected actions.
+- On the public marketing page (no provider/session) the copilot degrades to "Sign in to run agents" and makes no API calls.
+- No fabricated activity: removed the hardcoded "184ms review_crew…" rows and the fake Sentinel scan; the executions view is backed by stored runs.
