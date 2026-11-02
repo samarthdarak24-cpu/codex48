@@ -101,7 +101,7 @@ function Hero() {
     <section className="relative overflow-hidden bg-cream pb-8 pt-[104px] sm:pt-[124px]">
       {/* soft animated wash */}
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute left-1/2 top-[-10%] h-[520px] w-[820px] -translate-x-1/2 rounded-full bg-[#EAF3D8]/60 blur-[120px] animate-pulse-glow" />
+        <div className="absolute left-1/2 top-[-10%] h-[520px] w-[820px] -translate-x-1/2 rounded-full bg-[#EAF3D8]/60 blur-[120px]" />
         <div className="absolute right-[-10%] top-[30%] h-[360px] w-[360px] rounded-full bg-[#F8E4C8]/50 blur-[100px] animate-float-slow" />
       </div>
 
@@ -280,7 +280,7 @@ function LogoStrip() {
 
 function Statement() {
   return (
-    <section className="bg-white py-20 lg:py-28">
+    <section className="bg-white px-0 pb-56 pt-20 lg:pb-72 lg:pt-28">
       <div className="mkt-container grid gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-20">
         <Reveal>
           <h2 className="mkt-display text-[40px] leading-[1.04] text-ink sm:text-[54px] lg:text-[62px]">
@@ -374,7 +374,7 @@ function EvidenceSplit() {
             </div>
 
             {/* floating evidence card */}
-            <div className="absolute -bottom-8 -left-4 w-[280px] rounded-2xl border border-ink/[0.08] bg-white/95 backdrop-blur-md p-4 shadow-[0_24px_60px_-28px_rgba(15,33,56,0.45)] animate-float-slow sm:-left-10">
+            <div className="absolute bottom-[-24px] left-0 z-10 w-[min(280px,calc(100vw-32px))] rounded-2xl border border-ink/[0.08] bg-white/95 p-4 shadow-[0_18px_36px_-14px_rgba(15,33,56,0.32)] backdrop-blur-md animate-float-slow sm:left-[-40px]">
               <div className="flex items-center gap-1.5">
                 <span className="relative flex h-2 w-2">
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-danger-500 opacity-60" />
@@ -528,7 +528,7 @@ function BetterWay() {
               <Reveal key={p.title} delay={i * 80}>
                 <div className="flex h-full flex-col justify-between rounded-2xl border border-ink/[0.08] bg-white p-6 shadow-xs transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl">
                   <div>
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-ink/[0.04] text-ink border border-ink/10">
                         <Icon className="h-5 w-5" />
                       </div>
@@ -618,7 +618,7 @@ const REASONS = [
 
 function WhyPrecedent() {
   return (
-    <section className="bg-cream/70 py-20 lg:py-28">
+    <section className="bg-cream/70 pb-56 pt-20 lg:pb-72 lg:pt-28">
       <div className="mkt-container grid items-center gap-12 lg:grid-cols-[0.95fr_1.05fr] lg:gap-16">
         <Reveal>
           <h2 className="mkt-display text-[36px] leading-[1.06] text-ink sm:text-[46px]">
@@ -641,18 +641,18 @@ function WhyPrecedent() {
           </div>
         </Reveal>
 
-        <Reveal delay={110} className="relative">
-          <div className="relative mx-auto max-w-[440px]">
+        <Reveal delay={110} className="relative min-w-0">
+          <div className="relative mx-auto w-full min-w-0 max-w-[440px]">
             <div className="grid grid-cols-2 gap-3.5">
-              <div className="aspect-[3/4] overflow-hidden rounded-[20px] ring-1 ring-ink/[0.07] shadow-sm transition-all duration-500 hover:-translate-y-2 hover:shadow-xl">
+              <div className="min-w-0 aspect-[3/4] overflow-hidden rounded-[20px] ring-1 ring-ink/[0.07] shadow-sm transition-all duration-500 hover:-translate-y-2 hover:shadow-xl">
                 <AssetCard variant={ASSETS[3]} />
               </div>
-              <div className="mt-8 aspect-[3/4] overflow-hidden rounded-[20px] ring-1 ring-ink/[0.07] shadow-sm transition-all duration-500 hover:-translate-y-2 hover:shadow-xl">
+              <div className="mt-8 min-w-0 aspect-[3/4] overflow-hidden rounded-[20px] ring-1 ring-ink/[0.07] shadow-sm transition-all duration-500 hover:-translate-y-2 hover:shadow-xl">
                 <AssetCard variant={ASSETS[5]} />
               </div>
             </div>
 
-            <div className="absolute -bottom-6 left-1/2 w-[290px] -translate-x-1/2 rounded-2xl border border-ink/[0.08] bg-white/95 backdrop-blur-md p-3.5 shadow-[0_24px_60px_-28px_rgba(15,33,56,0.4)] animate-float-slow">
+            <div className="absolute left-1/2 top-[calc(100%+16px)] w-[290px] -translate-x-1/2 rounded-2xl border border-ink/[0.08] bg-white/95 p-3.5 shadow-[0_24px_60px_-28px_rgba(15,33,56,0.4)] backdrop-blur-md">
               <div className="flex items-center justify-between">
                 <p className="text-[11px] font-semibold text-ink">Review queue</p>
                 <span className="flex items-center gap-1 text-[9.5px] font-medium text-emerald-600">
@@ -762,9 +762,9 @@ function AudienceCards() {
     <section className="bg-white pb-20 lg:pb-24">
       <div className="mkt-container grid gap-6 lg:grid-cols-2">
         {/* For brand teams card */}
-        <Reveal className="flex flex-col justify-between rounded-[28px] border border-ink/[0.08] bg-[#F7F8FA] p-7 sm:p-9 shadow-xs hover:shadow-lg transition-all duration-300">
+        <Reveal className="flex min-w-0 flex-col justify-between rounded-[28px] border border-ink/[0.08] bg-[#F7F8FA] p-7 sm:p-9 shadow-xs hover:shadow-lg transition-all duration-300">
           <div>
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <Pill tone="mint">
                 <span className="h-1.5 w-1.5 rounded-full bg-[#7AB93B]" />
                 For brand teams
@@ -784,10 +784,10 @@ function AudienceCards() {
 
             {/* Visual Manager Workspace Queue Mockup */}
             <div className="mt-6 rounded-2xl border border-ink/[0.08] bg-white p-4 shadow-2xs">
-              <div className="flex items-center justify-between border-b border-ink/[0.06] pb-2.5">
-                <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-ink/[0.06] pb-2.5">
+                <div className="flex min-w-0 items-center gap-2">
                   <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span className="text-[11px] font-bold text-ink">PureGlow Global · Pending Reviews (3)</span>
+                  <span className="truncate text-[11px] font-bold text-ink">PureGlow Global · Pending Reviews (3)</span>
                 </div>
                 <span className="text-[10px] font-mono text-muted">Role: Brand Manager</span>
               </div>
@@ -799,15 +799,15 @@ function AudienceCards() {
                   className="h-14 w-14 rounded-lg object-cover border border-ink/10 shadow-2xs shrink-0"
                 />
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between">
-                    <p className="text-[12px] font-bold text-ink truncate">Diwali Glow Poster v2.1</p>
-                    <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                  <div className="flex flex-wrap items-center justify-between gap-1">
+                    <p className="min-w-0 truncate text-[12px] font-bold text-ink">Diwali Glow Poster v2.1</p>
+                    <span className="max-w-full truncate text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
                       Rule Conflict BR-01
                     </span>
                   </div>
                   <p className="text-[11px] text-muted mt-0.5 truncate">Submitted by Emily Carter · Background #F5A97F</p>
-                  <div className="mt-2.5 flex items-center gap-2">
-                    <button type="button" className="inline-flex items-center gap-1 rounded-md bg-purple-600 px-2.5 py-1 text-[10.5px] font-bold text-white shadow-2xs hover:bg-purple-700 transition-colors">
+                  <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                    <button type="button" className="inline-flex max-w-full items-center gap-1 rounded-md bg-purple-600 px-2.5 py-1 text-[10.5px] font-bold text-white shadow-2xs hover:bg-purple-700 transition-colors">
                       <Sparkles className="h-3 w-3" /> Grant Scoped Exception
                     </button>
                     <button type="button" className="inline-flex items-center gap-1 rounded-md bg-white border border-ink/15 px-2 py-1 text-[10.5px] font-semibold text-ink-700 hover:bg-ink/[0.02]">
@@ -840,7 +840,7 @@ function AudienceCards() {
         </Reveal>
 
         {/* For creators card */}
-        <Reveal delay={90} className="flex flex-col justify-between rounded-[28px] border border-ink/[0.08] bg-[#FBF7F8] p-7 sm:p-9 shadow-xs hover:shadow-lg transition-all duration-300">
+        <Reveal delay={90} className="flex min-w-0 flex-col justify-between rounded-[28px] border border-ink/[0.08] bg-[#FBF7F8] p-7 sm:p-9 shadow-xs hover:shadow-lg transition-all duration-300">
           <div>
             <div className="flex items-center justify-between">
               <Pill tone="blush">
@@ -862,10 +862,10 @@ function AudienceCards() {
 
             {/* Visual Creator Pre-Flight Copy Linter Mockup */}
             <div className="mt-6 rounded-2xl border border-ink/[0.08] bg-white p-4 shadow-2xs">
-              <div className="flex items-center justify-between border-b border-ink/[0.06] pb-2.5">
-                <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-ink/[0.06] pb-2.5">
+                <div className="flex min-w-0 items-center gap-2">
                   <span className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
-                  <span className="text-[11px] font-bold text-ink">Precedent Pre-Flight Validator · Live</span>
+                  <span className="truncate text-[11px] font-bold text-ink">Precedent Pre-Flight Validator · Live</span>
                 </div>
                 <span className="text-[10px] font-mono text-muted">Rule Set: v2.3</span>
               </div>
