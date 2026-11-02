@@ -668,6 +668,7 @@ export function Timeline({
           className="relative flex gap-3 pb-4 last:pb-0"
           initial={reduce ? false : { opacity: 0, x: -6 }}
           animate={{ opacity: 1, x: 0 }}
+          whileHover={reduce ? undefined : { x: 3 }}
           transition={{ duration: 0.35, ease: EASE, delay: reduce ? 0 : i * 0.05 }}
         >
           <span

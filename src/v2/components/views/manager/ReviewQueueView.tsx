@@ -1,372 +1,791 @@
-import React, { useState } from 'react';
+/**
+ * Review Queue — the decision workspace.
+ *
+ * Cards, counts, findings summaries and the activity feed are all derived from
+ * `useApp()`. There are no sample comments and no placeholder evidence: a tab
+ * with nothing stored says so.
+ */
+import React, { useMemo, useState } from 'react';
 import {
-  Filter, User, Layers, AlertTriangle, SlidersHorizontal, ChevronDown, Wand2,
-  Clock, CircleAlert, Download, Eye, GitCompare, MoreHorizontal, X,
-  CheckCircle2, Zap, Activity, ArrowUpRight, ArrowDownRight,
+  AlertTriangle, ArrowRight, CheckCircle2, ChevronDown, CircleAlert, Clock,
+  Download, Eye, GitCompare, Lock, MessageSquare, Search, User, Wand2, X,
 } from 'lucide-react';
 import { useApp } from '../../../context/AppContext';
-import { Submission, SubmissionStatus } from '../../../types';
 import { api } from '@/services/api';
+import type { Submission, SubmissionStatus } from '../../../types';
+import { motion, useReducedMotion } from 'motion/react';
+import {
+  AnimatedBadge, AnimatedButton, AnimatedCard, AnimatedCounter, AnimatedDrawer,
+  AnimatedProgress, EASE, FilterPills, PageTransition, SectionHeader, Stagger, StaggerItem,
+  SuccessCheck, type Tone,
+} from '../../motion';
 
-const StatusPill = ({ status }: { status: string }) => {
-  const map: Record<string, string> = {
-    'In Review': 'badge-inreview',
-    Pending: 'badge-pending',
-    'Needs Changes': 'badge-changes',
-    Approved: 'badge-approved',
-    Rejected: 'badge-rejected',
-  };
-  const dot: Record<string, string> = {
-    'In Review': 'bg-blue-500', Pending: 'bg-amber-500', 'Needs Changes': 'bg-orange-500',
-    Approved: 'bg-emerald-500', Rejected: 'bg-red-500',
-  };
-  return (
-    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold ${map[status] ?? 'badge-draft'}`}>
-      <span className={`w-1.5 h-1.5 rounded-full ${dot[status] ?? 'bg-slate-400'}`} />{status}
-    </span>
-  );
+/* ------------------------------------------------------------------ */
+/* Helpers                                                             */
+/* ------------------------------------------------------------------ */
+
+const STATUS_TONE: Record<string, Tone> = {
+  Approved: 'sage',
+  'In Review': 'brand',
+  Pending: 'amber',
+  'Needs Changes': 'terracotta',
+  Rejected: 'danger',
 };
 
-const COLUMNS: { key: SubmissionStatus[]; label: string; accent: string; bg: string; badgeCls: string }[] = [
-  { key: ['In Review', 'Pending'], label: 'In Review', accent: 'bg-blue-500', bg: 'bg-blue-50/30', badgeCls: 'bg-blue-100 text-blue-800' },
-  { key: ['Needs Changes'], label: 'Needs Changes', accent: 'bg-orange-400', bg: 'bg-orange-50/20', badgeCls: 'bg-orange-100 text-orange-800' },
-  { key: ['Approved'], label: 'Approved', accent: 'bg-emerald-500', bg: 'bg-emerald-50/20', badgeCls: 'badge-approved' },
-  { key: ['Rejected'], label: 'Rejected', accent: 'bg-red-400', bg: 'bg-red-50/20', badgeCls: 'bg-red-100 text-red-800' },
+const PRIORITY_CLASS: Record<string, string> = {
+  Critical: 'badge-critical',
+  High: 'badge-high',
+  Medium: 'badge-medium',
+  Low: 'badge-low',
+};
+
+const PRIORITY_RANK: Record<string, number> = { Critical: 0, High: 1, Medium: 2, Low: 3 };
+
+/** Five-state status enum, so each state keeps its own tone and exact label. */
+const StatusPill: React.FC<{ status: string }> = ({ status }) => (
+  <AnimatedBadge tone={STATUS_TONE[status] ?? 'amber'} className="shrink-0">
+    {status}
+  </AnimatedBadge>
+);
+
+type Column = {
+  key: SubmissionStatus[];
+  label: string;
+  accent: string;
+  bg: string;
+  tone: Tone;
+};
+
+const COLUMNS: Column[] = [
+  { key: ['In Review', 'Pending'], label: 'In review', accent: 'bg-olive-400', bg: 'bg-olive-50/50', tone: 'olive' },
+  { key: ['Needs Changes'], label: 'Needs changes', accent: 'bg-terracotta-400', bg: 'bg-terracotta-50/40', tone: 'terracotta' },
+  { key: ['Approved'], label: 'Approved', accent: 'bg-sage-500', bg: 'bg-sage-50/50', tone: 'sage' },
+  { key: ['Rejected'], label: 'Rejected', accent: 'bg-danger-400', bg: 'bg-danger-50/40', tone: 'danger' },
 ];
 
+const FILTERS: { id: 'All' | SubmissionStatus; label: string }[] = [
+  { id: 'All', label: 'All' },
+  { id: 'In Review', label: 'In review' },
+  { id: 'Needs Changes', label: 'Needs changes' },
+  { id: 'Approved', label: 'Approved' },
+  { id: 'Rejected', label: 'Rejected' },
+];
+
+type SortKey = 'newest' | 'priority' | 'score';
+
+const timestampOf = (s: Submission): number => {
+  const raw = s.submittedAt ?? s.submittedDate;
+  if (!raw) return 0;
+  const t = new Date(raw).getTime();
+  return Number.isNaN(t) ? 0 : t;
+};
+
+/* ------------------------------------------------------------------ */
+/* View                                                                */
+/* ------------------------------------------------------------------ */
+
 export const ReviewQueueView: React.FC = () => {
-  const { submissions, selectedSubmission, setSelectedSubmission, updateSubmissionStatus, setIsAiCompareOpen, addToast } = useApp();
+  const {
+    role, submissions, auditEvents, loading, error, searchQuery,
+    selectedSubmission, setSelectedSubmission, updateSubmissionStatus,
+    setIsAiCompareOpen, addToast,
+  } = useApp();
 
+  const [query, setQuery] = useState(searchQuery);
+  const [statusFilter, setStatusFilter] = useState<'All' | SubmissionStatus>('All');
+  const [sortKey, setSortKey] = useState<SortKey>('newest');
+  const [inspectorOpen, setInspectorOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'Findings' | 'Evidence' | 'Comments'>('Findings');
-  const [decisionChoice, setDecisionChoice] = useState<string>('Request Changes');
+  const [feedTab, setFeedTab] = useState<'Comments' | 'Activity'>('Comments');
+  const [decisionChoice, setDecisionChoice] = useState('Request Changes');
   const [managerNote, setManagerNote] = useState('');
-  const [bottomFeedTab, setBottomFeedTab] = useState<'Comments' | 'Activity'>('Comments');
-  const [isInspectorOpen, setIsInspectorOpen] = useState(true);
+  const [lastDecision, setLastDecision] = useState<string | null>(null);
+  const reduce = useReducedMotion();
 
-  const activeSub = selectedSubmission || submissions[0];
+  /* Drives the confirmation banner's colour, glow and shake. */
+  const decisionTone: Tone = lastDecision?.startsWith('Approve')
+    ? 'sage'
+    : lastDecision?.startsWith('Reject')
+      ? 'danger'
+      : 'amber';
 
-  const handleDecision = () => {
-    if (!activeSub) return;
-    const statusMap: Record<string, SubmissionStatus> = {
-      'Approve Version': 'Approved', 'Request Changes': 'Needs Changes', 'Reject': 'Rejected',
-    };
-    const mapped = statusMap[decisionChoice] ?? 'Needs Changes';
-    updateSubmissionStatus(activeSub.id, mapped, managerNote);
-    setManagerNote('');
+  const activeSub = selectedSubmission ?? submissions[0] ?? undefined;
+
+  /* ---- Real filtering ---- */
+  const visible = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const list = submissions.filter((s) => {
+      if (statusFilter !== 'All') {
+        if (statusFilter === 'In Review') {
+          if (s.status !== 'In Review' && s.status !== 'Pending') return false;
+        } else if (s.status !== statusFilter) {
+          return false;
+        }
+      }
+      if (!q) return true;
+      return (
+        s.title.toLowerCase().includes(q) ||
+        s.campaign.toLowerCase().includes(q) ||
+        s.creator.name.toLowerCase().includes(q)
+      );
+    });
+
+    return [...list].sort((a, b) => {
+      if (sortKey === 'priority') {
+        return (PRIORITY_RANK[a.priority ?? 'Medium'] ?? 2) - (PRIORITY_RANK[b.priority ?? 'Medium'] ?? 2);
+      }
+      if (sortKey === 'score') return a.complianceScore - b.complianceScore;
+      return timestampOf(b) - timestampOf(a);
+    });
+  }, [submissions, query, statusFilter, sortKey]);
+
+  /* ---- Findings summary, computed from the visible queue ---- */
+  const summary = useMemo(() => {
+    let violations = 0;
+    let warnings = 0;
+    let clean = 0;
+    for (const s of visible) {
+      const f = s.findings ?? [];
+      const errors = f.filter((x) => x.type === 'error').length;
+      const warns = f.filter((x) => x.type === 'warning').length;
+      violations += errors;
+      warnings += warns;
+      if (f.length === 0) clean += 1;
+    }
+    return { violations, warnings, clean };
+  }, [visible]);
+
+  const counts = useMemo(() => {
+    const inReview = submissions.filter((s) => s.status === 'In Review' || s.status === 'Pending').length;
+    const needsChanges = submissions.filter((s) => s.status === 'Needs Changes').length;
+    const approved = submissions.filter((s) => s.status === 'Approved').length;
+    const rejected = submissions.filter((s) => s.status === 'Rejected').length;
+    return { All: submissions.length, 'In Review': inReview, 'Needs Changes': needsChanges, Approved: approved, Rejected: rejected } as Record<string, number>;
+  }, [submissions]);
+
+  const comments = activeSub?.comments ?? [];
+  const activity = auditEvents.slice(0, 6);
+
+  const openInspector = (sub: Submission) => {
+    setSelectedSubmission(sub);
+    setActiveTab('Findings');
+    setLastDecision(null);
+    setInspectorOpen(true);
   };
 
+  const handleDecision = (choice: string = decisionChoice) => {
+    if (!activeSub) return;
+    const statusMap: Record<string, SubmissionStatus> = {
+      'Approve Version': 'Approved',
+      'Request Changes': 'Needs Changes',
+      Reject: 'Rejected',
+    };
+    const mapped = statusMap[choice] ?? 'Needs Changes';
+    updateSubmissionStatus(activeSub.id, mapped, managerNote);
+    setManagerNote('');
+    setLastDecision(`${choice} · ${activeSub.title}`);
+  };
+
+  const evidenceRefs = useMemo(() => {
+    if (!activeSub?.findings) return [];
+    return Array.from(new Set(activeSub.findings.map((f) => f.guidelineRef).filter(Boolean))) as string[];
+  }, [activeSub]);
+
+  /* ---- States ---- */
+
+  if (role !== 'manager') {
+    return (
+      <div className="p-6">
+        <div className="mx-auto max-w-lg rounded-3xl border border-line bg-white p-10 text-center shadow-card">
+          <Lock className="mx-auto h-8 w-8 text-muted-light" />
+          <h1 className="mt-3 text-lg font-semibold text-ink">Manager access only</h1>
+          <p className="mt-1 text-xs leading-relaxed text-muted">
+            The review queue is where brand managers record decisions. Your current role is {role}.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="p-4 sm:p-6">
+        <div className="mx-auto max-w-[1500px] space-y-4">
+          <div className="h-14 w-1/3 animate-pulse rounded-2xl bg-cream-100" />
+          <div className="h-10 animate-pulse rounded-2xl bg-cream-100" />
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="h-64 animate-pulse rounded-2xl bg-cream-100" />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex h-full overflow-hidden">
-      {/* Kanban + comments main area */}
-      <main className="flex-1 overflow-y-auto p-5 space-y-4 bg-canvas">
+    <PageTransition className="p-4 sm:p-6">
+      <div className="mx-auto max-w-[1500px] space-y-4">
+
+        {error && (
+          <div role="alert" className="flex items-start gap-2.5 rounded-2xl border border-danger-200 bg-danger-50 px-4 py-3 text-xs text-danger-700">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-danger-500" />
+            <span>{error}</span>
+          </div>
+        )}
+
         {/* Header */}
-        <div>
-          <h1 className="text-[32px] font-black tracking-tight leading-none mt-1 animate-count-up">Review Queue</h1>
-          <p className="text-xs text-muted mt-0.5">Review content, verify evidence, and manage brand decisions.</p>
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div className="min-w-0">
+            <p className="mb-1 text-2xs font-semibold uppercase tracking-[0.1em] text-brand-600">
+              Decision workspace
+            </p>
+            <h1 className="text-2xl font-semibold tracking-[-0.02em] text-ink sm:text-3xl">Review Queue</h1>
+            <p className="mt-1 text-sm text-muted">
+              Review content, verify evidence, and record brand decisions.
+            </p>
+          </div>
+          <button
+            onClick={() => setIsAiCompareOpen(true)}
+            className="inline-flex items-center gap-2 rounded-xl border border-olive-200 bg-olive-50 px-3.5 py-2.5 text-xs font-semibold text-olive-700 transition-colors hover:bg-olive-100"
+          >
+            <Wand2 className="h-3.5 w-3.5" />
+            AI Compare
+          </button>
         </div>
 
         {/* Toolbar */}
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {[
-              { icon: <Filter className="w-3 h-3" />, label: 'All campaigns' },
-              { icon: <User className="w-3 h-3" />, label: 'All creators' },
-              { icon: <Layers className="w-3 h-3" />, label: 'All statuses' },
-              { icon: <AlertTriangle className="w-3 h-3" />, label: 'Risk level' },
-            ].map((btn) => (
-              <button key={btn.label} className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white border border-line rounded-xl text-xs font-medium text-ink-700 hover:bg-[#FAF7EF] shadow-2xs transition-colors cursor-pointer">
-                <span className="text-muted-light">{btn.icon}</span>{btn.label}<ChevronDown className="w-3 h-3 text-muted-light" />
-              </button>
-            ))}
-            <button className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white border border-line rounded-xl text-xs font-medium text-ink-700 hover:bg-[#FAF7EF] shadow-2xs transition-colors cursor-pointer">
-              <SlidersHorizontal className="w-3 h-3 text-muted" />Filter
-            </button>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-1 flex-wrap items-center gap-1.5">
+            <FilterPills
+              options={FILTERS.map((f) => ({ id: f.id, label: `${f.label} (${counts[f.id] ?? 0})` }))}
+              selected={[statusFilter]}
+              onChange={(sel) => {
+                const next = sel.filter((id) => id !== statusFilter);
+                setStatusFilter((next[next.length - 1] as 'All' | SubmissionStatus) ?? 'All');
+              }}
+            />
           </div>
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1.5 bg-white border border-line px-2.5 py-1.5 rounded-xl shadow-2xs text-xs">
-              <span className="text-muted">Sort by:</span>
-              <span className="font-semibold text-ink">Newest first</span>
-              <ChevronDown className="w-3 h-3 text-muted-light" />
+
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-light" />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search submissions…"
+                aria-label="Search submissions"
+                className="w-full rounded-xl border border-line bg-white py-1.5 pl-8 pr-8 text-xs text-ink focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-300/40 sm:w-56"
+              />
+              {query && (
+                <button
+                  onClick={() => setQuery('')}
+                  aria-label="Clear search"
+                  className="absolute right-2 top-2 rounded p-0.5 text-muted-light hover:text-ink"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
             </div>
-            <button onClick={() => setIsAiCompareOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-semibold hover:bg-emerald-100 shadow-2xs transition-colors cursor-pointer">
-              <Wand2 className="w-3.5 h-3.5 text-emerald-600" />AI Compare
-            </button>
+
+            <div className="relative">
+              <select
+                value={sortKey}
+                onChange={(e) => setSortKey(e.target.value as SortKey)}
+                aria-label="Sort submissions"
+                className="appearance-none rounded-xl border border-line bg-white py-1.5 pl-3 pr-8 text-xs font-medium text-ink focus:outline-none focus:ring-2 focus:ring-brand-300/40"
+              >
+                <option value="newest">Newest first</option>
+                <option value="priority">Priority</option>
+                <option value="score">Lowest score</option>
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-2.5 top-2.5 h-3.5 w-3.5 text-muted-light" />
+            </div>
           </div>
         </div>
 
-        {/* Kanban board */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {/* Findings summary — real counts for what is on screen */}
+        <Stagger className="grid gap-3 sm:grid-cols-3">
+          <StaggerItem>
+            <AnimatedCard className="p-3.5">
+              <div className="flex items-center justify-between">
+                <p className="text-2xs font-medium text-muted">Violations in view</p>
+                <CircleAlert className="h-4 w-4 text-danger-500" />
+              </div>
+              <p className="mt-1 text-xl font-semibold tabular-nums text-ink">
+                <AnimatedCounter value={summary.violations} />
+              </p>
+              <p className="mt-0.5 text-2xs text-muted">Deterministic rule failures</p>
+            </AnimatedCard>
+          </StaggerItem>
+          <StaggerItem>
+            <AnimatedCard className="p-3.5">
+              <div className="flex items-center justify-between">
+                <p className="text-2xs font-medium text-muted">Needs human review</p>
+                <AlertTriangle className="h-4 w-4 text-warn-500" />
+              </div>
+              <p className="mt-1 text-xl font-semibold tabular-nums text-ink">
+                <AnimatedCounter value={summary.warnings} />
+              </p>
+              <p className="mt-0.5 text-2xs text-muted">Warnings the engine could not settle</p>
+            </AnimatedCard>
+          </StaggerItem>
+          <StaggerItem>
+            <AnimatedCard className="p-3.5">
+              <div className="flex items-center justify-between">
+                <p className="text-2xs font-medium text-muted">Clean submissions</p>
+                <CheckCircle2 className="h-4 w-4 text-sage-500" />
+              </div>
+              <p className="mt-1 text-xl font-semibold tabular-nums text-ink">
+                <AnimatedCounter value={summary.clean} />
+              </p>
+              <p className="mt-0.5 text-2xs text-muted">No findings recorded</p>
+            </AnimatedCard>
+          </StaggerItem>
+        </Stagger>
+
+        {/* Kanban */}
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {COLUMNS.map((col) => {
-            const cards = submissions.filter((s) => (col.key as string[]).includes(s.status));
+            const cards = visible.filter((s) => col.key.includes(s.status));
             return (
-              <div key={col.label} className={`${col.bg} rounded-2xl p-3 border border-line/60 space-y-2.5 min-h-[200px]`}>
-                {/* Column header */}
-                <div className="flex items-center justify-between px-0.5">
+              <section
+                key={col.label}
+                className={`${col.bg} rounded-2xl border border-line/70 p-2.5`}
+                aria-label={`${col.label} column`}
+              >
+                <div className="mb-2 flex items-center justify-between px-0.5">
                   <div className="flex items-center gap-2">
-                    <span className={`w-2 h-2 rounded-full ${col.accent}`} />
-                    <span className="text-xs font-semibold text-ink">{col.label}</span>
+                    <span className={`h-2 w-2 rounded-full ${col.accent}`} aria-hidden="true" />
+                    <h2 className="text-xs font-semibold text-ink">{col.label}</h2>
                   </div>
-                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${col.badgeCls}`}>{cards.length}</span>
+                  <span className="rounded-md bg-white/80 px-1.5 py-0.5 text-2xs font-semibold tabular-nums text-ink-600">
+                    {cards.length}
+                  </span>
                 </div>
 
-                {/* Cards */}
-                {cards.map((card) => {
-                  const isSelected = activeSub?.id === card.id;
-                  return (
-                    <div key={card.id} onClick={() => { setSelectedSubmission(card); setIsInspectorOpen(true); }}
-                      className={`bg-white rounded-xl p-2.5 cursor-pointer transition-all ${isSelected ? `border-2 shadow-sm ${col.accent.replace('bg-', 'border-')}` : 'border border-line hover:border-line-strong shadow-2xs hover:shadow-xs'}`}>
-                      <div className="flex gap-2.5">
-                        <div className="w-14 h-14 rounded-lg overflow-hidden bg-[#F1ECE0] shrink-0 border border-line">
-                          <img alt={card.title} className="w-full h-full object-cover" src={card.thumbnail} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-ink text-xs truncate">{card.title}</p>
-                          <p className="text-[10px] text-muted truncate mt-0.5">{card.campaign}</p>
-                          <div className="flex items-center gap-1 text-[10px] text-muted-light mt-1">
-                            <User className="w-3 h-3 shrink-0" />
-                            <span className="truncate">by {card.creator.name}</span>
+                <div className="space-y-2">
+                  {cards.length === 0 && (
+                    <p className="rounded-xl border border-dashed border-line bg-white/60 px-3 py-6 text-center text-2xs text-muted">
+                      Nothing here
+                    </p>
+                  )}
+                  {cards.map((card) => {
+                    const isSelected = activeSub?.id === card.id;
+                    return (
+                      <motion.button
+                        key={card.id}
+                        onClick={() => openInspector(card)}
+                        className={`w-full rounded-xl border bg-white p-2.5 text-left transition-colors ${
+                          isSelected
+                            ? 'border-brand-300 ring-1 ring-brand-200'
+                            : 'border-line hover:border-line-strong'
+                        }`}
+                        whileHover={reduce ? undefined : { y: -2 }}
+                        whileTap={reduce ? undefined : { scale: 0.995 }}
+                        transition={{ duration: 0.2, ease: EASE }}
+                      >
+                        <div className="flex gap-2.5">
+                          <img
+                            src={card.thumbnail}
+                            alt=""
+                            className="h-12 w-12 shrink-0 rounded-lg border border-line object-cover"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-xs font-semibold text-ink">{card.title}</p>
+                            <p className="mt-0.5 truncate text-2xs text-muted">{card.campaign}</p>
+                            <p className="mt-1 flex items-center gap-1 truncate text-2xs text-muted-light">
+                              <User className="h-3 w-3 shrink-0" />
+                              {card.creator.name}
+                            </p>
                           </div>
                         </div>
-                      </div>
-                      <div className="mt-2 pt-2 border-t border-[#F1ECE0] flex items-center justify-between text-[10px]">
-                        {(card.findingsCount ?? 0) > 0 ? (
-                          <span className="text-red-600 font-semibold bg-red-50 px-1.5 py-0.5 rounded flex items-center gap-1">
-                            <CircleAlert className="w-2.5 h-2.5" />{card.findingsCount} findings
+
+                        <div className="mt-2 flex items-center justify-between gap-1 border-t border-line/70 pt-2">
+                          {(card.findingsCount ?? card.findings?.length ?? 0) > 0 ? (
+                            <span className="inline-flex items-center gap-1 rounded-md bg-danger-50 px-1.5 py-0.5 text-[10px] font-semibold text-danger-700">
+                              <CircleAlert className="h-2.5 w-2.5" />
+                              {card.findingsCount ?? card.findings?.length} findings
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-sage-600">
+                              <CheckCircle2 className="h-2.5 w-2.5" />
+                              Clean
+                            </span>
+                          )}
+                          <span className="flex items-center gap-1 text-[10px] text-muted-light">
+                            <Clock className="h-3 w-3" />
+                            {card.relativeTime ?? '—'}
                           </span>
-                        ) : (
-                          <span className="text-emerald-600 font-semibold flex items-center gap-1">
-                            <CheckCircle2 className="w-2.5 h-2.5" />Clean
-                          </span>
-                        )}
-                        <div className="flex items-center gap-1 text-muted-light">
-                          <Clock className="w-3 h-3" />{card.relativeTime}
                         </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+
+                        <div className="mt-1.5">
+                          <span className={`${PRIORITY_CLASS[card.priority ?? 'Medium'] ?? 'badge-medium'} text-[10px]`}>
+                            {card.priority ?? 'Medium'}
+                          </span>
+                        </div>
+                      </motion.button>
+                    );
+                  })}
+                </div>
+              </section>
             );
           })}
         </div>
 
-        {/* Comments / Activity feed */}
-        <div className="bg-white rounded-2xl border border-line shadow-2xs p-4">
-          <div className="flex items-center gap-5 border-b border-line pb-2 mb-3">
-            {(['Comments', 'Activity'] as const).map((tab) => (
-              <button key={tab} onClick={() => setBottomFeedTab(tab)}
-                className={`pb-2 -mb-2 text-xs font-semibold transition ${bottomFeedTab === tab ? 'border-b-2 border-brand-600 text-brand-600' : 'text-muted hover:text-ink'}`}>
-                {tab} {tab === 'Comments' ? '(3)' : ''}
-              </button>
-            ))}
+        {/* Feed */}
+        <AnimatedCard className="p-4">
+          <SectionHeader
+            title="Discussion"
+            subtitle={
+              activeSub
+                ? `Comments and audit activity for ${activeSub.title}`
+                : 'Select a submission to read its thread'
+            }
+          />
+          <div className="mt-3 flex gap-4 border-b border-line">
+            {(['Comments', 'Activity'] as const).map((tab) => {
+              const count = tab === 'Comments' ? comments.length : activity.length;
+              const isActive = feedTab === tab;
+              return (
+                <button
+                  key={tab}
+                  onClick={() => setFeedTab(tab)}
+                  aria-pressed={isActive}
+                  className={`-mb-px border-b-2 pb-2 text-xs font-semibold transition-colors ${
+                    isActive
+                      ? 'border-brand-600 text-brand-600'
+                      : 'border-transparent text-muted hover:text-ink'
+                  }`}
+                >
+                  {tab}
+                  <span className="ml-1 text-2xs text-muted-light">({count})</span>
+                </button>
+              );
+            })}
           </div>
-          {bottomFeedTab === 'Comments' ? (
-            <div className="space-y-3">
-              {activeSub?.comments && activeSub.comments.length > 0 ? activeSub.comments.map((c) => (
-                <div key={c.id} className="flex items-start gap-3">
-                  <img alt={c.author} src={c.avatar} className="w-7 h-7 rounded-full object-cover shrink-0 ring-1 ring-line" />
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-ink text-xs">{c.author}</span>
-                      <span className="text-[10px] text-muted-light">{c.time}</span>
-                    </div>
-                    <p className="text-ink-600 text-xs mt-0.5 leading-relaxed">{c.text}</p>
-                  </div>
+          <p className="mt-2 text-2xs text-muted">
+            {feedTab === 'Comments'
+              ? 'Recorded comments on the selected submission.'
+              : 'Latest entries from the audit trail.'}
+          </p>
+
+          <div className="mt-3 space-y-3">
+            {feedTab === 'Comments' ? (
+              comments.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-line bg-cream-50 px-4 py-6 text-center">
+                  <MessageSquare className="mx-auto h-5 w-5 text-muted-light" />
+                  <p className="mt-2 text-xs font-medium text-ink-600">No comments on this version</p>
+                  <p className="mt-0.5 text-2xs text-muted">Reviewer notes appear here once they are stored.</p>
                 </div>
-              )) : (
-                <div className="space-y-3">
-                  {[
-                    { name: 'Diya Sharma', time: '2h ago', text: 'Please adjust the logo placement as per brand guidelines. Also ensure the text is not absolute.', initials: 'DS' },
-                    { name: 'Rohan Mehta', time: '3h ago', text: 'Got it, will update the creative and resubmit.', initials: 'RM' },
-                  ].map((c) => (
-                    <div key={c.name} className="flex items-start gap-3">
-                      <div className="w-7 h-7 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center shrink-0 text-[10px] font-bold">{c.initials}</div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-ink text-xs">{c.name}</span>
-                          <span className="text-[10px] text-muted-light">{c.time}</span>
-                        </div>
-                        <p className="text-ink-600 text-xs mt-0.5 leading-relaxed">{c.text}</p>
-                      </div>
-                    </div>
-                  ))}
-                  <div className="flex items-start gap-3">
-                    <div className="w-7 h-7 rounded-full bg-[#F1ECE0] text-brand-600 flex items-center justify-center shrink-0"><Zap className="w-3.5 h-3.5" /></div>
-                    <div>
+              ) : (
+                comments.map((c) => (
+                  <div key={c.id} className="flex items-start gap-2.5">
+                    <img src={c.avatar} alt="" className="h-7 w-7 shrink-0 rounded-full object-cover ring-1 ring-line" />
+                    <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="font-semibold text-ink text-xs">System</span>
-                        <span className="text-[10px] text-muted-light">4h ago</span>
+                        <span className="text-xs font-semibold text-ink">{c.author}</span>
+                        <span className="text-2xs text-muted-light">{c.time}</span>
                       </div>
-                      <p className="text-muted text-xs mt-0.5">Version 3 submitted • VisualGuard completed • Evidence retrieved</p>
+                      <p className="mt-0.5 text-2xs leading-relaxed text-ink-600">{c.text}</p>
                     </div>
                   </div>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="space-y-2 text-xs text-ink-600">
-              <div className="flex items-center gap-2"><Activity className="w-3.5 h-3.5 text-brand-600" /><span>VisualGuard automated checks completed.</span><span className="text-muted-light text-[10px] ml-1">1h ago</span></div>
-              <div className="flex items-center gap-2"><Activity className="w-3.5 h-3.5 text-emerald-600" /><span>Riya Sharma assigned as lead creative for Summer Sale.</span><span className="text-muted-light text-[10px] ml-1">3h ago</span></div>
-            </div>
-          )}
-        </div>
-      </main>
-
-      {/* Right inspector panel */}
-      {isInspectorOpen && activeSub && (
-        <aside className="w-[360px] bg-white border-l border-line flex flex-col shrink-0 overflow-hidden">
-          {/* Inspector header */}
-          <div className="p-4 border-b border-line shrink-0">
-            <div className="flex items-start justify-between">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <p className="font-bold text-ink-900 text-sm truncate max-w-[200px]">{activeSub.title}</p>
-                  <StatusPill status={activeSub.status} />
-                </div>
-                <p className="text-[10px] text-muted-light mt-0.5">1600 × 1200 · Campaign: {activeSub.campaign}</p>
+                ))
+              )
+            ) : activity.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-line bg-cream-50 px-4 py-6 text-center">
+                <Clock className="mx-auto h-5 w-5 text-muted-light" />
+                <p className="mt-2 text-xs font-medium text-ink-600">No audit activity yet</p>
+                <p className="mt-0.5 text-2xs text-muted">Recorded events will appear here.</p>
               </div>
-              <button onClick={() => setIsInspectorOpen(false)} className="p-1 rounded-lg text-muted-light hover:text-ink-700 hover:bg-[#F1ECE0] shrink-0"><X className="w-4 h-4" /></button>
-            </div>
+            ) : (
+              activity.map((e) => (
+                <div key={e.id} className="flex items-start gap-2.5">
+                  <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-olive-400" aria-hidden="true" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium text-ink">
+                      {e.action} · {e.details || e.module}
+                    </p>
+                    <p className="mt-0.5 text-2xs text-muted">
+                      {e.user.name} · {e.time || e.date}
+                    </p>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
+        </AnimatedCard>
+      </div>
 
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {/* Preview image */}
-            <div className="rounded-xl overflow-hidden border border-line">
-              <img alt={activeSub.title} src={activeSub.thumbnail} className="w-full h-44 object-cover" />
+      {/* Inspector */}
+      <AnimatedDrawer
+        open={inspectorOpen && Boolean(activeSub)}
+        onClose={() => setInspectorOpen(false)}
+        title={activeSub?.title ?? 'Submission'}
+        subtitle={
+          activeSub
+            ? `${activeSub.campaign} · ${activeSub.version ?? 'v1.0'} · ${activeSub.assetType ?? activeSub.type ?? 'content'}`
+            : undefined
+        }
+        width={440}
+        footer={
+          activeSub ? (
+            <div className="space-y-2.5">
+              <textarea
+                value={managerNote}
+                onChange={(e) => setManagerNote(e.target.value)}
+                placeholder="Add a note for this decision…"
+                rows={2}
+                className="w-full resize-none rounded-xl border border-line bg-white px-3 py-2 text-xs text-ink focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-300/40"
+              />
+              <div className="flex items-center gap-2">
+                <select
+                  value={decisionChoice}
+                  onChange={(e) => setDecisionChoice(e.target.value)}
+                  aria-label="Decision"
+                  className="min-w-0 flex-1 rounded-xl border border-line bg-white px-2.5 py-2 text-xs text-ink focus:outline-none focus:ring-2 focus:ring-brand-300/40"
+                >
+                  <option>Request Changes</option>
+                  <option>Approve Version</option>
+                  <option>Reject</option>
+                </select>
+                <AnimatedButton onClick={() => handleDecision()} className="shrink-0 px-4 py-2 text-xs">
+                  Submit
+                </AnimatedButton>
+              </div>
+            </div>
+          ) : null
+        }
+      >
+        {activeSub && (
+          <div className="space-y-4">
+            <div className="overflow-hidden rounded-xl border border-line">
+              <img src={activeSub.thumbnail} alt="" className="h-40 w-full object-cover" />
             </div>
 
-            {/* Action buttons */}
+            <div className="flex flex-wrap items-center gap-2">
+              <StatusPill status={activeSub.status} />
+              <span className={`${PRIORITY_CLASS[activeSub.priority ?? 'Medium'] ?? 'badge-medium'}`}>
+                {activeSub.priority ?? 'Medium'}
+              </span>
+              <span className="text-2xs text-muted">
+                Submitted {activeSub.submittedAt ?? activeSub.submittedDate ?? '—'}
+              </span>
+            </div>
+
+            {lastDecision && (
+              <motion.div
+                key={lastDecision}
+                role="status"
+                className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-2xs font-medium ${
+                  decisionTone === 'sage'
+                    ? 'border-sage-200 bg-sage-50 text-sage-700'
+                    : decisionTone === 'danger'
+                      ? 'border-danger-200 bg-danger-50 text-danger-700'
+                      : 'border-warn-200 bg-warn-50 text-warn-700'
+                }`}
+                style={{
+                  boxShadow: decisionTone === 'sage'
+                    ? '0 0 22px -10px rgba(78,122,61,.65)'
+                    : decisionTone === 'danger'
+                      ? '0 0 22px -10px rgba(194,84,70,.65)'
+                      : '0 0 22px -10px rgba(196,137,28,.65)',
+                }}
+                initial={reduce ? false : { opacity: 0, y: 8 }}
+                animate={
+                  reduce
+                    ? { opacity: 1, y: 0 }
+                    : decisionTone === 'danger'
+                      ? { opacity: 1, y: 0, x: [0, -6, 6, -4, 4, 0] }
+                      : { opacity: 1, y: 0, x: 0 }
+                }
+                transition={{ duration: 0.4, ease: EASE }}
+              >
+                <SuccessCheck size={14} />
+                {lastDecision} recorded. The board refreshes from the server.
+              </motion.div>
+            )}
+
             <div className="grid grid-cols-4 gap-1.5">
               {[
-                { icon: <Download className="w-3.5 h-3.5" />, label: 'Download', fn: async () => { try { await api.downloadSubmissionReport(activeSub.id, 'text'); addToast('Downloaded.'); } catch { addToast('Download failed.', 'error'); } } },
-                { icon: <Eye className="w-3.5 h-3.5" />, label: 'Preview', fn: () => activeSub.thumbnail && window.open(activeSub.thumbnail, '_blank') },
-                { icon: <GitCompare className="w-3.5 h-3.5" />, label: 'Compare', fn: () => setIsAiCompareOpen(true) },
-                { icon: <MoreHorizontal className="w-3.5 h-3.5" />, label: 'More', fn: () => {} },
+                {
+                  icon: <Download className="h-3.5 w-3.5" />,
+                  label: 'Report',
+                  fn: async () => {
+                    try {
+                      await api.downloadSubmissionReport(activeSub.id, 'text');
+                      addToast('Report downloaded.');
+                    } catch {
+                      addToast('Download failed.', 'error');
+                    }
+                  },
+                },
+                {
+                  icon: <Eye className="h-3.5 w-3.5" />,
+                  label: 'Preview',
+                  fn: () => activeSub.thumbnail && window.open(activeSub.thumbnail, '_blank'),
+                },
+                {
+                  icon: <GitCompare className="h-3.5 w-3.5" />,
+                  label: 'Compare',
+                  fn: () => setIsAiCompareOpen(true),
+                },
+                {
+                  icon: <ArrowRight className="h-3.5 w-3.5" />,
+                  label: 'Audit',
+                  fn: () => addToast(`Submission ${activeSub.id} · ${activeSub.status}`, 'info'),
+                },
               ].map((btn) => (
-                <button key={btn.label} onClick={btn.fn} title={btn.label}
-                  className="flex flex-col items-center gap-1 py-2 border border-line rounded-xl text-muted hover:bg-[#FAF7EF] hover:text-ink-900 transition-colors cursor-pointer">
+                <button
+                  key={btn.label}
+                  onClick={btn.fn}
+                  aria-label={btn.label}
+                  className="flex flex-col items-center gap-1 rounded-xl border border-line py-2 text-muted transition-colors hover:bg-cream-50 hover:text-ink"
+                >
                   {btn.icon}
-                  <span className="text-[9px] font-medium">{btn.label}</span>
+                  <span className="text-[10px] font-semibold">{btn.label}</span>
                 </button>
               ))}
             </div>
 
-            {/* Tabs */}
             <div className="flex gap-4 border-b border-line">
               {(['Findings', 'Evidence', 'Comments'] as const).map((tab) => (
-                <button key={tab} onClick={() => setActiveTab(tab)}
-                  className={`pb-2 text-xs font-semibold transition ${activeTab === tab ? 'border-b-2 border-brand-600 text-brand-600' : 'text-muted hover:text-ink'}`}>
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  aria-pressed={activeTab === tab}
+                  className={`-mb-px border-b-2 pb-2 text-xs font-semibold transition-colors ${
+                    activeTab === tab
+                      ? 'border-brand-600 text-brand-600'
+                      : 'border-transparent text-muted hover:text-ink'
+                  }`}
+                >
                   {tab}
                 </button>
               ))}
             </div>
 
-            {/* Findings */}
             {activeTab === 'Findings' && (
               <div className="space-y-2.5">
-                {activeSub.findings && activeSub.findings.length > 0 ? activeSub.findings.map((f) => (
-                  <div key={f.id} className={`p-3 rounded-xl border text-xs ${f.type === 'error' ? 'bg-red-50 border-red-200' : f.type === 'warning' ? 'bg-amber-50 border-amber-200' : 'bg-emerald-50 border-emerald-200'}`}>
-                    <div className="flex items-center justify-between gap-2 mb-0.5">
-                      <p className="font-bold text-ink-900 flex items-center gap-1.5">
-                        {f.type === 'error' ? <CircleAlert className="w-3.5 h-3.5 text-red-500 shrink-0" /> : <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0" />}
-                        {f.title}
-                      </p>
-                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold shrink-0 ${f.type === 'error' ? 'badge-rejected' : 'bg-amber-100 text-amber-700'}`}>
-                        {f.badge || f.type}
-                      </span>
+                {activeSub.findings && activeSub.findings.length > 0 ? (
+                  activeSub.findings.map((f) => (
+                    <div
+                      key={f.id}
+                      className={`rounded-xl border p-3 ${
+                        f.type === 'error'
+                          ? 'border-danger-200 bg-danger-50/60'
+                          : f.type === 'warning'
+                            ? 'border-warn-200 bg-warn-50/60'
+                            : 'border-sage-200 bg-sage-50/60'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="flex items-center gap-1.5 text-xs font-semibold text-ink">
+                          {f.type === 'error' ? (
+                            <CircleAlert className="h-3.5 w-3.5 shrink-0 text-danger-500" />
+                          ) : (
+                            <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-warn-500" />
+                          )}
+                          {f.title}
+                        </p>
+                        <span className={`${f.type === 'error' ? 'badge-rejected' : 'badge-medium'} shrink-0`}>
+                          {f.badge ?? f.type}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-2xs leading-relaxed text-ink-600">{f.description}</p>
+                      {f.guidelineRef && (
+                        <p className="mt-1 text-2xs text-muted-light">{f.guidelineRef}</p>
+                      )}
                     </div>
-                    <p className="text-muted leading-relaxed ml-5">{f.description}</p>
-                    {f.guidelineRef && <p className="text-[10px] text-muted-light mt-1 font-mono ml-5">{f.guidelineRef}</p>}
-                  </div>
-                )) : (
-                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-2 text-xs text-emerald-800">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />No compliance violations found.
+                  ))
+                ) : (
+                  <div className="flex items-center gap-2 rounded-xl border border-sage-200 bg-sage-50 px-3 py-3 text-2xs text-sage-700">
+                    <CheckCircle2 className="h-4 w-4 shrink-0" />
+                    No compliance violations found.
                   </div>
                 )}
-                {/* Confidence score */}
-                <div className="pt-2 border-t border-[#F1ECE0]">
-                  <div className="flex items-center justify-between text-[10px] font-medium text-ink-600 mb-1">
-                    <span>Confidence Score</span>
-                    <span className="font-bold text-ink">{(activeSub.complianceScore / 100).toFixed(2)}</span>
-                  </div>
-                  <div className="h-1.5 bg-[#F1ECE0] rounded-full overflow-hidden">
-                    <div className="progress-brand h-full rounded-full" style={{ width: `${activeSub.complianceScore}%` }} />
-                  </div>
+
+                <div className="border-t border-line pt-3">
+                  <AnimatedProgress
+                    value={activeSub.complianceScore}
+                    max={100}
+                    tone={activeSub.complianceScore >= 80 ? 'sage' : activeSub.complianceScore >= 50 ? 'amber' : 'danger'}
+                    label="Compliance score"
+                    showValue
+                  />
                 </div>
               </div>
             )}
 
             {activeTab === 'Evidence' && (
-              <div className="space-y-2 text-xs">
-                <div className="p-3 bg-[#FAF7EF] rounded-xl border border-line">
-                  <p className="font-semibold text-ink-900">VisualGuard</p>
-                  <ul className="mt-1.5 space-y-1 text-muted list-disc pl-4">
-                    <li>Logo mismatch — logo position differs from guideline</li>
-                    <li>Colour variation — shade outside approved palette</li>
-                    <li>OCR text detected</li>
-                  </ul>
-                </div>
-                <div className="p-3 bg-[#FAF7EF] rounded-xl border border-line">
-                  <p className="font-semibold text-ink-900">Evidence Intelligence</p>
-                  <p className="text-muted mt-1">Potential claim conflict: "100% natural" — Claims must be substantiated and must not be absolute.</p>
-                  <span className="mt-1 inline-flex items-center gap-1 text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200"><CheckCircle2 className="w-3 h-3" />Citation Verified</span>
-                </div>
+              <div className="space-y-2">
+                {evidenceRefs.length > 0 ? (
+                  evidenceRefs.map((ref) => (
+                    <div key={ref} className="rounded-xl border border-line bg-cream-50 p-3">
+                      <p className="text-2xs font-semibold text-ink">Cited guideline passage</p>
+                      <p className="mt-0.5 text-2xs leading-relaxed text-muted">{ref}</p>
+                    </div>
+                  ))
+                ) : (
+                  <div className="rounded-xl border border-dashed border-line bg-cream-50 px-4 py-6 text-center">
+                    <p className="text-xs font-medium text-ink-600">No evidence attached</p>
+                    <p className="mt-0.5 text-2xs text-muted">
+                      This version has no guideline citations stored against its findings.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
 
             {activeTab === 'Comments' && (
-              <div className="space-y-2.5 text-xs">
-                {activeSub.comments && activeSub.comments.length > 0 ? activeSub.comments.map((c) => (
-                  <div key={c.id} className="flex items-start gap-2.5">
-                    <img alt={c.author} src={c.avatar} className="w-6 h-6 rounded-full object-cover shrink-0" />
-                    <div>
-                      <span className="font-semibold text-ink">{c.author}</span> <span className="text-muted-light">{c.time}</span>
-                      <p className="text-muted mt-0.5">{c.text}</p>
+              <div className="space-y-3">
+                {comments.length > 0 ? (
+                  comments.map((c) => (
+                    <div key={c.id} className="flex items-start gap-2.5">
+                      <img src={c.avatar} alt="" className="h-6 w-6 shrink-0 rounded-full object-cover" />
+                      <div className="min-w-0">
+                        <p className="text-2xs font-semibold text-ink">
+                          {c.author} <span className="font-normal text-muted-light">{c.time}</span>
+                        </p>
+                        <p className="mt-0.5 text-2xs leading-relaxed text-ink-600">{c.text}</p>
+                      </div>
                     </div>
-                  </div>
-                )) : <p className="text-muted">No comments yet.</p>}
+                  ))
+                ) : (
+                  <p className="rounded-xl border border-line bg-cream-50 px-3 py-4 text-center text-2xs text-muted">
+                    No comments yet.
+                  </p>
+                )}
               </div>
             )}
-          </div>
 
-          {/* Decision footer */}
-          <div className="p-4 border-t border-line space-y-3 shrink-0">
-            {/* Assigned + Due */}
-            <div className="flex items-center justify-between text-[11px] text-muted">
-              <div className="flex items-center gap-1.5">
-                <img alt="reviewer" src={activeSub.creator.avatar} className="w-5 h-5 rounded-full object-cover" />
-                <span>Assigned to <strong className="text-ink-900">{activeSub.creator.name}</strong></span>
-              </div>
-              <span>Due by <strong className="text-ink-900">Nov 03, 2026</strong></span>
-            </div>
-
-            {/* Decision dropdown */}
-            <div className="space-y-2">
-              <select value={decisionChoice} onChange={(e) => setDecisionChoice(e.target.value)}
-                className="w-full px-3 py-2.5 bg-white border border-line rounded-xl text-xs font-medium text-ink focus:outline-none focus:ring-2 focus:ring-brand-500/20 cursor-pointer">
-                <option>Request Changes</option>
-                <option>Approve Version</option>
-                <option>Reject</option>
-              </select>
+            {/* Quick decisions */}
+            <div className="border-t border-line pt-3">
+              <p className="mb-2 text-2xs font-semibold uppercase tracking-[0.05em] text-muted">Quick decision</p>
               <div className="grid grid-cols-3 gap-2">
-                <button onClick={() => { setDecisionChoice('Request Changes'); handleDecision(); }}
-                  className="py-2 border border-orange-300 rounded-xl text-xs font-semibold text-orange-600 hover:bg-orange-50 transition-colors cursor-pointer">
-                  Request Changes
+                <button
+                  onClick={() => handleDecision('Request Changes')}
+                  className="rounded-xl border border-terracotta-300 py-2 text-2xs font-semibold text-terracotta-700 transition-colors hover:bg-terracotta-50"
+                >
+                  Request changes
                 </button>
-                <button onClick={() => { setDecisionChoice('Reject'); handleDecision(); }}
-                  className="py-2 border border-red-300 rounded-xl text-xs font-semibold text-red-600 hover:bg-red-50 transition-colors cursor-pointer">
+                <button
+                  onClick={() => handleDecision('Reject')}
+                  className="rounded-xl border border-danger-300 py-2 text-2xs font-semibold text-danger-700 transition-colors hover:bg-danger-50"
+                >
                   Reject
                 </button>
-                <button onClick={() => { setDecisionChoice('Approve Version'); handleDecision(); }}
-                  className="py-2 bg-brand-600 hover:bg-brand-700 rounded-xl text-xs font-semibold text-white transition-colors cursor-pointer">
-                  Approve ✓
+                <button
+                  onClick={() => handleDecision('Approve Version')}
+                  className="rounded-xl bg-brand-600 py-2 text-2xs font-semibold text-white transition-colors hover:bg-brand-700"
+                >
+                  Approve
                 </button>
               </div>
             </div>
           </div>
-        </aside>
-      )}
-    </div>
+        )}
+      </AnimatedDrawer>
+    </PageTransition>
   );
 };
