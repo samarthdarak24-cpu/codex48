@@ -1,253 +1,491 @@
-import React, { useEffect, useState } from 'react';
-import { Sparkles, CheckCircle2, AlertTriangle, AlertCircle, FileText, Eye, Download, RotateCw, Info, Check, Send, ShieldCheck, ArrowUpRight, ArrowDownRight, X } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  Sparkles, CheckCircle2, FileText, ScanLine, RotateCw, Search, BadgeCheck, Gauge, Quote,
+} from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../../context/AppContext';
 import { api } from '@/services/api';
-import type { RetrievedPassage } from '@/lib/types';
-import { StatCardGrid } from '../../ui/StatCard';
+import type { AssetAnalysis, AiFinding } from '@/lib/types';
+import { PosterCanvas, type PosterBox } from '@/components/visual/PosterCanvas';
+import {
+  AgentStatusCard, AnimatedBadge, AnimatedCounter, AnimatedProgress, EmptyState,
+  ImageHoverEffect, ProcessingSpinner, PulseDot, RingProgress, ScanningEffect,
+  SectionHeader, Stagger, StaggerItem, type AgentState,
+} from '../../motion';
+
+type Group = 'violation' | 'review' | 'passed';
+
+/** Maps a stored finding onto the three result groups the UI promises. */
+function groupOf(type: string | undefined): Group {
+  if (type === 'error') return 'violation';
+  if (type === 'warning') return 'review';
+  return 'passed';
+}
 
 export const AIReviewView: React.FC = () => {
-  const { submissions, selectedSubmission, setSelectedSubmission, addToast, runSemanticReview, setCurrentPage, refresh } = useApp();
-  const currentSubmission = selectedSubmission || submissions[0];
+  const { submissions, selectedSubmission, setSelectedSubmission, addToast, runSemanticReview } = useApp();
+  const navigate = useNavigate();
+  const current = selectedSubmission || submissions[0];
 
-  const [activeFilter, setActiveFilter] = useState<'All' | 'Passed' | 'Needs Attention' | 'Rejected'>('All');
-  const [activeTab, setActiveTab] = useState<'findings' | 'evidence' | 'suggestions' | 'score'>('findings');
-  const [isScanning, setIsScanning] = useState(false);
+  const [analysis, setAnalysis] = useState<AssetAnalysis | null>(null);
+  const [analysisState, setAnalysisState] = useState<'idle' | 'loading' | 'missing' | 'error'>('idle');
+  const [posterUrl, setPosterUrl] = useState<string | null>(null);
+  const [aiFindings, setAiFindings] = useState<AiFinding[]>([]);
+  const [scanning, setScanning] = useState(false);
+  const [activeBox, setActiveBox] = useState<number | null>(null);
 
-  const totalCount = submissions.length;
-  const passedCount = submissions.filter((s) => (s.findingsCount ?? 0) === 0).length;
-  const attentionCount = submissions.filter((s) => (s.findingsCount ?? 0) > 0 && s.status !== 'Rejected').length;
-  const rejectedCount = submissions.filter((s) => s.status === 'Rejected').length;
+  /* ---- Load the real analysis + AI findings for the selected submission ---- */
+  useEffect(() => {
+    let cancelled = false;
+    setAnalysis(null);
+    setAiFindings([]);
+    setPosterUrl(null);
+    setActiveBox(null);
+    if (!current) { setAnalysisState('idle'); return; }
 
-  const filtered = submissions.filter((s) => {
-    if (activeFilter === 'Passed') return (s.findingsCount ?? 0) === 0;
-    if (activeFilter === 'Needs Attention') return (s.findingsCount ?? 0) > 0 && s.status !== 'Rejected';
-    if (activeFilter === 'Rejected') return s.status === 'Rejected';
-    return true;
-  });
+    setAnalysisState('loading');
+    (async () => {
+      try {
+        const a = await api.analysisForSubmission(current.id);
+        if (cancelled) return;
+        setAnalysis(a);
+        setAnalysisState('idle');
+      } catch {
+        if (cancelled) return;
+        setAnalysisState('missing');
+      }
+      try {
+        const findings = await api.aiFindings(current.id);
+        if (!cancelled) setAiFindings(findings);
+      } catch {
+        if (!cancelled) setAiFindings([]);
+      }
+      const url = await api.fetchPosterBlobUrl(current.id);
+      if (!cancelled && url) setPosterUrl(url);
+    })();
 
-  const complianceScore = currentSubmission?.complianceScore ?? 0;
+    return () => { cancelled = true; };
+  }, [current?.id]);
 
-  const handleRunAnalysis = async () => {
-    if (!currentSubmission) return;
-    setIsScanning(true);
+  /* ---- Overlay boxes from real measurements only ---- */
+  const boxes = useMemo<PosterBox[]>(() => {
+    if (!analysis) return [];
+    const out: PosterBox[] = [];
+    for (const c of analysis.contrastFindings || []) {
+      if (!c.region) continue;
+      out.push({
+        box: c.region,
+        tone: c.status === 'fail' ? 'danger' : 'warn',
+        label: c.status === 'fail'
+          ? `Contrast ${c.value?.toFixed(2)}:1`
+          : 'Contrast unknown',
+      });
+    }
+    for (const m of analysis.logoMatches || []) {
+      if (!m.box) continue;
+      out.push({ box: m.box, tone: 'info', label: `Logo ${Math.round((m.confidence ?? 0) * 100)}%` });
+    }
+    return out;
+  }, [analysis]);
+
+  const findings = current?.findings ?? [];
+  const violations = findings.filter((f) => groupOf(f.type) === 'violation');
+  const needsReview = findings.filter((f) => groupOf(f.type) === 'review');
+  const passed = findings.filter((f) => groupOf(f.type) === 'passed');
+
+  const score = current?.complianceScore ?? 0;
+
+  /* ---- Review Crew states derived from stored artefacts, never invented ---- */
+  const analysisReady = analysis?.status === 'complete';
+  const analysisRunning = analysis?.status === 'pending' || analysis?.status === 'processing';
+  const verified = aiFindings.filter((f) => f.citationVerified).length;
+  const rejected = aiFindings.filter((f) => !f.citationVerified).length;
+
+  const crew: { name: string; role: string; state: AgentState; detail: string; icon: React.ReactNode }[] = [
+    {
+      name: 'Intake', role: 'Submission parsing', icon: <FileText className="h-4 w-4" />,
+      state: current ? 'done' : 'idle',
+      detail: current ? `${current.version || 'v1'} · ${current.assetType || 'content'}` : 'No submission',
+    },
+    {
+      name: 'VisualGuard', role: 'OCR · colour · contrast', icon: <ScanLine className="h-4 w-4" />,
+      state: analysisRunning ? 'running' : analysisReady ? 'done' : analysisState === 'missing' ? 'idle' : 'idle',
+      detail: analysisReady
+        ? `${analysis?.textBlocks?.length ?? 0} text regions`
+        : analysisRunning ? 'Analysing image…' : 'No image analysis',
+    },
+    {
+      name: 'Retrieval', role: 'Guideline passages', icon: <Search className="h-4 w-4" />,
+      state: findings.length > 0 || aiFindings.length > 0 ? 'done' : 'idle',
+      detail: findings.length > 0 ? `${findings.length} findings cited` : 'Nothing retrieved yet',
+    },
+    {
+      name: 'Evidence Verifier', role: 'Citation validation', icon: <BadgeCheck className="h-4 w-4" />,
+      state: rejected > 0 ? 'error' : verified > 0 ? 'done' : 'idle',
+      detail: verified + rejected > 0
+        ? `${verified} verified · ${rejected} rejected`
+        : 'No AI citations',
+    },
+    {
+      name: 'Synthesis', role: 'Compliance score', icon: <Gauge className="h-4 w-4" />,
+      state: current ? 'done' : 'idle',
+      detail: current ? `${score}% compliance` : '—',
+    },
+  ];
+
+  const runReview = useCallback(async () => {
+    if (!current) return;
+    setScanning(true);
     try {
-      const res = await runSemanticReview(currentSubmission.id);
-      if (!res.llmConfigured) addToast(`Semantic review ran with ${res.count} deterministic finding(s). No AI model configured.`, 'info');
-      else addToast(`AI review complete: ${res.count} finding(s).`);
-    } catch { /* toast shown by context */ }
-    finally { setIsScanning(false); }
-  };
+      const res = await runSemanticReview(current.id);
+      if (!res.llmConfigured) {
+        addToast(
+          `Review complete: ${res.count} deterministic finding(s). No language model is configured, so no AI suggestions were generated.`,
+          'info',
+        );
+      } else {
+        addToast(`Review complete: ${res.count} finding(s).`);
+      }
+      const fresh = await api.aiFindings(current.id).catch(() => []);
+      setAiFindings(fresh);
+    } catch {
+      /* the context surfaces the error toast */
+    } finally {
+      setScanning(false);
+    }
+  }, [current, runSemanticReview, addToast]);
 
-  const keyInsights = [
-    { label: 'Brand Tone', desc: 'Aligned with our friendly and inspiring tone.', pass: true },
-    { label: 'Claims Verification', desc: 'All claims are supported by approved sources.', pass: true },
-    { label: 'Minor Suggestion', desc: 'Consider adding a disclaimer for health benefits.', pass: false },
-    { label: 'Visual Compliance', desc: 'Design follows brand visual guidelines.', pass: true },
-  ];
-
-  const detailedFindings = [
-    { label: 'Logo & Branding', desc: 'Logo placement is correct and approved.', badge: 'Passed', pass: true },
-    { label: 'Colour Compliance', desc: 'Uses approved brand colours.', badge: 'Passed', pass: true },
-    { label: 'Text Analysis', desc: 'Consider simplifying the tagline.', badge: 'Suggestion', pass: false },
-    { label: 'Visual Elements', desc: 'All visuals match brand style.', badge: 'Passed', pass: true },
-  ];
+  if (!current) {
+    return (
+      <div className="p-6">
+        <EmptyState
+          icon={<Sparkles className="h-6 w-6" />}
+          title="No submissions to review"
+          description="Submit content first, then run an AI review. The crew only ever reports on work that already exists in this workspace."
+          action={{ label: 'Create content', onClick: () => navigate('/creator/new-content') }}
+        />
+      </div>
+    );
+  }
 
   return (
-    <div className="flex h-full overflow-hidden">
-      <main className="flex-1 overflow-y-auto p-6 space-y-5 bg-canvas">
+    <div className="p-4 sm:p-6">
+      <div className="mx-auto max-w-[1400px] space-y-5">
+
         {/* Header */}
-        <div>
-          <h1 className="text-[32px] font-black tracking-tight leading-none mt-1 animate-count-up">AI Review</h1>
-          <p className="text-xs text-muted mt-0.5">Get instant AI-powered analysis of your content for brand compliance.</p>
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="mb-1 text-2xs font-semibold uppercase tracking-[0.1em] text-brand-600">
+              AI Review Crew
+            </p>
+            <h1 className="text-3xl font-semibold tracking-[-0.02em] text-ink">AI Review</h1>
+            <p className="mt-1 text-sm text-muted">
+              Deterministic checks decide the verdict. AI only ever adds advisory suggestions.
+            </p>
+          </div>
+          <button
+            onClick={runReview}
+            disabled={scanning}
+            className="btn-primary-glow inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-semibold transition-transform active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {scanning
+              ? <><RotateCw className="h-3.5 w-3.5 animate-spin" />Running review…</>
+              : <><Sparkles className="h-3.5 w-3.5" />Run semantic review</>}
+          </button>
         </div>
 
-        {/* KPI Cards */}
-        <StatCardGrid cards={[
-    { label: 'Scanned Content', value: totalCount, icon: <Sparkles className="w-5 h-5" />, variant: 'blue', trend: 12, sparkPathIndex: 0 },
-    { label: 'Passed Review', value: passedCount, icon: <CheckCircle2 className="w-5 h-5" />, variant: 'green', trend: 8, sparkPathIndex: 1 },
-    { label: 'Needs Attention', value: attentionCount, icon: <AlertTriangle className="w-5 h-5" />, variant: 'amber', trend: -33, sparkPathIndex: 2 },
-    { label: 'Rejected', value: rejectedCount, icon: <AlertCircle className="w-5 h-5" />, variant: 'red', trend: -50, sparkPathIndex: 3 },
-  ]} />
-
-        {/* Filter + Sort */}
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {(['All', 'Passed', 'Needs Attention', 'Rejected'] as const).map((tab) => {
-              const cnt = tab === 'All' ? totalCount : tab === 'Passed' ? passedCount : tab === 'Needs Attention' ? attentionCount : rejectedCount;
-              return (
-                <button key={tab} onClick={() => setActiveFilter(tab)}
-                  className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer ${activeFilter === tab ? 'bg-gradient-to-r from-brand-600 to-blue-600 text-white shadow-sm' : 'bg-white border border-line text-ink-600 hover:bg-[#FAF7EF]'}`}>
-                  {tab} ({cnt})
-                </button>
-              );
-            })}
+        {/* Review Crew */}
+        <div className="rounded-2xl border border-line bg-white p-4 shadow-card">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-ink">Review Crew</h2>
+            <span className="text-2xs text-muted">
+              States reflect stored analysis — not simulated progress
+            </span>
           </div>
-          <select className="bg-white border border-line rounded-lg px-2.5 py-1.5 text-xs font-medium text-ink focus:outline-none cursor-pointer"><option>Latest First</option></select>
-        </div>
-
-        {/* Main content: selected submission detail */}
-        {currentSubmission && (
-          <div className="bg-white rounded-2xl border border-line shadow-2xs overflow-hidden">
-            <div className="flex items-start gap-5 p-5">
-              {/* Thumbnail */}
-              <div className="w-40 h-32 rounded-xl overflow-hidden border border-line shrink-0">
-                <img src={currentSubmission.thumbnail} alt={currentSubmission.title} className="w-full h-full object-cover" />
-              </div>
-              {/* Info */}
-              <div className="flex-1 min-w-0 space-y-2">
-                <h2 className="text-base font-bold text-ink-900">{currentSubmission.title}</h2>
-                <p className="text-xs text-muted leading-relaxed">{currentSubmission.description}</p>
-                <div className="flex items-center gap-3 text-[11px] text-muted-light flex-wrap">
-                  <span className="flex items-center gap-1"><svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>{currentSubmission.submittedAt || 'Recent'}</span>
-                  <span className="flex items-center gap-1"><svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6z" /><path d="M12 14a7 7 0 0 0-7 7h14a7 7 0 0 0-7-7z" /></svg>{currentSubmission.version || 'v1.0'}</span>
-                  <span className="px-2 py-0.5 bg-[#F1ECE0] rounded-full font-medium">Social Media</span>
-                  <span className="px-2 py-0.5 bg-[#F1ECE0] rounded-full font-medium">{currentSubmission.campaign}</span>
-                </div>
-                {/* Tabs */}
-                <div className="flex gap-4 border-b border-line mt-3">
-                  {(['findings', 'evidence', 'suggestions', 'score'] as const).map((tab) => (
-                    <button key={tab} onClick={() => setActiveTab(tab)} className={`pb-2 text-xs font-semibold capitalize transition ${activeTab === tab ? 'border-b-2 border-brand-600 text-brand-600' : 'text-muted hover:text-ink'}`}>
-                      {tab === 'findings' ? 'AI Analysis' : tab === 'score' ? 'Compliance Score' : tab.charAt(0).toUpperCase() + tab.slice(1)}
-                    </button>
-                  ))}
-                </div>
-                {activeTab === 'findings' && (
-                  <div className="space-y-3 pt-1">
-                    <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                      <p className="font-semibold text-emerald-800">Content Passes AI Review. Your content is compliant with brand guidelines.</p>
-                    </div>
-                    <div>
-                      <p className="text-xs font-bold text-ink-900 mb-2">Key Insights</p>
-                      <div className="grid grid-cols-2 gap-2">
-                        {keyInsights.map((ins) => (
-                          <div key={ins.label} className={`p-2.5 rounded-xl border text-xs ${ins.pass ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-200'}`}>
-                            <div className="flex items-center gap-1.5 mb-0.5">
-                              {ins.pass ? <Check className="w-3 h-3 text-emerald-600" /> : <AlertTriangle className="w-3 h-3 text-amber-600" />}
-                              <span className="font-semibold text-ink-900">{ins.label}</span>
-                            </div>
-                            <p className={`${ins.pass ? 'text-emerald-700' : 'text-amber-700'} leading-relaxed`}>{ins.desc}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between pt-1">
-                      <button onClick={handleRunAnalysis} disabled={isScanning}
-                        className="flex items-center gap-2 px-4 py-2 border border-line rounded-xl text-xs font-semibold text-ink-700 hover:bg-[#FAF7EF] transition-colors cursor-pointer disabled:opacity-50">
-                        {isScanning ? <><RotateCw className="w-3.5 h-3.5 animate-spin" />Running…</> : <><RotateCw className="w-3.5 h-3.5" />Run New Analysis</>}
-                      </button>
-                      <p className="text-[11px] text-muted-light">Last scanned: {currentSubmission.submittedAt || 'Recently'}</p>
-                    </div>
-                  </div>
-                )}
-                {activeTab === 'evidence' && (
-                  <div className="space-y-2 pt-1 text-xs">
-                    <div className="p-3 bg-[#FAF7EF] border border-line rounded-xl">
-                      <p className="font-semibold text-ink-900">Precedent Brand Guidelines v2.1</p>
-                      <p className="text-muted mt-0.5">Page 12 – Brand Tone &amp; Messaging</p>
-                      <button className="text-brand-600 font-semibold mt-1 hover:underline cursor-pointer">View Source →</button>
-                    </div>
-                  </div>
-                )}
-                {activeTab === 'suggestions' && (
-                  <div className="pt-1 text-xs text-muted">Suggestions will appear after running an AI analysis.</div>
-                )}
-                {activeTab === 'score' && (
-                  <div className="flex items-center gap-4 pt-1">
-                    <div className="relative w-20 h-20">
-                      <svg className="-rotate-90" width="80" height="80" viewBox="0 0 80 80">
-                        <circle cx="40" cy="40" r="32" fill="none" stroke="#F1ECE0" strokeWidth="8" />
-                        <circle cx="40" cy="40" r="32" fill="none" stroke="#10b981" strokeWidth="8"
-                          strokeDasharray={`${(complianceScore / 100) * (2 * Math.PI * 32)} ${2 * Math.PI * 32}`} strokeLinecap="round" />
-                      </svg>
-                      <div className="absolute inset-0 flex flex-col items-center justify-center">
-                        <span className="text-base font-bold text-ink-900">{complianceScore}%</span>
-                      </div>
-                    </div>
-                    <div>
-                      <p className="text-sm font-bold text-ink-900">Overall Compliance</p>
-                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold mt-1 ${complianceScore >= 80 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
-                        {complianceScore >= 80 ? '✓ Passed' : '⚠ Needs Review'}
-                      </span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Submission list */}
-        <div className="space-y-2.5">
-          {filtered.slice(1).map((sub) => (
-            <div key={sub.id} onClick={() => setSelectedSubmission(sub)}
-              className="bg-white p-4 rounded-2xl border border-line shadow-2xs cursor-pointer hover:border-brand-400 hover:shadow-xs transition-all flex items-center gap-4">
-              <img src={sub.thumbnail} alt={sub.title} className="w-12 h-12 rounded-xl object-cover border border-line shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-ink-900 truncate">{sub.title}</p>
-                <p className="text-xs text-muted">{sub.campaign}</p>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold border ${(sub.findingsCount ?? 0) === 0 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
-                  {(sub.findingsCount ?? 0) === 0 ? '✓ Passed' : `⚠ ${sub.findingsCount} issues`}
-                </span>
-                <span className="text-xs font-bold text-ink-900">{sub.complianceScore}%</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </main>
-
-      {/* Right panel: Detailed Findings */}
-      {currentSubmission && (
-        <aside className="w-[300px] bg-white border-l border-line flex flex-col shrink-0 overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-line shrink-0">
-            <h3 className="text-sm font-bold text-ink-900">Detailed Findings</h3>
-            <button className="text-[11px] text-brand-600 font-semibold hover:underline cursor-pointer">View Full Report →</button>
-          </div>
-          <div className="flex-1 overflow-y-auto p-4 space-y-3">
-            {detailedFindings.map((f) => (
-              <div key={f.label} className="flex items-start justify-between gap-2 p-3 bg-[#FAF7EF] rounded-xl border border-line text-xs">
-                <div className="flex items-start gap-2">
-                  <CheckCircle2 className={`w-4 h-4 shrink-0 mt-0.5 ${f.pass ? 'text-emerald-600' : 'text-amber-500'}`} />
-                  <div>
-                    <p className="font-semibold text-ink-900">{f.label}</p>
-                    <p className="text-muted mt-0.5 leading-relaxed">{f.desc}</p>
-                  </div>
-                </div>
-                <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold shrink-0 ${f.pass ? 'badge-approved' : 'badge-pending'}`}>
-                  {f.badge}
-                </span>
-              </div>
+          <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-5">
+            {crew.map((a, i) => (
+              <AgentStatusCard
+                key={a.name}
+                name={a.name}
+                role={a.role}
+                state={a.state}
+                detail={a.detail}
+                icon={a.icon}
+                index={i}
+              />
             ))}
+          </div>
+        </div>
 
-            {/* Source Evidence */}
-            <div className="mt-1">
-              <p className="text-xs font-bold text-ink-900 mb-2">Source Evidence</p>
-              <div className="p-3 bg-[#FAF7EF] border border-line rounded-xl flex items-start gap-2 text-xs cursor-pointer hover:bg-[#F1ECE0] transition-colors">
-                <FileText className="w-4 h-4 text-brand-600 shrink-0 mt-0.5" />
-                <div className="flex-1">
-                  <p className="font-semibold text-ink-900">Precedent Brand Guidelines v2.1</p>
-                  <p className="text-muted mt-0.5">Page 12 – Brand Tone &amp; Messaging</p>
-                  <button className="text-brand-600 font-semibold mt-1 hover:underline text-[11px]">View Source →</button>
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_380px]">
+
+          {/* Left: poster + measured facts */}
+          <div className="space-y-5">
+            <div className="rounded-2xl border border-line bg-white p-4 shadow-card">
+              <SectionHeader
+                title="Submitted creative"
+                subtitle={current.title}
+                actions={
+                  analysisReady ? (
+                    <AnimatedBadge tone="sage" className="gap-1">
+                      <CheckCircle2 className="h-3 w-3" />Analysis complete
+                    </AnimatedBadge>
+                  ) : (
+                    <AnimatedBadge tone="brand">No image analysis</AnimatedBadge>
+                  )
+                }
+              />
+
+              <div className="mt-4">
+                {analysisState === 'loading' ? (
+                  <div className="h-[320px] animate-pulse rounded-xl bg-cream-100" />
+                ) : posterUrl ? (
+                  <div className="relative overflow-hidden rounded-xl border border-line bg-cream-100">
+                    <ImageHoverEffect>
+                      <ScanningEffect active={scanning}>
+                        <PosterCanvas
+                          imageUrl={posterUrl}
+                          boxes={boxes}
+                          onBoxClick={(i) => setActiveBox(i)}
+                        />
+                      </ScanningEffect>
+                    </ImageHoverEffect>
+                    {scanning && (
+                      <div className="pointer-events-none absolute left-3 top-3 z-10 inline-flex items-center gap-2 rounded-full bg-white/95 px-3 py-1.5 shadow-card">
+                        <ProcessingSpinner size={14} />
+                        <span className="text-2xs font-semibold text-brand-700">Scanning creative…</span>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex h-[220px] flex-col items-center justify-center rounded-xl border border-dashed border-line bg-cream-50 text-center">
+                    <ScanLine className="h-6 w-6 text-muted-light" />
+                    <p className="mt-2 text-xs font-medium text-ink-600">No poster attached</p>
+                    <p className="mt-0.5 text-2xs text-muted">
+                      This submission is text-only, so there is nothing to overlay.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Measured facts — every value comes from the analysis row */}
+              {analysisReady && analysis && (
+                <Stagger className="mt-4 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+                  {[
+                    { label: 'Text regions', value: analysis.textBlocks?.length ?? 0 },
+                    { label: 'Logos found', value: analysis.logoMatches?.length ?? 0 },
+                    {
+                      label: 'Contrast fails',
+                      value: (analysis.contrastFindings || []).filter((c) => c.status === 'fail').length,
+                    },
+                    { label: 'Findings', value: findings.length },
+                  ].map((s) => (
+                    <StaggerItem key={s.label}>
+                      <div className="h-full rounded-xl border border-line bg-cream-50 px-3 py-2.5 transition-colors hover:border-brand-200">
+                        <p className="text-2xs font-medium uppercase tracking-[0.05em] text-muted">{s.label}</p>
+                        <p className="mt-0.5 text-lg font-semibold tabular-nums text-ink">
+                          <AnimatedCounter value={s.value} />
+                        </p>
+                      </div>
+                    </StaggerItem>
+                  ))}
+                </Stagger>
+              )}
+
+              {analysisReady && analysis?.summary?.background && (
+                <div className="mt-2.5 flex items-center gap-2 text-2xs text-muted">
+                  <span
+                    className="h-4 w-4 rounded border border-line"
+                    style={{ backgroundColor: analysis.summary.background }}
+                  />
+                  Background {analysis.summary.background} · {analysis.width}×{analysis.height}
+                  {analysis.summary.aspectRatio ? ` · ${analysis.summary.aspectRatio}` : ''}
+                </div>
+              )}
+            </div>
+
+            {/* Deterministic violations */}
+            <div className="rounded-2xl border border-line bg-white p-4 shadow-card">
+              <SectionHeader
+                title="Deterministic violations"
+                subtitle="Raised by the rule engine against stored guideline passages. This is the verdict."
+                actions={<AnimatedBadge tone="danger" variant="solid">{violations.length}</AnimatedBadge>}
+              />
+              <div className="mt-3 space-y-2">
+                {violations.length === 0 ? (
+                  <div className="rounded-xl border border-line bg-cream-50 px-4 py-6 text-center">
+                    <CheckCircle2 className="mx-auto h-5 w-5 text-sage-500" />
+                    <p className="mt-2 text-xs font-medium text-ink-600">No deterministic violations</p>
+                    <p className="mt-0.5 text-2xs text-muted">Every active rule passed or could not be evaluated.</p>
+                  </div>
+                ) : (
+                  <Stagger key={current.id} className="space-y-2">
+                    {violations.map((f) => (
+                      <StaggerItem key={f.id}>
+                        <div className="rounded-xl border border-danger-200 bg-danger-50/60 p-3 transition-all hover:border-danger-300 hover:shadow-lift">
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="text-xs font-semibold text-ink">{f.title}</p>
+                            {f.badge && (
+                              <AnimatedBadge tone="danger" variant="solid" className="shrink-0">
+                                {f.badge}
+                              </AnimatedBadge>
+                            )}
+                          </div>
+                          <p className="mt-1 text-xs leading-relaxed text-ink-600">{f.description}</p>
+                          {f.guidelineRef && (
+                            <p className="mt-1.5 flex items-center gap-1 text-2xs text-muted">
+                              <FileText className="h-3 w-3" />{f.guidelineRef}
+                            </p>
+                          )}
+                        </div>
+                      </StaggerItem>
+                    ))}
+                  </Stagger>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Right: score, review queue, AI suggestions */}
+          <aside className="space-y-5">
+            <div className="rounded-2xl border border-line bg-white p-4 shadow-card">
+              <h2 className="flex items-center gap-2 text-sm font-semibold text-ink">
+                Compliance score
+                {scanning && <PulseDot />}
+              </h2>
+              <p className="mt-0.5 text-2xs text-muted">
+                100 minus weighted open findings — derived, never estimated.
+              </p>
+              <div className="mt-4 flex items-center gap-4">
+                <div
+                  className="shrink-0 rounded-full transition-shadow duration-500"
+                  style={{
+                    boxShadow: score >= 80
+                      ? '0 0 24px -6px rgba(78,122,61,.45)'
+                      : score >= 50
+                        ? '0 0 24px -6px rgba(196,137,28,.45)'
+                        : '0 0 24px -6px rgba(194,84,70,.45)',
+                  }}
+                >
+                  <RingProgress
+                    value={score}
+                    max={100}
+                    size={116}
+                    stroke={10}
+                    tone={score >= 80 ? 'brand' : score >= 50 ? 'amber' : 'danger'}
+                    centerLabel={<AnimatedCounter value={score} suffix="%" />}
+                    centerSublabel="Compliant"
+                  />
+                </div>
+                <div className="flex-1 space-y-2">
+                  <AnimatedProgress value={violations.length} max={Math.max(findings.length, 1)} tone="danger" label="Violations" showValue={false} />
+                  <AnimatedProgress value={needsReview.length} max={Math.max(findings.length, 1)} tone="amber" label="Needs review" showValue={false} />
+                  <AnimatedProgress value={passed.length} max={Math.max(findings.length, 1)} tone="sage" label="Passed" showValue={false} />
                 </div>
               </div>
             </div>
 
-            {/* Need help */}
-            <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl flex items-start gap-2 text-xs">
-              <Sparkles className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
-              <div>
-                <p className="font-semibold text-blue-900">Need help?</p>
-                <p className="text-blue-700 mt-0.5">Ask our AI Assistant for suggestions.</p>
-                <button className="mt-2 px-3 py-1.5 bg-white border border-blue-200 rounded-lg text-[11px] font-semibold text-blue-700 hover:bg-blue-50 transition-colors cursor-pointer">
-                  Chat Now →
-                </button>
+            {/* Needs human review */}
+            <div className="rounded-2xl border border-line bg-white p-4 shadow-card">
+              <SectionHeader
+                title="Needs human review"
+                subtitle="The engine could not evaluate these from available evidence."
+                actions={<AnimatedBadge tone="amber">{needsReview.length}</AnimatedBadge>}
+              />
+              <div className="mt-3 space-y-2">
+                {needsReview.length === 0 ? (
+                  <p className="rounded-xl border border-line bg-cream-50 px-3 py-4 text-center text-2xs text-muted">
+                    Nothing is waiting on a human.
+                  </p>
+                ) : (
+                  <Stagger key={current.id} className="space-y-2">
+                    {needsReview.map((f) => (
+                      <StaggerItem key={f.id}>
+                        <div className="rounded-xl border border-warn-200 bg-warn-50/60 p-3 transition-all hover:border-warn-300 hover:shadow-lift">
+                          <p className="text-xs font-semibold text-ink">{f.title}</p>
+                          <p className="mt-1 text-2xs leading-relaxed text-ink-600">{f.description}</p>
+                        </div>
+                      </StaggerItem>
+                    ))}
+                  </Stagger>
+                )}
               </div>
             </div>
-          </div>
-        </aside>
-      )}
+
+            {/* AI suggestions */}
+            <div className="rounded-2xl border border-line bg-white p-4 shadow-card">
+              <SectionHeader
+                title="AI suggestions"
+                subtitle="Advisory only — AI never changes the verdict."
+                actions={<AnimatedBadge tone="brand">{aiFindings.length}</AnimatedBadge>}
+              />
+              <div className="mt-3 space-y-2">
+                {aiFindings.length === 0 ? (
+                  <p className="rounded-xl border border-line bg-cream-50 px-3 py-4 text-center text-2xs text-muted">
+                    No AI suggestions. A language model is not configured on this server, so the
+                    deterministic engine is the only source of findings.
+                  </p>
+                ) : (
+                  <Stagger key={current.id} className="space-y-2">
+                    {aiFindings.map((f) => (
+                      <StaggerItem key={f.id}>
+                        <div className="group rounded-xl border border-olive-200 bg-olive-50/50 p-3 transition-all hover:border-olive-300 hover:shadow-lift">
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="text-xs font-semibold text-ink">{f.ruleTitle || f.ruleCode}</p>
+                            <AnimatedBadge
+                              tone={f.citationVerified ? 'sage' : 'danger'}
+                              className="shrink-0"
+                            >
+                              {f.citationVerified ? 'Verified' : 'Rejected'}
+                            </AnimatedBadge>
+                          </div>
+                          <p className="mt-1 text-2xs leading-relaxed text-ink-600">{f.rationale}</p>
+                          {f.quote && (
+                            <p className="mt-1.5 flex gap-1 border-l-2 border-olive-300 pl-2 text-2xs italic text-muted transition-colors group-hover:border-brand-400">
+                              <Quote className="mt-0.5 h-3 w-3 shrink-0" />{f.quote}
+                            </p>
+                          )}
+                          {!f.citationVerified && f.rejectedReason && (
+                            <p className="mt-1.5 text-2xs text-danger-600">{f.rejectedReason}</p>
+                          )}
+                        </div>
+                      </StaggerItem>
+                    ))}
+                  </Stagger>
+                )}
+              </div>
+            </div>
+
+            {/* Submission switcher */}
+            <div className="rounded-2xl border border-line bg-white p-4 shadow-card">
+              <SectionHeader title="Review another" subtitle={`${submissions.length} submissions in scope`} />
+              <div className="mt-3 max-h-[240px] space-y-1.5 overflow-y-auto styled-scroll">
+                {submissions.slice(0, 12).map((s) => (
+                  <button
+                    key={s.id}
+                    onClick={() => setSelectedSubmission(s)}
+                    className={`flex w-full items-center gap-2 rounded-xl border px-2.5 py-2 text-left transition-colors ${
+                      s.id === current.id
+                        ? 'border-brand-300 bg-brand-50'
+                        : 'border-line hover:bg-cream-50'
+                    }`}
+                  >
+                    <img src={s.thumbnail} alt="" className="h-7 w-7 shrink-0 rounded-lg object-cover" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-2xs font-semibold text-ink">{s.title}</span>
+                      <span className="block truncate text-2xs text-muted">{s.status}</span>
+                    </span>
+                    <span className="shrink-0 text-2xs font-semibold tabular-nums text-ink-600">
+                      {s.complianceScore}%
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </aside>
+        </div>
+
+      </div>
     </div>
   );
 };

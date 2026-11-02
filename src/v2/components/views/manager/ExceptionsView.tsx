@@ -7,8 +7,8 @@ import { useApp } from '../../../context/AppContext';
 import { api } from '@/services/api';
 import type { ExceptionItem } from '../../../types';
 import {
-  AnimatedCard, AnimatedCounter, AnimatedDrawer, Reveal, SkeletonCard,
-  Timeline, type TimelineItem,
+  AnimatedCard, AnimatedCounter, AnimatedDrawer, EmptyState, FilterPills, Reveal,
+  SkeletonCard, Timeline, type TimelineItem,
 } from '../../motion';
 
 /* ------------------------------------------------------------------ */
@@ -293,52 +293,41 @@ export const ExceptionsView: React.FC = () => {
         )}
 
         {/* Tabs */}
-        <div className="flex flex-wrap items-center gap-1.5">
-          {([
+        <FilterPills
+          options={([
             ['All', exceptions.length],
             ['Pending', pendingCount],
             ['Approved', approvedCount],
             ['Rejected', rejectedCount],
-          ] as const).map(([tab, count]) => (
-            <button
-              key={tab}
-              onClick={() => setFilterTab(tab)}
-              aria-pressed={filterTab === tab}
-              className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
-                filterTab === tab
-                  ? 'bg-ink-900 text-white'
-                  : 'border border-line bg-white text-ink-600 hover:bg-cream-50'
-              }`}
-            >
-              {tab === 'All' ? 'All requests' : tab}{' '}
-              <span className="tabular-nums opacity-70">({count})</span>
-            </button>
-          ))}
-        </div>
+          ] as const).map(([tab, count]) => ({
+            id: tab,
+            label: `${tab === 'All' ? 'All requests' : tab} (${count})`,
+          }))}
+          selected={[filterTab]}
+          onChange={(sel) => {
+            const next = sel.filter((id) => id !== filterTab);
+            setFilterTab((next[next.length - 1] as typeof filterTab) ?? 'All');
+          }}
+        />
 
         {/* Sections */}
         {exceptions.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-line bg-white px-6 py-14 text-center">
-            <ShieldOff className="mx-auto h-7 w-7 text-muted-light" />
-            <p className="mt-3 text-sm font-semibold text-ink">No exception requests yet</p>
-            <p className="mx-auto mt-1 max-w-sm text-xs leading-relaxed text-muted">
-              Requests appear here when a creator asks to depart from an active rule. Nothing is
-              pre-filled or simulated.
-            </p>
-          </div>
+          <EmptyState
+            icon={<ShieldOff className="h-6 w-6" />}
+            title="No exception requests yet"
+            description="Requests appear here when a creator asks to depart from an active rule. Nothing is pre-filled or simulated."
+          />
         ) : filtered.length === 0 ? (
-          <div className="rounded-2xl border border-line bg-white px-6 py-12 text-center">
-            <p className="text-sm font-semibold text-ink">No requests in this view</p>
-            <p className="mt-1 text-xs text-muted">
-              {searchQuery ? `Nothing matches “${searchQuery}”.` : `There are no ${filterTab.toLowerCase()} requests.`}
-            </p>
-            <button
-              onClick={() => { setFilterTab('All'); setSearchQuery(''); }}
-              className="mt-4 rounded-xl border border-line bg-white px-3.5 py-2 text-xs font-semibold text-ink-700 transition-colors hover:bg-cream-50"
-            >
-              Clear filters
-            </button>
-          </div>
+          <EmptyState
+            icon={<ShieldOff className="h-6 w-6" />}
+            title="No requests in this view"
+            description={
+              searchQuery
+                ? `Nothing matches “${searchQuery}”.`
+                : `There are no ${filterTab.toLowerCase()} requests.`
+            }
+            action={{ label: 'Clear filters', onClick: () => { setFilterTab('All'); setSearchQuery(''); } }}
+          />
         ) : (
           <div className="space-y-5">
             {sections.map((section) => (

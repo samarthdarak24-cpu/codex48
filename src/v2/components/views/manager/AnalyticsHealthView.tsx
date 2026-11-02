@@ -1,277 +1,591 @@
-import React from 'react';
-import { TrendingUp, Download, AlertCircle, Clock, CheckCircle2, ChevronRight, ShieldAlert, ArrowUpRight, ArrowDownRight, PieChart, Star } from 'lucide-react';
+/**
+ * Analytics & Health.
+ *
+ * Every series below is returned by `/analytics` or `/analytics/trends`. When a
+ * metric has no stored data we render an explicit empty state — we never draw a
+ * placeholder point, a sample donut or an invented delta.
+ */
+import React, { useMemo } from 'react';
+import {
+  AlertCircle, AlertTriangle, CheckCircle2, Clock, Download, Lock, ShieldAlert,
+  TrendingUp, PieChart, Timer, Percent,
+} from 'lucide-react';
 import { useApp } from '../../../context/AppContext';
-import { StatCardGrid } from '../../ui/StatCard';
+import {
+  AnimatedCard, AnimatedCounter, AnimatedProgress, AnimatedTabs, BarSeries, ChartContainer,
+  PageTransition, RingProgress, Sparkline, Stagger, StaggerItem,
+} from '../../motion';
 
-const CATEGORY_COLORS = ['#3b82f6', '#10b981', '#8b5cf6', '#f59e0b', '#f43f5e'];
+/* ------------------------------------------------------------------ */
+/* Helpers                                                             */
+/* ------------------------------------------------------------------ */
+
+const shortDate = (value: string): string => {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+};
+
+const EmptyPanel: React.FC<{ title: string; description: string }> = ({ title, description }) => (
+  <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-line bg-cream-50 px-4 py-8 text-center">
+    <p className="text-xs font-semibold text-ink-600">{title}</p>
+    <p className="mt-1 max-w-sm text-2xs leading-relaxed text-muted">{description}</p>
+  </div>
+);
+
+const TrendLine: React.FC<{ points: { date: string; score: number }[] }> = ({ points }) => {
+  const W = 640;
+  const H = 160;
+  const PAD = 12;
+  const y = (score: number) => H - PAD - (Math.max(0, Math.min(100, score)) / 100) * (H - PAD * 2);
+  const x = (i: number) => (points.length <= 1 ? W / 2 : (i / (points.length - 1)) * W);
+  const line = points.map((p, i) => `${x(i).toFixed(1)},${y(p.score).toFixed(1)}`).join(' L');
+
+  return (
+    <div>
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        preserveAspectRatio="none"
+        className="h-[170px] w-full"
+        role="img"
+        aria-label={`Compliance score across ${points.length} buckets`}
+      >
+        {[0, 25, 50, 75, 100].map((v) => (
+          <line key={v} x1="0" x2={W} y1={y(v)} y2={y(v)} stroke="#F0EBDF" strokeWidth="1" />
+        ))}
+        <line x1="0" x2={W} y1={y(90)} y2={y(90)} stroke="#DAD2C0" strokeWidth="1.5" strokeDasharray="4 4" />
+        <path d={`M${line} L${W},${H} L0,${H} Z`} fill="#4E7A3D" fillOpacity="0.07" />
+        <path d={`M${line}`} fill="none" stroke="#4E7A3D" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+        {points.map((p, i) => (
+          <circle key={`${p.date}-${i}`} cx={x(i)} cy={y(p.score)} r="2.6" fill="#4E7A3D" />
+        ))}
+      </svg>
+      <div className="mt-2 flex items-center justify-between text-2xs text-muted">
+        <span>{shortDate(points[0].date)}</span>
+        <span className="text-muted-light">Dashed line = 90% target</span>
+        <span>{shortDate(points[points.length - 1].date)}</span>
+      </div>
+    </div>
+  );
+};
+
+/* ------------------------------------------------------------------ */
+/* View                                                                */
+/* ------------------------------------------------------------------ */
 
 export const AnalyticsHealthView: React.FC = () => {
-  const { analytics, analyticsTrends, analyticsRange, setAnalyticsRange, analyticsLoading, downloadAnalytics, addToast, setActivePage } = useApp();
+  const {
+    role, analytics, analyticsTrends, analyticsRange, setAnalyticsRange,
+    analyticsLoading, downloadAnalytics, addToast, error,
+  } = useApp();
 
-  if (!analytics) {
+  const points = useMemo(() => analyticsTrends?.points ?? [], [analyticsTrends]);
+
+  /* ---- States ---- */
+
+  if (role !== 'manager') {
     return (
-      <div className="p-6 max-w-[1600px] mx-auto space-y-5">
-        <div><h1 className="text-[32px] font-black tracking-tight leading-none mt-1 animate-count-up">Analytics & Health</h1><p className="text-xs text-muted mt-0.5">Track brand compliance, monitor performance and stay informed.</p></div>
-        <div className="bg-white rounded-2xl border border-line p-16 text-center text-xs text-muted">{analyticsLoading ? 'Loading analytics…' : 'No analytics data available yet.'}</div>
+      <div className="p-6">
+        <div className="mx-auto max-w-lg rounded-3xl border border-line bg-white p-10 text-center shadow-card">
+          <Lock className="mx-auto h-8 w-8 text-muted-light" />
+          <h1 className="mt-3 text-lg font-semibold text-ink">Manager access only</h1>
+          <p className="mt-1 text-xs leading-relaxed text-muted">
+            Workspace analytics are restricted to brand managers. Your current role is {role}.
+          </p>
+        </div>
       </div>
     );
   }
 
-  const totals = analytics.totals;
-  const approvalRate = totals.decided > 0 ? Math.round((totals.approved / totals.decided) * 100) : 0;
-  const findingsTotal = analytics.findingsByCategory.reduce((n, c) => n + c.count, 0);
-  const trendPoints = (analyticsTrends?.points ?? []).slice(-10);
-  const maxScore = Math.max(...trendPoints.map(p => p.score), 100);
-  const coverage = analytics.ruleCoverage.totalRules ? Math.round((analytics.ruleCoverage.activeRules / analytics.ruleCoverage.totalRules) * 100) : 0;
+  if (analyticsLoading) {
+    return (
+      <div className="p-4 sm:p-6">
+        <div className="mx-auto max-w-[1500px] space-y-4">
+          <div className="h-14 w-1/3 animate-pulse rounded-2xl bg-cream-100" />
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="h-[108px] animate-pulse rounded-2xl bg-cream-100" />
+            ))}
+          </div>
+          <div className="grid gap-4 lg:grid-cols-3">
+            <div className="h-[280px] animate-pulse rounded-2xl bg-cream-100 lg:col-span-2" />
+            <div className="h-[280px] animate-pulse rounded-2xl bg-cream-100" />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-  // Donut segments for findings by category
-  const donutSegments = (() => {
-    let acc = 0; const total = Math.max(findingsTotal, 1);
-    return analytics.findingsByCategory.slice(0, 4).map((c, i) => {
-      const r = 38; const circ = 2 * Math.PI * r;
-      const frac = c.count / total;
-      const el = { color: CATEGORY_COLORS[i], category: c.category, count: c.count, pct: Math.round(frac * 100), dashArray: `${frac * circ} ${circ}`, dashOffset: -(acc / total * circ) };
-      acc += c.count; return el;
-    });
-  })();
+  if (!analytics) {
+    return (
+      <PageTransition className="p-4 sm:p-6">
+        <div className="mx-auto max-w-[1500px] space-y-4">
+          <div>
+            <p className="mb-1 text-2xs font-semibold uppercase tracking-[0.1em] text-brand-600">Health</p>
+            <h1 className="text-2xl font-semibold tracking-[-0.02em] text-ink sm:text-3xl">Analytics &amp; Health</h1>
+            <p className="mt-1 text-sm text-muted">
+              Track brand compliance, monitor performance and stay informed.
+            </p>
+          </div>
+          {error && (
+            <div role="alert" className="flex items-start gap-2.5 rounded-2xl border border-danger-200 bg-danger-50 px-4 py-3 text-xs text-danger-700">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-danger-500" />
+              <span>{error}</span>
+            </div>
+          )}
+          <div className="rounded-2xl border border-line bg-white p-12 text-center shadow-card">
+            <TrendingUp className="mx-auto h-7 w-7 text-muted-light" />
+            <p className="mt-3 text-sm font-semibold text-ink">No analytics data yet</p>
+            <p className="mt-1 text-xs leading-relaxed text-muted">
+              Aggregates appear once submissions have been reviewed. Nothing is estimated in the
+              meantime.
+            </p>
+          </div>
+        </div>
+      </PageTransition>
+    );
+  }
+
+  const { totals, reviewPerformance, ruleCoverage, sentinel, exceptions } = analytics;
+  const approvalRate = totals.decided > 0 ? Math.round((totals.approved / totals.decided) * 100) : 0;
+  const coverage = ruleCoverage.totalRules
+    ? Math.round((ruleCoverage.activeRules / ruleCoverage.totalRules) * 100)
+    : 0;
+  const findingsTotal = analytics.findingsByCategory.reduce((n, c) => n + c.count, 0);
+  const exceptionEntries = Object.entries(exceptions).filter(([, v]) => v > 0);
+  const exceptionTotal = exceptionEntries.reduce((n, [, v]) => n + v, 0);
+  const avgHours = reviewPerformance.avgReviewHours;
+  const scoreSeries = points.map((p) => p.score);
 
   return (
-    <div className="p-6 max-w-[1600px] mx-auto space-y-5">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-[32px] font-black tracking-tight leading-none mt-1 animate-count-up">Analytics & Health</h1>
-          <p className="text-xs text-muted mt-0.5">Track brand compliance, monitor performance and stay informed.</p>
-        </div>
-        <button onClick={() => downloadAnalytics().catch(() => addToast('Export failed.', 'error'))}
-          className="flex items-center gap-2 px-4 py-2 bg-white border border-line rounded-xl text-xs font-semibold text-ink-700 hover:bg-[#FAF7EF] shadow-2xs transition-colors cursor-pointer">
-          <Download className="w-4 h-4" />Export Report
-        </button>
-      </div>
+    <PageTransition className="p-4 sm:p-6">
+      <div className="mx-auto max-w-[1500px] space-y-4">
 
-      {/* KPI Cards */}
-      <StatCardGrid cards={[
-    { label: 'Compliance Score', value: `${analytics.complianceScore}%`, icon: <CheckCircle2 className="w-5 h-5" />, variant: 'green', trend: 1.8, sparkPathIndex: 0 },
-    { label: 'Reviewed Content', value: totals.decided >= 1000 ? `${(totals.decided / 1000).toFixed(1)}K` : String(totals.decided), icon: <TrendingUp className="w-5 h-5" />, variant: 'blue', trend: 12, sparkPathIndex: 1 },
-    { label: 'Open Issues', value: totals.openFindings, icon: <AlertCircle className="w-5 h-5" />, variant: 'amber', trend: -8, sparkPathIndex: 2 },
-    { label: 'Avg Review Time', value: analytics.reviewPerformance.avgReviewHours ? `${analytics.reviewPerformance.avgReviewHours.toFixed(1)} hrs` : '—', icon: <Clock className="w-5 h-5" />, variant: 'purple', trend: -14, sparkPathIndex: 3 },
-  ]} />
+        {error && (
+          <div role="alert" className="flex items-start gap-2.5 rounded-2xl border border-danger-200 bg-danger-50 px-4 py-3 text-xs text-danger-700">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-danger-500" />
+            <span>{error}</span>
+          </div>
+        )}
 
-      {/* Compliance Trends + Findings Donut */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Compliance Trends */}
-        <div className="lg:col-span-2 bg-white rounded-2xl p-4 border border-line shadow-2xs">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-bold text-ink-900 flex items-center gap-2"><TrendingUp className="w-4 h-4 text-brand-600" />Compliance Trends</h3>
-            <div className="flex items-center gap-1 bg-[#FAF7EF] rounded-xl p-1">
-              {[{ label: '7D', val: '7d' }, { label: '30D', val: '30d' }, { label: '90D', val: '90d' }, { label: '1Y', val: '1y' }].map((r) => (
-                <button key={r.val} onClick={() => setAnalyticsRange(r.val)}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors ${analyticsRange === r.val ? 'bg-white text-ink-900 shadow-2xs' : 'text-muted hover:text-ink'}`}>
-                  {r.label}
-                </button>
-              ))}
-            </div>
+        {/* Header */}
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div className="min-w-0">
+            <p className="mb-1 text-2xs font-semibold uppercase tracking-[0.1em] text-brand-600">
+              Health · {analytics.range}
+            </p>
+            <h1 className="text-2xl font-semibold tracking-[-0.02em] text-ink sm:text-3xl">Analytics &amp; Health</h1>
+            <p className="mt-1 text-sm text-muted">
+              Aggregated from {analytics.sampleSize} submission
+              {analytics.sampleSize === 1 ? '' : 's'} in the selected range.
+            </p>
           </div>
-          {/* Line chart */}
-          <div className="relative h-40">
-            <svg className="w-full h-full" viewBox="0 0 400 120" preserveAspectRatio="none">
-              {/* Grid lines */}
-              {[0, 30, 60, 90, 120].map((y) => (
-                <line key={y} x1="0" y1={y} x2="400" y2={y} stroke="#F1ECE0" strokeWidth="1" />
-              ))}
-              {/* Target 90% line */}
-              <line x1="0" y1="36" x2="400" y2="36" stroke="#F1ECE0" strokeWidth="1.5" strokeDasharray="4 4" />
-              {trendPoints.length >= 2 && (() => {
-                const pts = trendPoints.map((p, i) => {
-                  const x = (i / (trendPoints.length - 1)) * 400;
-                  const y = 120 - (p.score / 100) * 120;
-                  return `${x},${y}`;
-                }).join(' ');
-                const areaPath = `M0,${120 - (trendPoints[0].score / 100) * 120} L${trendPoints.map((p, i) => `${(i / (trendPoints.length - 1)) * 400},${120 - (p.score / 100) * 120}`).join(' L')} L400,120 L0,120 Z`;
-                return (
-                  <>
-                    <path d={areaPath} fill="#4E7A3D" fillOpacity="0.08" />
-                    <polyline points={pts} fill="none" stroke="#4E7A3D" strokeWidth="2.5" strokeLinejoin="round" />
-                    {trendPoints.map((p, i) => (
-                      <circle key={i} cx={(i / (trendPoints.length - 1)) * 400} cy={120 - (p.score / 100) * 120} r="3.5" fill="#4E7A3D" />
-                    ))}
-                  </>
-                );
-              })()}
-              {trendPoints.length < 2 && <text x="200" y="60" textAnchor="middle" fontSize="10" fill="#9ca3af">No trend data yet</text>}
-            </svg>
-            {/* Y-axis labels */}
-            <div className="absolute left-0 top-0 h-full flex flex-col justify-between py-1 -translate-x-8">
-              {['100%', '90%', '80%', '70%', '60%'].map((l) => <span key={l} className="text-[9px] text-muted-light">{l}</span>)}
-            </div>
-          </div>
-          <div className="flex items-center gap-4 mt-3 text-[10px]">
-            <div className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-brand-500 rounded" /><span className="text-muted">Compliance Score</span></div>
-            <div className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-[#F1ECE0] border-t border-dashed border-muted-light" /><span className="text-muted">Target (90%)</span></div>
-          </div>
+          <button
+            onClick={() => downloadAnalytics().catch(() => addToast('Export failed.', 'error'))}
+            className="inline-flex items-center gap-2 rounded-xl border border-line bg-white px-3.5 py-2.5 text-xs font-semibold text-ink-700 shadow-card transition-colors hover:bg-cream-50"
+          >
+            <Download className="h-3.5 w-3.5" />
+            Export report
+          </button>
         </div>
 
-        {/* Findings by Category Donut */}
-        <div className="bg-emerald-100 border-emerald-200 border rounded-2xl p-4 animate-view-fade-in stagger-1 hover:-translate-y-1 hover:shadow-lg transition-all">
-          <h3 className="text-sm font-bold text-ink-900 mb-4 flex items-center gap-2"><PieChart className="w-4 h-4 text-brand-600" />Findings by Category</h3>
-          <div className="flex flex-col items-center gap-4">
-            <div className="relative w-28 h-28">
-              <svg className="-rotate-90" width="112" height="112" viewBox="0 0 112 112">
-                {donutSegments.map((seg) => (
-                  <circle key={seg.category} cx="56" cy="56" r="38" fill="none" stroke={seg.color} strokeWidth="14"
-                    strokeDasharray={seg.dashArray} strokeDashoffset={String(seg.dashOffset)} />
-                ))}
-                {donutSegments.length === 0 && <circle cx="56" cy="56" r="38" fill="none" stroke="#F1ECE0" strokeWidth="14" />}
-              </svg>
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-lg font-bold text-ink-900">{findingsTotal}</span>
-                <span className="text-[9px] text-muted">Total Findings</span>
-              </div>
-            </div>
-            <div className="w-full space-y-2">
-              {donutSegments.map((seg) => (
-                <div key={seg.category} className="flex items-center gap-2 text-xs">
-                  <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: seg.color }} />
-                  <span className="text-muted flex-1">{seg.category}</span>
-                  <span className="font-semibold text-ink-900">{seg.count} ({seg.pct}%)</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 3-column bottom row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Top Violated Rules */}
-        <div className="bg-blue-100 border-blue-200 border rounded-2xl p-4 animate-view-fade-in stagger-2 hover:-translate-y-1 hover:shadow-lg transition-all">
-          <div className="flex items-center justify-between mb-3">
-            <h4 className="text-sm font-bold text-ink-900 flex items-center gap-2"><Star className="w-4 h-4 text-amber-500" />Top Violated Rules</h4>
-            <button className="text-[11px] text-brand-600 font-semibold hover:underline">View All →</button>
-          </div>
-          <div className="space-y-2.5">
-            {analytics.topRules.slice(0, 5).map((rule, i) => (
-              <div key={rule.code} className="flex items-center gap-3">
-                <span className="w-5 h-5 rounded-full bg-[#F1ECE0] text-ink-700 text-[10px] font-bold flex items-center justify-center shrink-0">{i + 1}</span>
-                <span className="flex-1 text-xs text-ink-700 truncate">{rule.title}</span>
-                <span className="text-xs font-semibold text-ink-900">{rule.count} times</span>
-                <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${i === 0 ? 'badge-rejected' : i <= 2 ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
-                  {i === 0 ? 'High' : i <= 2 ? 'Med' : 'Low'}
+        {/* KPIs */}
+        <Stagger className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StaggerItem>
+            <AnimatedCard className="p-4">
+              <div className="flex items-start justify-between">
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-sage-50 text-sage-600">
+                  <CheckCircle2 className="h-4 w-4" />
                 </span>
+                {scoreSeries.length >= 2 && <Sparkline points={scoreSeries} width={72} height={26} tone="sage" />}
               </div>
-            ))}
-            {analytics.topRules.length === 0 && <p className="text-xs text-muted text-center py-4">No rule violations recorded.</p>}
-          </div>
+              <p className="mt-3 text-2xl font-semibold leading-none tabular-nums text-ink">
+                <AnimatedCounter value={analytics.complianceScore} suffix="%" />
+              </p>
+              <p className="mt-1.5 text-xs font-medium text-muted">Compliance score</p>
+              <p className="mt-0.5 text-2xs text-muted-light">
+                {totals.totalFindings} findings across {totals.submissions} submissions
+              </p>
+            </AnimatedCard>
+          </StaggerItem>
+
+          <StaggerItem>
+            <AnimatedCard className="p-4">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
+                <TrendingUp className="h-4 w-4" />
+              </span>
+              <p className="mt-3 text-2xl font-semibold leading-none tabular-nums text-ink">
+                <AnimatedCounter value={totals.decided} />
+              </p>
+              <p className="mt-1.5 text-xs font-medium text-muted">Reviewed content</p>
+              <p className="mt-0.5 text-2xs text-muted-light">
+                {totals.inReview} still in review
+              </p>
+            </AnimatedCard>
+          </StaggerItem>
+
+          <StaggerItem>
+            <AnimatedCard className="p-4">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-warn-50 text-warn-600">
+                <AlertCircle className="h-4 w-4" />
+              </span>
+              <p className="mt-3 text-2xl font-semibold leading-none tabular-nums text-ink">
+                <AnimatedCounter value={totals.openFindings} />
+              </p>
+              <p className="mt-1.5 text-xs font-medium text-muted">Open issues</p>
+              <p className="mt-0.5 text-2xs text-muted-light">
+                {findingsTotal} findings recorded in total
+              </p>
+            </AnimatedCard>
+          </StaggerItem>
+
+          <StaggerItem>
+            <AnimatedCard className="p-4">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-olive-50 text-olive-600">
+                <Clock className="h-4 w-4" />
+              </span>
+              <p className="mt-3 text-2xl font-semibold leading-none tabular-nums text-ink">
+                {avgHours !== null ? (
+                  <>
+                    <AnimatedCounter value={avgHours} decimals={1} />
+                    <span className="ml-1 text-sm font-medium text-muted">hrs</span>
+                  </>
+                ) : (
+                  <span className="text-base font-medium text-muted">Not tracked</span>
+                )}
+              </p>
+              <p className="mt-1.5 text-xs font-medium text-muted">Avg review time</p>
+              <p className="mt-0.5 text-2xs text-muted-light">
+                {reviewPerformance.tracked
+                  ? `Measured across ${reviewPerformance.decisions} decisions`
+                  : 'Timestamps are incomplete, so no average is claimed'}
+              </p>
+            </AnimatedCard>
+          </StaggerItem>
+        </Stagger>
+
+        {/* Trend + approval */}
+        <div className="grid gap-4 lg:grid-cols-3">
+          <ChartContainer
+            className="lg:col-span-2"
+            title="Compliance trend"
+            subtitle={
+              points.length > 0
+                ? `${points.length} ${analyticsTrends?.bucket ?? 'day'} buckets · ${analytics.range}`
+                : 'No buckets in this range'
+            }
+            actions={
+              <AnimatedTabs
+                tabs={[
+                  { id: '7d', label: '7D' },
+                  { id: '30d', label: '30D' },
+                  { id: '90d', label: '90D' },
+                  { id: '1y', label: '1Y' },
+                ]}
+                active={analyticsRange}
+                onChange={(id) => setAnalyticsRange(id as typeof analyticsRange)}
+              />
+            }
+          >
+            {points.length >= 2 ? (
+              <TrendLine points={points} />
+            ) : (
+              <EmptyPanel
+                title="No trend data yet"
+                description="Compliance history appears once at least two review buckets exist in the selected range."
+              />
+            )}
+          </ChartContainer>
+
+          <AnimatedCard className="flex flex-col p-4">
+            <div className="flex items-center gap-2">
+              <Percent className="h-4 w-4 text-brand-600" />
+              <h3 className="text-sm font-semibold text-ink">Approval rate</h3>
+            </div>
+            <p className="mt-0.5 text-2xs text-muted">Approved ÷ decided submissions</p>
+            <div className="mt-4 flex flex-1 flex-col items-center justify-center">
+              {totals.decided > 0 ? (
+                <RingProgress
+                  value={totals.approved}
+                  max={totals.decided}
+                  size={140}
+                  stroke={12}
+                  tone={approvalRate >= 70 ? 'sage' : approvalRate >= 40 ? 'amber' : 'danger'}
+                  centerLabel={<AnimatedCounter value={approvalRate} suffix="%" />}
+                  centerSublabel="Approved"
+                />
+              ) : (
+                <EmptyPanel
+                  title="No decisions yet"
+                  description="The rate is calculated only from submissions that already have a recorded decision."
+                />
+              )}
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-2 text-2xs">
+              <div className="rounded-xl border border-line bg-cream-50 px-2.5 py-2">
+                <p className="text-muted">Approved</p>
+                <p className="mt-0.5 text-sm font-semibold tabular-nums text-ink">{totals.approved}</p>
+              </div>
+              <div className="rounded-xl border border-line bg-cream-50 px-2.5 py-2">
+                <p className="text-muted">Declined</p>
+                <p className="mt-0.5 text-sm font-semibold tabular-nums text-ink">{totals.declined}</p>
+              </div>
+            </div>
+          </AnimatedCard>
         </div>
 
-        {/* Campaign Health */}
-        <div className="bg-amber-100 border-amber-200 border rounded-2xl p-4 animate-view-fade-in stagger-3 hover:-translate-y-1 hover:shadow-lg transition-all">
-          <div className="flex items-center justify-between mb-3">
-            <h4 className="text-sm font-bold text-ink-900">Campaign Health</h4>
-            <button className="text-[11px] text-brand-600 font-semibold hover:underline">View All →</button>
-          </div>
-          <div className="space-y-3">
-            <div className="grid grid-cols-3 text-[10px] font-semibold text-muted uppercase tracking-wide pb-1 border-b border-line">
-              <span>Campaign</span><span className="text-center">Compliance</span><span className="text-right">Issues</span>
-            </div>
-            {analytics.campaignHealth.slice(0, 5).map((ch) => (
-              <div key={ch.campaign} className="grid grid-cols-3 items-center gap-2">
-                <span className="text-xs text-ink-700 truncate">{ch.campaign}</span>
-                <div className="space-y-1">
-                  <div className="h-1.5 bg-[#F1ECE0] rounded-full overflow-hidden">
-                    <div className={`h-full rounded-full ${ch.score >= 90 ? 'bg-emerald-500' : ch.score >= 70 ? 'bg-amber-500' : 'bg-red-500'}`} style={{ width: `${ch.score}%` }} />
-                  </div>
-                  <span className="text-[9px] text-muted text-center block">{ch.score}%</span>
-                </div>
-                <span className="text-xs font-semibold text-ink-900 text-right">{ch.issues}</span>
+        {/* Volume + categories */}
+        <div className="grid gap-4 lg:grid-cols-2">
+          <ChartContainer
+            title="Submission volume"
+            subtitle={
+              points.length > 0
+                ? `Real submissions per ${analyticsTrends?.bucket ?? 'day'}`
+                : 'No buckets in this range'
+            }
+          >
+            {points.length > 0 ? (
+              <BarSeries
+                data={points.map((p) => ({ label: shortDate(p.date), value: p.submissions }))}
+                height={150}
+                tone="brand"
+                formatValue={(v) => `${v} submissions`}
+              />
+            ) : (
+              <EmptyPanel
+                title="No submissions in range"
+                description="Volume is counted from stored submissions, so an empty range stays empty."
+              />
+            )}
+          </ChartContainer>
+
+          <ChartContainer
+            title="Findings by category"
+            subtitle={`${findingsTotal} findings across ${analytics.findingsByCategory.length} categories`}
+            legend={
+              <span className="inline-flex items-center gap-1.5 text-2xs text-muted">
+                <span className="h-2 w-2 rounded-full bg-danger-500" />
+                Count
+              </span>
+            }
+          >
+            {analytics.findingsByCategory.length > 0 ? (
+              <div className="space-y-4">
+                <BarSeries
+                  data={analytics.findingsByCategory.map((c) => ({ label: c.category, value: c.count }))}
+                  height={140}
+                  tone="terracotta"
+                  formatValue={(v) => `${v} findings`}
+                />
+                <ul className="space-y-1.5">
+                  {analytics.findingsByCategory.map((c) => (
+                    <li key={c.category} className="flex items-center justify-between gap-2 text-2xs">
+                      <span className="truncate text-ink-600">{c.category}</span>
+                      <span className="shrink-0 tabular-nums text-muted">
+                        {c.count} · <span className="text-danger-600">{c.high} high</span> ·{' '}
+                        {c.medium} med · {c.low} low
+                      </span>
+                    </li>
+                  ))}
+                </ul>
               </div>
-            ))}
-            {analytics.campaignHealth.length === 0 && <p className="text-xs text-muted text-center py-4">No campaign data yet.</p>}
-          </div>
+            ) : (
+              <EmptyPanel
+                title="No findings recorded"
+                description="Categories appear once the rule engine has raised at least one finding."
+              />
+            )}
+          </ChartContainer>
         </div>
 
-        {/* Guideline Health Donut */}
-        <div className="bg-purple-100 border-purple-200 border rounded-2xl p-4 animate-view-fade-in stagger-4 hover:-translate-y-1 hover:shadow-lg transition-all">
-          <div className="flex items-center justify-between mb-3">
-            <h4 className="text-sm font-bold text-ink-900">Guideline Health</h4>
-            <button className="text-[11px] text-brand-600 font-semibold hover:underline">View All →</button>
-          </div>
-          <div className="flex flex-col items-center gap-3">
-            <div className="relative w-24 h-24">
-              <svg className="-rotate-90" width="96" height="96" viewBox="0 0 96 96">
-                <circle cx="48" cy="48" r="38" fill="none" stroke="#F1ECE0" strokeWidth="12" />
-                <circle cx="48" cy="48" r="38" fill="none" stroke="#10b981" strokeWidth="12"
-                  strokeDasharray={`${(coverage / 100) * (2 * Math.PI * 38)} ${2 * Math.PI * 38}`} strokeLinecap="round" />
-              </svg>
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-lg font-bold text-ink-900">{coverage}%</span>
-                <span className="text-[9px] text-muted">Coverage</span>
+        {/* Turnaround + exceptions + sentinel */}
+        <div className="grid gap-4 lg:grid-cols-3">
+          <AnimatedCard className="p-4">
+            <div className="flex items-center gap-2">
+              <Timer className="h-4 w-4 text-olive-600" />
+              <h3 className="text-sm font-semibold text-ink">Review turnaround</h3>
+            </div>
+            <p className="mt-0.5 text-2xs text-muted">Submission to first decision</p>
+            {avgHours !== null ? (
+              <div className="mt-4">
+                <p className="text-3xl font-semibold leading-none tabular-nums text-ink">
+                  <AnimatedCounter value={avgHours} decimals={1} />
+                  <span className="ml-1 text-sm font-medium text-muted">hrs</span>
+                </p>
+                <p className="mt-1.5 text-2xs text-muted">
+                  Averaged over {reviewPerformance.decisions} decisions with usable timestamps.
+                </p>
+                <div className="mt-4">
+                  <AnimatedProgress
+                    value={Math.min(avgHours, 72)}
+                    max={72}
+                    tone={avgHours <= 24 ? 'sage' : avgHours <= 48 ? 'amber' : 'danger'}
+                    label="Against a 72-hour ceiling"
+                    showValue={false}
+                  />
+                  <p className="mt-1 text-2xs text-muted-light">
+                    Scale is capped at 72 hours for readability; the figure above is exact.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-3">
+                <EmptyPanel
+                  title="Turnaround not tracked"
+                  description="The service reports incomplete timestamps for decided submissions, so no average is shown."
+                />
+              </div>
+            )}
+          </AnimatedCard>
+
+          <AnimatedCard className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 text-warn-600" />
+                <h3 className="text-sm font-semibold text-ink">Exceptions</h3>
+              </div>
+              <span className="text-sm font-semibold tabular-nums text-ink">{exceptionTotal}</span>
+            </div>
+            <p className="mt-0.5 text-2xs text-muted">Counted by stored status</p>
+            {exceptionEntries.length > 0 ? (
+              <div className="mt-4 space-y-3">
+                {exceptionEntries.map(([status, count]) => (
+                  <AnimatedProgress
+                    key={status}
+                    value={count}
+                    max={Math.max(exceptionTotal, 1)}
+                    tone={status === 'Approved' ? 'sage' : status === 'Rejected' ? 'danger' : 'amber'}
+                    label={`${status} · ${count}`}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="mt-3">
+                <EmptyPanel
+                  title="No exception requests"
+                  description="Approved, pending and rejected exceptions are counted from stored requests."
+                />
+              </div>
+            )}
+          </AnimatedCard>
+
+          <AnimatedCard className="p-4">
+            <div className="flex items-center gap-2">
+              <ShieldAlert className="h-4 w-4 text-terracotta-600" />
+              <h3 className="text-sm font-semibold text-ink">Sentinel impact</h3>
+            </div>
+            <p className="mt-0.5 text-2xs text-muted">Reassessment tasks from Sentinel</p>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <div className="rounded-xl border border-line bg-cream-50 px-3 py-3">
+                <p className="text-2xs text-muted">Open</p>
+                <p className="mt-1 text-xl font-semibold tabular-nums text-ink">
+                  <AnimatedCounter value={sentinel.open} />
+                </p>
+              </div>
+              <div className="rounded-xl border border-line bg-cream-50 px-3 py-3">
+                <p className="text-2xs text-muted">Resolved</p>
+                <p className="mt-1 text-xl font-semibold tabular-nums text-ink">
+                  <AnimatedCounter value={sentinel.resolved} />
+                </p>
               </div>
             </div>
-            <div className="w-full space-y-2 text-xs">
-              {[['Healthy', analytics.ruleCoverage.activeRules, '#10b981'], ['Needs Attention', Math.max(0, analytics.ruleCoverage.totalRules - analytics.ruleCoverage.activeRules - 1), '#f59e0b'], ['Inactive', 1, '#e5e7eb']].map(([label, cnt, color]) => (
-                <div key={String(label)} className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: String(color) }} />
-                  <span className="text-muted flex-1">{label}</span>
-                  <span className="font-semibold text-ink-900">{cnt}</span>
+            <div className="mt-3">
+              <AnimatedProgress
+                value={sentinel.resolved}
+                max={Math.max(sentinel.open + sentinel.resolved, 1)}
+                tone="sage"
+                label="Share of tasks resolved"
+              />
+            </div>
+          </AnimatedCard>
+        </div>
+
+        {/* Coverage + top rules + campaigns */}
+        <div className="grid gap-4 lg:grid-cols-3">
+          <AnimatedCard className="p-4">
+            <div className="flex items-center gap-2">
+              <PieChart className="h-4 w-4 text-brand-600" />
+              <h3 className="text-sm font-semibold text-ink">Rule coverage</h3>
+            </div>
+            <p className="mt-0.5 text-2xs text-muted">Active rules against the stored rulebook</p>
+            <div className="mt-4 flex items-center gap-4">
+              <RingProgress
+                value={ruleCoverage.activeRules}
+                max={Math.max(ruleCoverage.totalRules, 1)}
+                size={104}
+                stroke={10}
+                tone={coverage >= 80 ? 'sage' : coverage >= 50 ? 'amber' : 'danger'}
+                centerLabel={<AnimatedCounter value={coverage} suffix="%" />}
+              />
+              <dl className="flex-1 space-y-1.5 text-2xs">
+                <div className="flex items-center justify-between">
+                  <dt className="text-muted">Active</dt>
+                  <dd className="font-semibold tabular-nums text-ink">{ruleCoverage.activeRules}</dd>
                 </div>
+                <div className="flex items-center justify-between">
+                  <dt className="text-muted">Total</dt>
+                  <dd className="font-semibold tabular-nums text-ink">{ruleCoverage.totalRules}</dd>
+                </div>
+                <div className="flex items-center justify-between">
+                  <dt className="text-muted">Triggered</dt>
+                  <dd className="font-semibold tabular-nums text-ink">{ruleCoverage.rulesTriggered}</dd>
+                </div>
+              </dl>
+            </div>
+          </AnimatedCard>
+
+          <AnimatedCard className="p-4">
+            <h3 className="text-sm font-semibold text-ink">Top violated rules</h3>
+            <p className="mt-0.5 text-2xs text-muted">Ranked by stored finding count</p>
+            <ol className="mt-3 space-y-2">
+              {analytics.topRules.slice(0, 5).map((rule, i) => (
+                <li key={rule.code} className="flex items-center gap-2.5">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-cream-100 text-[10px] font-semibold text-ink-700">
+                    {i + 1}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-2xs text-ink-700">{rule.title}</span>
+                  <span className="shrink-0 text-2xs font-semibold tabular-nums text-ink">{rule.count}</span>
+                </li>
               ))}
-            </div>
-          </div>
+              {analytics.topRules.length === 0 && (
+                <li className="rounded-xl border border-dashed border-line bg-cream-50 px-3 py-5 text-center text-2xs text-muted">
+                  No rule violations recorded.
+                </li>
+              )}
+            </ol>
+          </AnimatedCard>
+
+          <AnimatedCard className="p-4">
+            <h3 className="text-sm font-semibold text-ink">Campaign health</h3>
+            <p className="mt-0.5 text-2xs text-muted">Score and open issues per campaign</p>
+            <ul className="mt-3 space-y-2.5">
+              {analytics.campaignHealth.slice(0, 5).map((ch) => (
+                <li key={ch.campaign}>
+                  <div className="flex items-center justify-between gap-2 text-2xs">
+                    <span className="truncate text-ink-700">{ch.campaign}</span>
+                    <span className="shrink-0 tabular-nums text-muted">
+                      {ch.score}% · {ch.issues} issue{ch.issues === 1 ? '' : 's'}
+                    </span>
+                  </div>
+                  <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-line-soft">
+                    <div
+                      className={`h-full rounded-full ${
+                        ch.score >= 90 ? 'bg-sage-500' : ch.score >= 70 ? 'bg-warn-400' : 'bg-danger-500'
+                      }`}
+                      style={{ width: `${Math.max(0, Math.min(100, ch.score))}%` }}
+                    />
+                  </div>
+                </li>
+              ))}
+              {analytics.campaignHealth.length === 0 && (
+                <li className="rounded-xl border border-dashed border-line bg-cream-50 px-3 py-5 text-center text-2xs text-muted">
+                  No campaign data yet.
+                </li>
+              )}
+            </ul>
+          </AnimatedCard>
         </div>
       </div>
-
-      {/* Bottom row: Sentinel + Review Performance + Exception Analytics */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="bg-emerald-100 border-emerald-200 border rounded-2xl p-4 animate-view-fade-in stagger-5 hover:-translate-y-1 hover:shadow-lg transition-all">
-          <h4 className="text-sm font-bold text-ink-900 mb-3 flex items-center gap-2"><ShieldAlert className="w-4 h-4 text-brand-600" />Sentinel Impact</h4>
-          <div className="grid grid-cols-2 gap-3">
-            {[{ label: 'Alerts Detected', value: analytics.sentinel.open, trend: '+10%', color: 'text-emerald-600' },
-              { label: 'Reassessments', value: analytics.sentinel.resolved, trend: '+5%', color: 'text-emerald-600' }].map((m) => (
-              <div key={m.label} className="p-3 bg-[#FAF7EF] rounded-xl border border-line">
-                <p className="text-[10px] text-muted">{m.label}</p>
-                <p className="text-xl font-bold text-ink-900 mt-1">{m.value}</p>
-                <span className={`text-[10px] font-semibold ${m.color}`}>{m.trend}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="bg-blue-100 border-blue-200 border rounded-2xl p-4 animate-view-fade-in stagger-6 hover:-translate-y-1 hover:shadow-lg transition-all">
-          <h4 className="text-sm font-bold text-ink-900 mb-3">Review Performance</h4>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="p-3 bg-[#FAF7EF] rounded-xl border border-line">
-              <p className="text-[10px] text-muted">Approval Rate</p>
-              <p className="text-xl font-bold text-ink-900 mt-1">{approvalRate}%</p>
-              <div className="mt-1.5 h-1.5 bg-[#F1ECE0] rounded-full overflow-hidden">
-                <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${approvalRate}%` }} />
-              </div>
-            </div>
-            <div className="p-3 bg-[#FAF7EF] rounded-xl border border-line">
-              <p className="text-[10px] text-muted">Overdue Reviews</p>
-              <p className="text-xl font-bold text-ink-900 mt-1">{totals.inReview}</p>
-              <span className="text-[10px] font-semibold text-red-600">-1%</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-amber-100 border-amber-200 border rounded-2xl p-4 animate-view-fade-in stagger-6 hover:-translate-y-1 hover:shadow-lg transition-all">
-          <div className="flex items-center justify-between mb-3">
-            <h4 className="text-sm font-bold text-ink-900">Exception Analytics</h4>
-            <button className="text-[11px] text-brand-600 font-semibold hover:underline">View Details →</button>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            {[{ label: 'Active Exceptions', value: analytics.exceptions['Approved'] ?? 0, icon: '📋', color: 'bg-blue-50 border-blue-100' },
-              { label: 'Expiring Soon', value: analytics.exceptions['Pending'] ?? 0, icon: '⏱', color: 'bg-amber-50 border-amber-100' }].map((m) => (
-              <div key={m.label} className={`p-3 rounded-xl border ${m.color}`}>
-                <p className="text-lg">{m.icon}</p>
-                <p className="text-xl font-bold text-ink-900 mt-1">{m.value}</p>
-                <p className="text-[10px] text-muted mt-0.5">{m.label}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
+    </PageTransition>
   );
 };

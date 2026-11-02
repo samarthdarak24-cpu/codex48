@@ -1,256 +1,412 @@
 import React, { useState } from 'react';
 import {
-  ShieldAlert, CheckCircle2, AlertTriangle, Clock, ChevronRight, Check,
-  Sparkles, Eye, FileText, AlertCircle, X, ArrowUpRight, ArrowDownRight,
-  Activity, Loader2, MoreHorizontal,
+  AlertCircle, AlertTriangle, Check, CheckCircle2, ChevronRight, Clock, Loader2, ShieldAlert,
 } from 'lucide-react';
 import { useApp } from '../../../context/AppContext';
-import { StatCardGrid } from '../../ui/StatCard';
+import type { SentinelAlert } from '../../../types';
+import {
+  AnimatedCounter, AnimatedDrawer, EmptyState, FilterPills, HoverLiftCard, PageTransition,
+  SectionHeader, Stagger, StaggerItem, Timeline, type TimelineItem,
+} from '../../motion';
 
-const SeverityBadge = ({ severity }: { severity: string }) => {
-  const map: Record<string, string> = {
-    Critical: 'badge-rejected',
-    High: 'badge-changes',
-    Medium: 'badge-pending',
-    Low: 'badge-approved',
-  };
-  const dot: Record<string, string> = { Critical: 'bg-red-500', High: 'bg-orange-500', Medium: 'bg-amber-500', Low: 'bg-emerald-500' };
-  return (
-    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold ${map[severity] ?? 'badge-draft'}`}>
-      <span className={`w-1.5 h-1.5 rounded-full ${dot[severity] ?? 'bg-slate-400'}`} />{severity}
-    </span>
-  );
+type SeverityFilter = 'All' | 'High' | 'Medium' | 'Low';
+
+const FILTERS: SeverityFilter[] = ['All', 'High', 'Medium', 'Low'];
+
+const severityClass: Record<string, string> = {
+  High: 'bg-terracotta-50 text-terracotta-700 border-terracotta-200',
+  Medium: 'bg-warn-50 text-warn-700 border-warn-200',
+  Low: 'bg-sage-50 text-sage-700 border-sage-200',
 };
 
-const StatusBadge = ({ status }: { status: string }) => {
-  const map: Record<string, string> = {
-    Open: 'badge-rejected',
-    'In Progress': 'badge-inreview',
-    Resolved: 'badge-approved',
-  };
-  const dot: Record<string, string> = { Open: 'bg-red-500', 'In Progress': 'bg-blue-500', Resolved: 'bg-emerald-500' };
-  return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold ${map[status] ?? 'badge-draft'}`}>
-      <span className={`w-1.5 h-1.5 rounded-full ${dot[status] ?? 'bg-slate-400'}`} />{status}
-    </span>
-  );
+const SeverityChip: React.FC<{ severity: string }> = ({ severity }) => (
+  <span
+    className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-2xs font-semibold ${
+      severityClass[severity] ?? 'border-line bg-cream-100 text-muted'
+    }`}
+  >
+    <span className="h-1.5 w-1.5 rounded-full bg-current" />
+    {severity} priority
+  </span>
+);
+
+const StatusChip: React.FC<{ status: SentinelAlert['status'] }> = ({ status }) => {
+  const cls =
+    status === 'Resolved'
+      ? 'badge-approved'
+      : status === 'Investigating'
+        ? 'badge-inreview'
+        : 'badge-rejected';
+  return <span className={cls}>{status === 'Investigating' ? 'In progress' : status}</span>;
 };
+
+const Metric: React.FC<{ label: string; value: number; icon: React.ReactNode; tone: string }> = ({
+  label, value, icon, tone,
+}) => (
+  <div className="rounded-2xl border border-line bg-white p-4 shadow-card">
+    <span className={`flex h-9 w-9 items-center justify-center rounded-xl ${tone}`}>{icon}</span>
+    <p className="mt-2.5 text-2xs font-semibold uppercase tracking-[0.08em] text-muted">{label}</p>
+    <p className="mt-0.5 text-2xl font-semibold leading-none tabular-nums text-ink">
+      <AnimatedCounter value={value} />
+    </p>
+  </div>
+);
 
 export const CreatorSentinelTasksView: React.FC = () => {
-  const { addToast, setCurrentPage, sentinelAlerts, resolveSentinelAlert } = useApp();
-  const [activeFilter, setActiveFilter] = useState<'All' | 'Critical' | 'High' | 'Medium' | 'Low'>('All');
-  const [selectedTaskId, setSelectedTaskId] = useState('');
+  const { addToast, sentinelAlerts, resolveSentinelAlert, loading, error, refresh, setCurrentPage, setSelectedSubmission, submissions } = useApp();
+  const [activeFilter, setActiveFilter] = useState<SeverityFilter>('All');
+  const [detailId, setDetailId] = useState<string | null>(null);
   const [isResolving, setIsResolving] = useState(false);
-  const [isDetailOpen, setIsDetailOpen] = useState(true);
-  const [bottomTab, setBottomTab] = useState<'activity' | 'insights'>('activity');
 
-  const tasks = sentinelAlerts.map((a) => ({
-    id: a.id, title: a.title,
-    description: a.description || a.subtitle || 'Requires review.',
-    severity: a.severity as 'Critical' | 'High' | 'Medium' | 'Low',
-    status: (a.status === 'Resolved' ? 'Resolved' : a.status === 'Investigating' ? 'In Progress' : 'Open') as 'Open' | 'In Progress' | 'Resolved',
-    due: a.detectedOn, campaign: a.category, image: a.thumbnail,
-    recommendedAction: a.recommendedAction || 'Review the flagged content and take corrective action.',
-  }));
-
-  const selectedTask = tasks.find((t) => t.id === selectedTaskId) || tasks[0];
-
+  const tasks = sentinelAlerts;
   const totalCount = tasks.length;
   const resolvedCount = tasks.filter((t) => t.status === 'Resolved').length;
-  const inProgressCount = tasks.filter((t) => t.status === 'In Progress').length;
-  const criticalCount = tasks.filter((t) => t.severity === 'Critical').length;
+  const openCount = tasks.filter((t) => t.status === 'Open').length;
+  const investigatingCount = tasks.filter((t) => t.status === 'Investigating').length;
+  const overdueCount = tasks.filter((t) => t.status === 'Open' && t.severity === 'High').length;
 
   const filtered = tasks.filter((t) => {
-    if (activeFilter === 'Critical' && t.severity !== 'Critical') return false;
-    if (activeFilter === 'High' && t.severity !== 'High') return false;
-    if (activeFilter === 'Medium' && t.severity !== 'Medium') return false;
-    if (activeFilter === 'Low' && t.severity !== 'Low') return false;
-    return true;
+    if (activeFilter === 'All') return true;
+    return t.severity === activeFilter;
   });
 
-  const handleResolve = async () => {
-    if (!selectedTask) return;
-    setIsResolving(true);
-    try {
-      await resolveSentinelAlert(selectedTask.id);
-      addToast(`Task resolved: "${selectedTask.title}"`, 'success');
-    } catch { addToast('Resolution failed.', 'error'); }
-    finally { setIsResolving(false); }
+  const detail = tasks.find((t) => t.id === detailId) ?? null;
+
+  const counts: Record<SeverityFilter, number> = {
+    All: totalCount,
+    High: tasks.filter((t) => t.severity === 'High').length,
+    Medium: tasks.filter((t) => t.severity === 'Medium').length,
+    Low: tasks.filter((t) => t.severity === 'Low').length,
   };
 
-  return (
-    <div className="flex h-full overflow-hidden">
-      <main className="flex-1 overflow-y-auto p-6 space-y-5 bg-canvas">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-[32px] font-black tracking-tight leading-none mt-1 animate-count-up">Sentinel Tasks</h1>
-            <p className="text-xs text-muted mt-0.5">Monitor brand compliance in real-time. Review flagged content, trends and potential risks.</p>
-          </div>
-          <button className="flex items-center gap-2 px-4 py-2 bg-white border border-line rounded-xl text-xs font-semibold text-ink-700 hover:bg-[#FAF7EF] shadow-2xs transition-colors cursor-pointer">
-            <Eye className="w-4 h-4" />View Activity Log
+  const handleResolve = async () => {
+    if (!detail) return;
+    setIsResolving(true);
+    try {
+      await resolveSentinelAlert(detail.id);
+      addToast(`Task resolved: "${detail.title}"`, 'success');
+    } catch {
+      addToast('Resolution failed.', 'error');
+    } finally {
+      setIsResolving(false);
+    }
+  };
+
+  const historyFor = (task: SentinelAlert): TimelineItem[] => {
+    const items: TimelineItem[] = [
+      {
+        id: `${task.id}-detected`,
+        title: 'Flagged by Sentinel',
+        description: task.subtitle || task.description || 'A monitoring rule matched this content.',
+        time: task.detectedOn,
+        tone: task.severity === 'High' ? 'terracotta' : 'amber',
+      },
+    ];
+    if (task.status === 'Open') {
+      items.push({
+        id: `${task.id}-open`,
+        title: 'Reassessment required',
+        description: 'No one has started the re-review yet.',
+        tone: 'danger',
+      });
+    } else if (task.status === 'Investigating') {
+      items.push({
+        id: `${task.id}-progress`,
+        title: 'Re-review in progress',
+        description: 'A reviewer is currently looking at the affected version.',
+        tone: 'amber',
+      });
+    } else {
+      items.push({
+        id: `${task.id}-resolved`,
+        title: 'Resolved',
+        description: 'The affected version was re-reviewed and the task closed.',
+        tone: 'sage',
+      });
+    }
+    return items;
+  };
+
+  const openTaskForSubmission = (task: SentinelAlert) => {
+    const sub = submissions.find((s) => s.id === (task.submissionId ?? task.contentId));
+    if (sub) setSelectedSubmission(sub);
+    setCurrentPage('ai-review');
+  };
+
+  if (loading) {
+    return (
+      <div className="space-y-4 p-4 sm:p-6" aria-busy="true" aria-label="Loading Sentinel tasks">
+        <div className="h-8 w-56 animate-pulse rounded-xl bg-cream-100" />
+        <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="h-[104px] animate-pulse rounded-2xl border border-line bg-white" />
+          ))}
+        </div>
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="h-[100px] animate-pulse rounded-2xl border border-line bg-white" />
+        ))}
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-4 sm:p-6">
+        <div role="alert" className="rounded-2xl border border-danger-200 bg-danger-50 p-6 text-center">
+          <p className="text-sm font-semibold text-danger-700">Sentinel tasks could not load.</p>
+          <p className="mt-1 text-xs text-danger-600">{error}</p>
+          <button
+            onClick={() => void refresh()}
+            className="mt-4 rounded-xl bg-brand-600 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-brand-700"
+          >
+            Try again
           </button>
         </div>
+      </div>
+    );
+  }
 
-        {/* KPI Cards */}
-        <StatCardGrid cards={[
-    { label: 'Total Tasks', value: totalCount, icon: <ShieldAlert className="w-5 h-5" />, variant: 'blue', trend: 12, sparkPathIndex: 0 },
-    { label: 'Resolved', value: resolvedCount, icon: <CheckCircle2 className="w-5 h-5" />, variant: 'green', trend: 8, sparkPathIndex: 1 },
-    { label: 'In Progress', value: inProgressCount, icon: <Clock className="w-5 h-5" />, variant: 'amber', trend: -33, sparkPathIndex: 2 },
-    { label: 'Critical Alerts', value: criticalCount, icon: <AlertCircle className="w-5 h-5" />, variant: 'purple', trend: -50, sparkPathIndex: 3 },
-  ]} />
+  return (
+    <PageTransition className="p-4 sm:p-6">
+      <div className="mx-auto max-w-[1200px] space-y-5">
 
-        {/* Filters + Sort */}
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {(['All', 'Critical', 'High', 'Medium', 'Low'] as const).map((tab) => {
-              const cnt = tab === 'All' ? totalCount : tasks.filter((t) => t.severity === tab).length;
-              return (
-                <button key={tab} onClick={() => setActiveFilter(tab)}
-                  className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer ${activeFilter === tab ? 'bg-gradient-to-r from-brand-600 to-blue-600 text-white shadow-sm' : 'bg-white border border-line text-ink-600 hover:bg-[#FAF7EF]'}`}>
-                  {tab === 'All' ? `All Tasks (${cnt})` : `${tab} (${cnt})`}
-                </button>
-              );
-            })}
-          </div>
-          <div className="flex items-center gap-2 text-xs">
-            <select className="bg-white border border-line rounded-lg px-2.5 py-1.5 text-xs font-medium text-ink focus:outline-none cursor-pointer"><option>Newest First</option></select>
-            <div className="flex items-center gap-1 bg-white border border-line rounded-lg px-2 py-1.5 text-ink-700 cursor-pointer">Last 30 Days <svg className="w-3 h-3 text-muted-light ml-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m6 9 6 6 6-6" /></svg></div>
-          </div>
+        <div className="min-w-0">
+          <p className="mb-1 text-2xs font-semibold uppercase tracking-[0.1em] text-brand-600">Monitoring</p>
+          <h1 className="text-3xl font-semibold tracking-[-0.02em] text-ink">Sentinel Tasks</h1>
+          <p className="mt-1 text-sm text-muted">
+            Re-review tasks Sentinel raised against your content when a rule or exception changed.
+          </p>
         </div>
 
-        {/* Task list */}
-        <div className="space-y-3">
-          {filtered.length === 0 && (
-            <div className="bg-white rounded-2xl border border-line p-10 text-center">
-              <CheckCircle2 className="w-8 h-8 text-emerald-400 mx-auto mb-2" />
-              <p className="text-sm font-semibold text-ink-900">All clear!</p>
-              <p className="text-xs text-muted mt-1">No Sentinel tasks match this filter.</p>
-            </div>
-          )}
-          {filtered.map((task) => {
-            const isSelected = selectedTask?.id === task.id;
-            return (
-              <div key={task.id} onClick={() => { setSelectedTaskId(task.id); setIsDetailOpen(true); }}
-                className={`bg-white p-4 rounded-2xl border transition-all cursor-pointer flex items-start gap-4 ${isSelected ? 'selected-brand shadow-sm' : 'border-line shadow-2xs hover:border-line-strong hover:shadow-xs'}`}>
-                <img src={task.image} alt="" className="w-14 h-14 rounded-xl object-cover border border-line shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <SeverityBadge severity={task.severity} />
-                    <p className="text-sm font-bold text-ink-900">{task.title}</p>
-                  </div>
-                  <p className="text-xs text-muted mt-0.5 line-clamp-1">{task.description}</p>
-                  <div className="flex items-center gap-3 mt-1.5 text-[11px] text-muted-light">
-                    <span>{task.campaign}</span>
-                    <span>·</span>
-                    <span>{task.due}</span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <StatusBadge status={task.status} />
-                  <button className="text-xs font-semibold text-brand-600 hover:text-brand-700 flex items-center gap-1 cursor-pointer">View Details <ChevronRight className="w-3.5 h-3.5" /></button>
-                  <button className="p-1.5 rounded-lg text-muted hover:text-ink-700 hover:bg-[#FAF7EF]"><MoreHorizontal className="w-4 h-4" /></button>
-                </div>
-              </div>
-            );
-          })}
+        <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+          <Metric label="Total tasks" value={totalCount} icon={<ShieldAlert className="h-4 w-4" />} tone="bg-brand-50 text-brand-600" />
+          <Metric label="Resolved" value={resolvedCount} icon={<CheckCircle2 className="h-4 w-4" />} tone="bg-sage-50 text-sage-600" />
+          <Metric label="Open" value={openCount} icon={<Clock className="h-4 w-4" />} tone="bg-warn-50 text-warn-600" />
+          <Metric label="Overdue" value={overdueCount} icon={<AlertCircle className="h-4 w-4" />} tone="bg-terracotta-50 text-terracotta-600" />
         </div>
 
-        {/* Bottom: Recent Activity / Task Insights */}
-        {filtered.length > 0 && (
-          <div className="bg-white rounded-2xl border border-line shadow-2xs p-4 space-y-3">
-            <div className="flex items-center gap-4 border-b border-line pb-2">
-              {(['activity', 'insights'] as const).map((tab) => (
-                <button key={tab} onClick={() => setBottomTab(tab)}
-                  className={`pb-2 -mb-2 text-xs font-semibold capitalize transition ${bottomTab === tab ? 'border-b-2 border-brand-600 text-brand-600' : 'text-muted hover:text-ink'}`}>
-                  {tab === 'activity' ? 'Recent Activity' : 'Task Insights'}
-                </button>
-              ))}
-              <button className="ml-auto text-[11px] text-brand-600 font-semibold hover:underline cursor-pointer">View All →</button>
-            </div>
-            {bottomTab === 'activity' ? (
-              <div className="flex items-center gap-4 overflow-x-auto pb-1 text-xs text-muted-light">
-                {[
-                  { icon: <Sparkles className="w-3.5 h-3.5 text-blue-500 shrink-0" />, text: `New task generated: ${tasks[0]?.title || 'Potential Brand Claim Risk'}`, time: tasks[0]?.due || 'Recently' },
-                  { icon: <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />, text: `Task resolved: ${tasks[1]?.title || 'Logo Usage Inconsistency'}`, time: tasks[1]?.due || 'Recently' },
-                  { icon: <Activity className="w-3.5 h-3.5 text-purple-500 shrink-0" />, text: 'Comment added by Brand Manager', time: 'Recently' },
-                ].map((item, i) => (
-                  <div key={i} className="flex items-center gap-2 whitespace-nowrap shrink-0 p-2.5 bg-[#FAF7EF] rounded-xl border border-line">
-                    {item.icon}
-                    <span className="font-medium text-ink-700">{item.text}</span>
-                    <span className="text-muted-light">{item.time}</span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="grid grid-cols-3 gap-3 text-xs">
-                {[['Open Tasks', tasks.filter((t) => t.status === 'Open').length, 'text-red-600'], ['In Progress', inProgressCount, 'text-blue-600'], ['Resolved', resolvedCount, 'text-emerald-600']].map(([label, val, color]) => (
-                  <div key={String(label)} className="p-3 bg-[#FAF7EF] rounded-xl border border-line text-center">
-                    <p className={`text-xl font-bold ${color}`}>{val}</p>
-                    <p className="text-muted mt-0.5">{label}</p>
-                  </div>
-                ))}
-              </div>
-            )}
+        {overdueCount > 0 && (
+          <div
+            role="status"
+            className="flex items-start gap-2.5 rounded-2xl border border-terracotta-200 bg-terracotta-50 px-4 py-3 text-xs text-terracotta-800"
+          >
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-terracotta-600" />
+            <p>
+              <strong>{overdueCount}</strong> task{overdueCount === 1 ? '' : 's'} past the re-review window.
+              Resolve them to keep the affected content eligible for publication.
+            </p>
           </div>
         )}
-      </main>
 
-      {/* Right detail panel */}
-      {isDetailOpen && selectedTask && (
-        <aside className="w-[320px] bg-white border-l border-line flex flex-col shrink-0 overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-line shrink-0">
-            <h3 className="text-sm font-bold text-ink-900">Task Details</h3>
-            <button onClick={() => setIsDetailOpen(false)} className="p-1 rounded-lg text-muted-light hover:text-ink-700"><X className="w-4 h-4" /></button>
+        <FilterPills
+          options={FILTERS.map((tab) => ({
+            id: tab,
+            label: `${tab === 'All' ? 'All tasks' : tab} (${counts[tab]})`,
+          }))}
+          selected={[activeFilter]}
+          onChange={(sel) => {
+            const next = sel.filter((id) => id !== activeFilter);
+            setActiveFilter((next[next.length - 1] as typeof activeFilter) ?? 'All');
+          }}
+        />
+
+        {filtered.length === 0 ? (
+          <EmptyState
+            icon={<CheckCircle2 className="h-6 w-6" />}
+            title={tasks.length === 0 ? 'No Sentinel tasks' : 'Nothing matches this priority'}
+            description={
+              tasks.length === 0
+                ? 'Sentinel has not raised any reassessment task against your content.'
+                : 'Try another priority to see the rest of your tasks.'
+            }
+            action={tasks.length > 0 ? { label: 'Show all', onClick: () => setActiveFilter('All') } : undefined}
+          />
+        ) : (
+          <Stagger className="space-y-3">
+            {filtered.map((task) => {
+              const overdue = task.status === 'Open' && task.severity === 'High';
+              return (
+                <StaggerItem key={task.id}>
+                  <HoverLiftCard
+                    className="flex flex-col gap-3 p-4 sm:flex-row sm:items-start"
+                    elevation={task.severity === 'High' ? 'high' : 'medium'}
+                    style={
+                      overdue
+                        ? { boxShadow: '0 0 0 1px rgba(194,84,70,.20), 0 12px 28px -18px rgba(194,84,70,.55)' }
+                        : undefined
+                    }
+                  >
+                    <img
+                      src={task.thumbnail}
+                      alt=""
+                      loading="lazy"
+                      className="h-14 w-14 shrink-0 rounded-xl border border-line object-cover"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <SeverityChip severity={task.severity} />
+                        <p className="truncate text-sm font-semibold text-ink">{task.title}</p>
+                        {overdue && (
+                          <span className="badge-rejected">
+                            <AlertTriangle className="h-3 w-3" />Overdue
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-1 line-clamp-2 text-xs text-muted">
+                        {task.description || task.subtitle || 'Requires review.'}
+                      </p>
+                      <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-2xs text-muted-light">
+                        <span>{task.category}</span>
+                        <span aria-hidden="true">·</span>
+                        <span>Detected {task.detectedOn}</span>
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2 self-start">
+                      <StatusChip status={task.status} />
+                      <button
+                        onClick={() => setDetailId(task.id)}
+                        className="inline-flex items-center gap-1 rounded-xl border border-line px-3 py-1.5 text-2xs font-semibold text-brand-700 transition-colors hover:border-brand-300 hover:bg-brand-50"
+                      >
+                        View details<ChevronRight className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </HoverLiftCard>
+                </StaggerItem>
+              );
+            })}
+          </Stagger>
+        )}
+
+        {/* Real activity */}
+        {tasks.length > 0 && (
+          <div className="grid gap-5 lg:grid-cols-2">
+            <div className="rounded-2xl border border-line bg-white p-4 shadow-card">
+              <SectionHeader title="Task timeline" subtitle="The most recent tasks Sentinel raised." />
+              <Timeline
+                className="mt-3"
+                items={tasks.slice(0, 5).map((t) => ({
+                  id: t.id,
+                  title: t.title,
+                  description: `${t.category} · ${t.status === 'Resolved' ? 'Resolved' : 'Open'}`,
+                  time: t.detectedOn,
+                  tone: t.status === 'Resolved' ? 'sage' : t.severity === 'High' ? 'terracotta' : 'amber',
+                }))}
+              />
+            </div>
+
+            <div className="rounded-2xl border border-line bg-white p-4 shadow-card">
+              <SectionHeader title="Task insights" subtitle="Counts derived from the tasks stored for you." />
+              <div className="mt-3 grid grid-cols-3 gap-3">
+                {[
+                  { label: 'Open', value: openCount, cls: 'text-terracotta-600' },
+                  { label: 'In progress', value: investigatingCount, cls: 'text-warn-600' },
+                  { label: 'Resolved', value: resolvedCount, cls: 'text-sage-600' },
+                ].map((s) => (
+                  <div key={s.label} className="rounded-xl border border-line bg-cream-50 p-3 text-center">
+                    <p className={`text-xl font-semibold tabular-nums ${s.cls}`}>
+                      <AnimatedCounter value={s.value} />
+                    </p>
+                    <p className="mt-0.5 text-2xs text-muted">{s.label}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            <div className="relative rounded-xl overflow-hidden border border-line">
-              <img src={selectedTask.image} alt="" className="w-full h-36 object-cover" />
-              <div className="absolute top-2 left-2"><SeverityBadge severity={selectedTask.severity} /></div>
-            </div>
-            <div>
-              <p className="font-bold text-ink-900 text-sm">{selectedTask.title}</p>
-              <p className="text-xs text-muted mt-1 leading-relaxed">{selectedTask.description}</p>
-            </div>
-            <div className="space-y-0">
-              <p className="text-xs font-bold text-ink-900 mb-2">Task Information</p>
-              {[['Campaign', selectedTask.campaign], ['Submitted On', selectedTask.due], ['Flagged By', 'Sentinel AI'], ['Priority', selectedTask.severity]].map(([label, val]) => (
-                <div key={String(label)} className="flex items-center justify-between py-1.5 border-b border-[#F5F0E8] last:border-0 text-xs">
-                  <span className="text-muted flex items-center gap-1.5">
-                    {label === 'Priority' && <AlertTriangle className="w-3 h-3" />}
-                    {label}
-                  </span>
-                  <span className={`font-medium ${label === 'Priority' && val === 'Critical' ? 'text-red-600' : label === 'Priority' && val === 'High' ? 'text-orange-600' : 'text-ink'}`}>{val}</span>
+        )}
+      </div>
+
+      {/* Detail */}
+      <AnimatedDrawer
+        open={Boolean(detail)}
+        onClose={() => setDetailId(null)}
+        title={detail?.title ?? 'Sentinel task'}
+        subtitle={detail ? `${detail.category} · detected ${detail.detectedOn}` : undefined}
+        footer={
+          detail ? (
+            <div className="space-y-2">
+              {detail.status !== 'Resolved' ? (
+                <button
+                  onClick={handleResolve}
+                  disabled={isResolving}
+                  className="btn-primary-glow flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isResolving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                  {isResolving ? 'Resolving…' : 'Mark as resolved'}
+                </button>
+              ) : (
+                <div className="flex items-center justify-center gap-2 rounded-xl border border-sage-200 bg-sage-50 py-2.5 text-xs font-semibold text-sage-700">
+                  <CheckCircle2 className="h-4 w-4" />Task resolved
                 </div>
-              ))}
+              )}
+              {(detail.submissionId || detail.contentId) && (
+                <button
+                  onClick={() => openTaskForSubmission(detail)}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-line bg-white py-2.5 text-xs font-semibold text-ink-700 transition-colors hover:bg-cream-50"
+                >
+                  Open affected submission
+                </button>
+              )}
             </div>
-            <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl flex items-start gap-2 text-xs">
-              <ShieldAlert className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
-              <div>
-                <p className="font-semibold text-blue-900 mb-0.5">Recommended Action</p>
-                <p className="text-blue-800 leading-relaxed">{selectedTask.recommendedAction}</p>
-              </div>
+          ) : undefined
+        }
+      >
+        {detail && (
+          <div className="space-y-5">
+            <div className="relative overflow-hidden rounded-2xl border border-line bg-cream-100">
+              <img src={detail.thumbnail} alt="" className="h-36 w-full object-cover" />
+              <span className="absolute left-2 top-2"><SeverityChip severity={detail.severity} /></span>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <StatusChip status={detail.status} />
+              {detail.status === 'Open' && detail.severity === 'High' && (
+                <span className="badge-rejected">
+                  <AlertTriangle className="h-3 w-3" />Overdue
+                </span>
+              )}
+            </div>
+
+            <p className="text-xs leading-relaxed text-ink-600">
+              {detail.description || detail.subtitle || 'Sentinel matched a monitoring rule against this content.'}
+            </p>
+
+            <div>
+              <SectionHeader title="Task information" />
+              <dl className="mt-2 space-y-0">
+                {[
+                  ['Category', detail.category],
+                  ['Detected on', detail.detectedOn],
+                  ['Priority', detail.severity],
+                  ['Status', detail.status === 'Investigating' ? 'In progress' : detail.status],
+                  ['Submission', detail.submissionTitle || detail.contentTitle || '—'],
+                ].map(([label, value]) => (
+                  <div
+                    key={label}
+                    className="flex items-start justify-between gap-3 border-b border-line-soft py-1.5 text-xs last:border-0"
+                  >
+                    <dt className="shrink-0 text-muted">{label}</dt>
+                    <dd className="max-w-[62%] break-words text-right font-medium text-ink">{value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+
+            <div className="rounded-xl border border-olive-200 bg-olive-50/70 p-3">
+              <p className="flex items-center gap-1.5 text-xs font-semibold text-olive-800">
+                <ShieldAlert className="h-3.5 w-3.5" />Recommended action
+              </p>
+              <p className="mt-1 text-2xs leading-relaxed text-olive-800/90">
+                {detail.recommendedAction || 'Re-review the affected version, then resolve the task.'}
+              </p>
+            </div>
+
+            <div>
+              <SectionHeader title="Status history" subtitle="Reconstructed from the stored task record." />
+              <Timeline items={historyFor(detail)} className="mt-3" />
             </div>
           </div>
-          <div className="p-4 border-t border-line space-y-2 shrink-0">
-            {selectedTask.status !== 'Resolved' && (
-              <button onClick={handleResolve} disabled={isResolving}
-                className="w-full flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-brand-600 to-blue-600 hover:from-brand-700 hover:to-blue-700 text-white rounded-xl text-xs font-bold shadow-sm hover:shadow-md transition-all cursor-pointer transition-colors cursor-pointer disabled:opacity-50">
-                {isResolving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                {isResolving ? 'Resolving…' : '✓ Mark as Resolved'}
-              </button>
-            )}
-            {selectedTask.status === 'Resolved' && (
-              <div className="flex items-center justify-center gap-2 py-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-700 font-semibold">
-                <CheckCircle2 className="w-4 h-4" />Task Resolved
-              </div>
-            )}
-            <button className="w-full flex items-center justify-center gap-2 py-2 text-xs font-semibold text-muted hover:text-ink-700 transition-colors cursor-pointer">
-              💬 Add Comment
-            </button>
-          </div>
-        </aside>
-      )}
-    </div>
+        )}
+      </AnimatedDrawer>
+    </PageTransition>
   );
 };

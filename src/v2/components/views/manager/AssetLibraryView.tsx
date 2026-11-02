@@ -1,234 +1,628 @@
-import React, { useState, useRef } from 'react';
+/**
+ * Asset Library — visual-first gallery.
+ *
+ * Thumbnails, counts, tags and file previews all come from `useApp().assets`
+ * and the protected `/assets/:id/file` endpoint. Nothing is seeded.
+ */
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Images, CheckCircle, Clock, AlertTriangle, ChevronDown, LayoutGrid, List,
-  Eye, Download, MoreVertical, Upload, X, Loader2, ArrowUpRight, ArrowDownRight, Search, Tag,
+  AlertTriangle, CheckCircle2, ChevronDown, Download, Eye, Images, LayoutGrid,
+  List, Loader2, Lock, Search, Upload, X,
 } from 'lucide-react';
 import { useApp } from '../../../context/AppContext';
-import { Asset } from '../../../types';
 import { api } from '@/services/api';
-import { StatCardGrid } from '../../ui/StatCard';
+import type { Asset } from '../../../types';
+import {
+  AnimatedCard, AnimatedCounter, AnimatedModal, EmptyState, FilterPills, PageTransition,
+  SectionHeader, Stagger, StaggerItem, SuccessCheck,
+} from '../../motion';
 
-const StatusBadge = ({ status }: { status: string }) => {
-  const map: Record<string, string> = {
-    Approved: 'bg-emerald-500 text-white',
-    'In Review': 'bg-blue-500 text-white',
-    Pending: 'bg-amber-500 text-white',
-    Flagged: 'bg-red-500 text-white',
-  };
-  return <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${map[status] ?? 'bg-slate-500 text-white'}`}>{status}</span>;
+/* ------------------------------------------------------------------ */
+/* Helpers                                                             */
+/* ------------------------------------------------------------------ */
+
+const PAGE_SIZE = 12;
+
+const STATUS_CLASS: Record<string, string> = {
+  Approved: 'badge-approved',
+  'In Review': 'badge-inreview',
+  Pending: 'badge-pending',
+  Flagged: 'badge-flagged',
 };
 
+const StatusBadge: React.FC<{ status: string; className?: string }> = ({ status, className = '' }) => (
+  <span className={`${STATUS_CLASS[status] ?? 'badge-draft'} ${className}`}>{status}</span>
+);
+
+type Category = 'All' | 'image' | 'video' | 'document' | 'other';
+
+const CATEGORIES: { id: Category; label: string }[] = [
+  { id: 'All', label: 'All assets' },
+  { id: 'image', label: 'Images' },
+  { id: 'video', label: 'Videos' },
+  { id: 'document', label: 'Documents' },
+  { id: 'other', label: 'Others' },
+];
+
+/* ------------------------------------------------------------------ */
+/* View                                                                */
+/* ------------------------------------------------------------------ */
+
 export const AssetLibraryView: React.FC = () => {
-  const { assets, selectedAsset, setSelectedAsset, searchQuery, showToast, loading, refresh } = useApp();
+  const {
+    role, assets, searchQuery, showToast, loading, error, refresh,
+    selectedAsset, setSelectedAsset,
+  } = useApp();
+
+  const [category, setCategory] = useState<Category>('All');
+  const [statusFilter, setStatusFilter] = useState('All statuses');
+  const [query, setQuery] = useState(searchQuery);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [page, setPage] = useState(1);
+  const [preview, setPreview] = useState<Asset | null>(selectedAsset ?? null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewState, setPreviewState] = useState<'idle' | 'loading' | 'missing'>('idle');
+  const [isUploading, setIsUploading] = useState(false);
+  const [isApproving, setIsApproving] = useState(false);
+  const [uploadedName, setUploadedName] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const approvedCount = assets.filter((a) => a.status === 'Approved').length;
   const pendingCount = assets.filter((a) => a.status === 'In Review' || a.status === 'Pending').length;
   const flaggedCount = assets.filter((a) => a.status === 'Flagged').length;
 
-  const [activeCategory, setActiveCategory] = useState<'All' | 'Images' | 'Videos' | 'Documents' | 'Others'>('All');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [isDrawerOpen, setIsDrawerOpen] = useState(true);
-  const [isUploading, setIsUploading] = useState(false);
-  const [isApproving, setIsApproving] = useState(false);
-  const [localSearch, setLocalSearch] = useState('');
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const counts = useMemo(() => {
+    const map: Record<Category, number> = {
+      All: assets.length,
+      image: 0,
+      video: 0,
+      document: 0,
+      other: 0,
+    };
+    for (const a of assets) map[a.type] += 1;
+    return map;
+  }, [assets]);
 
-  const active = selectedAsset || assets[0];
+  const filtered = useMemo(() => {
+    const q = (query || '').trim().toLowerCase();
+    return assets.filter((ast) => {
+      if (category !== 'All' && ast.type !== category) return false;
+      if (statusFilter !== 'All statuses' && ast.status !== statusFilter) return false;
+      if (!q) return true;
+      return (
+        ast.name.toLowerCase().includes(q) ||
+        ast.campaign.toLowerCase().includes(q) ||
+        ast.tags.some((t) => t.toLowerCase().includes(q))
+      );
+    });
+  }, [assets, category, statusFilter, query]);
 
-  const filtered = assets.filter((ast) => {
-    if (activeCategory === 'Images' && ast.type !== 'image') return false;
-    if (activeCategory === 'Videos' && ast.type !== 'video') return false;
-    if (activeCategory === 'Documents' && ast.type !== 'document') return false;
-    const q = (searchQuery || localSearch).toLowerCase();
-    if (q) return ast.name.toLowerCase().includes(q) || ast.campaign.toLowerCase().includes(q) || ast.tags.some((t) => t.toLowerCase().includes(q));
-    return true;
-  });
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const paginated = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+
+  /* ---- Fetch the real file for the preview modal ---- */
+  useEffect(() => {
+    if (!preview) return;
+    let cancelled = false;
+    let created: string | null = null;
+    setPreviewUrl(null);
+    setPreviewState('loading');
+
+    api
+      .fetchAssetBlobUrl(preview.id)
+      .then((url) => {
+        created = url;
+        if (cancelled) {
+          if (url) URL.revokeObjectURL(url);
+          return;
+        }
+        setPreviewUrl(url);
+        setPreviewState(url ? 'idle' : 'missing');
+      })
+      .catch(() => {
+        if (!cancelled) setPreviewState('missing');
+      });
+
+    return () => {
+      cancelled = true;
+      if (created) URL.revokeObjectURL(created);
+    };
+  }, [preview?.id]);
+
+  const openPreview = (asset: Asset) => {
+    setSelectedAsset(asset);
+    setPreview(asset);
+    setUploadedName(null);
+  };
 
   const handleFile = async (file: File) => {
     setIsUploading(true);
+    setUploadedName(null);
     try {
       await api.uploadAsset(file, file.name, 'PureGlow', 'Image', '');
       await refresh();
+      setUploadedName(file.name);
       showToast('Asset uploaded.');
-    } catch (err) { showToast(err instanceof Error ? err.message : 'Upload failed.', 'error'); }
-    finally { setIsUploading(false); }
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Upload failed.', 'error');
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
   };
 
   const handleApprove = async () => {
-    if (!active) return;
+    if (!preview) return;
     setIsApproving(true);
-    try { await api.approveAsset(active.id); await refresh(); showToast('Asset approved.'); }
-    catch (err) { showToast(err instanceof Error ? err.message : 'Approval failed.', 'error'); }
-    finally { setIsApproving(false); }
+    try {
+      await api.approveAsset(preview.id);
+      await refresh();
+      showToast('Asset approved.');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Approval failed.', 'error');
+    } finally {
+      setIsApproving(false);
+    }
   };
 
-  return (
-    <div className="flex h-full overflow-hidden">
-      <main className="flex-1 overflow-y-auto p-6 space-y-5 bg-canvas">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-[32px] font-black tracking-tight leading-none mt-1 animate-count-up">Asset Library</h1>
-            <p className="text-xs text-muted mt-0.5">Manage and organize your approved brand assets.</p>
+  const handleDownload = async (asset: Asset) => {
+    try {
+      const url = await api.fetchAssetBlobUrl(asset.id);
+      if (!url) {
+        showToast('No stored file for this asset.', 'warning');
+        return;
+      }
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = asset.name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      showToast('Download failed.', 'error');
+    }
+  };
+
+  /* ---- States ---- */
+
+  if (role !== 'manager') {
+    return (
+      <div className="p-6">
+        <div className="mx-auto max-w-lg rounded-3xl border border-line bg-white p-10 text-center shadow-card">
+          <Lock className="mx-auto h-8 w-8 text-muted-light" />
+          <h1 className="mt-3 text-lg font-semibold text-ink">Manager access only</h1>
+          <p className="mt-1 text-xs leading-relaxed text-muted">
+            The brand asset library is managed by brand managers. Your current role is {role}.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="p-4 sm:p-6">
+        <div className="mx-auto max-w-[1500px] space-y-4">
+          <div className="h-14 w-1/3 animate-pulse rounded-2xl bg-cream-100" />
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="h-[100px] animate-pulse rounded-2xl bg-cream-100" />
+            ))}
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="h-56 animate-pulse rounded-2xl bg-cream-100" />
+            ))}
           </div>
         </div>
+      </div>
+    );
+  }
 
-        {/* KPI Cards */}
-        <StatCardGrid cards={[
-    { label: 'Total Assets', value: assets.length, icon: <Images className="w-5 h-5" />, variant: 'blue', trend: 12, sparkPathIndex: 0 },
-    { label: 'Approved', value: approvedCount, icon: <CheckCircle className="w-5 h-5" />, variant: 'green', trend: 14, sparkPathIndex: 1 },
-    { label: 'Pending Review', value: pendingCount, icon: <Clock className="w-5 h-5" />, variant: 'amber', trend: -6, sparkPathIndex: 2 },
-    { label: 'Flagged', value: flaggedCount, icon: <AlertTriangle className="w-5 h-5" />, variant: 'red', trend: 8, sparkPathIndex: 3 },
-  ]} />
+  return (
+    <PageTransition className="p-4 sm:p-6">
+      <div className="mx-auto max-w-[1500px] space-y-4">
 
-        {/* Filter tabs */}
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {(['All Assets', 'Images', 'Videos', 'Documents', 'Others'] as const).map((tab) => {
-              const key = tab === 'All Assets' ? 'All' : tab as any;
-              const cnt = tab === 'All Assets' ? assets.length : assets.filter((a) => a.type === tab.toLowerCase().slice(0, -1)).length;
-              return (
-                <button key={tab} onClick={() => setActiveCategory(key)}
-                  className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer ${activeCategory === key ? 'bg-gradient-to-r from-brand-600 to-blue-500 text-white shadow-sm font-bold' : 'bg-white border border-line text-ink-600 hover:bg-[#FAF7EF]'}`}>
-                  {tab} ({cnt})
-                </button>
-              );
-            })}
+        {error && (
+          <div role="alert" className="flex items-start gap-2.5 rounded-2xl border border-danger-200 bg-danger-50 px-4 py-3 text-xs text-danger-700">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-danger-500" />
+            <span>{error}</span>
           </div>
-          <div className="flex items-center gap-2">
-            <select className="bg-white border border-line rounded-lg px-2.5 py-1.5 text-xs font-medium text-ink focus:outline-none cursor-pointer"><option>Newest First</option></select>
-            <div className="flex items-center gap-0.5 bg-white border border-line rounded-lg p-1">
-              <button onClick={() => setViewMode('grid')} className={`p-1.5 rounded-md transition-colors ${viewMode === 'grid' ? 'bg-[#FAF7EF] text-ink-900' : 'text-muted-light hover:text-ink-700'}`}><LayoutGrid className="w-3.5 h-3.5" /></button>
-              <button onClick={() => setViewMode('list')} className={`p-1.5 rounded-md transition-colors ${viewMode === 'list' ? 'bg-[#FAF7EF] text-ink-900' : 'text-muted-light hover:text-ink-700'}`}><List className="w-3.5 h-3.5" /></button>
+        )}
+
+        {/* Header */}
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div className="min-w-0">
+            <p className="mb-1 text-2xs font-semibold uppercase tracking-[0.1em] text-brand-600">
+              Brand assets
+            </p>
+            <h1 className="text-2xl font-semibold tracking-[-0.02em] text-ink sm:text-3xl">Asset Library</h1>
+            <p className="mt-1 text-sm text-muted">
+              Manage and organise the brand assets stored for this workspace.
+            </p>
+          </div>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploading}
+            className="btn-primary-glow inline-flex items-center gap-2 rounded-xl px-3.5 py-2.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isUploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+            {isUploading ? 'Uploading…' : 'Upload asset'}
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*,video/*,.pdf,.docx"
+            className="hidden"
+            aria-label="Choose a file to upload"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) handleFile(f);
+            }}
+          />
+        </div>
+
+        {uploadedName && (
+          <div
+            role="status"
+            className="flex items-center gap-2 rounded-2xl border border-sage-200 bg-sage-50 px-4 py-2.5 text-xs font-medium text-sage-700"
+          >
+            <SuccessCheck size={16} />
+            {uploadedName} uploaded and added to the library.
+            <button
+              onClick={() => setUploadedName(null)}
+              aria-label="Dismiss upload confirmation"
+              className="ml-auto rounded p-0.5 text-sage-600 hover:text-sage-800"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
+
+        {/* Metrics */}
+        <Stagger className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {[
+            { label: 'Total assets', value: assets.length, icon: <Images className="h-4 w-4" />, ring: 'bg-brand-50 text-brand-600' },
+            { label: 'Approved', value: approvedCount, icon: <CheckCircle2 className="h-4 w-4" />, ring: 'bg-sage-50 text-sage-600' },
+            { label: 'Pending review', value: pendingCount, icon: <Loader2 className="h-4 w-4" />, ring: 'bg-warn-50 text-warn-600' },
+            { label: 'Flagged', value: flaggedCount, icon: <AlertTriangle className="h-4 w-4" />, ring: 'bg-danger-50 text-danger-600' },
+          ].map((m) => (
+            <StaggerItem key={m.label}>
+              <AnimatedCard className="p-4">
+                <span className={`flex h-9 w-9 items-center justify-center rounded-xl ${m.ring}`}>{m.icon}</span>
+                <p className="mt-2.5 text-xl font-semibold leading-none tabular-nums text-ink">
+                  <AnimatedCounter value={m.value} />
+                </p>
+                <p className="mt-1.5 text-xs font-medium text-muted">{m.label}</p>
+              </AnimatedCard>
+            </StaggerItem>
+          ))}
+        </Stagger>
+
+        {/* Filters */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <FilterPills
+              options={CATEGORIES.map((c) => ({ id: c.id, label: `${c.label} (${counts[c.id]})` }))}
+              selected={[category]}
+              onChange={(sel) => {
+                const next = sel.filter((id) => id !== category);
+                setCategory((next[next.length - 1] as typeof category) ?? 'all');
+                setPage(1);
+              }}
+            />
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-light" />
+              <input
+                value={query}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  setPage(1);
+                }}
+                placeholder="Search assets, tags, campaigns…"
+                aria-label="Search assets"
+                className="w-full rounded-xl border border-line bg-white py-1.5 pl-8 pr-8 text-xs text-ink focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-300/40 sm:w-60"
+              />
+              {query && (
+                <button
+                  onClick={() => setQuery('')}
+                  aria-label="Clear search"
+                  className="absolute right-2 top-2 rounded p-0.5 text-muted-light hover:text-ink"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+
+            <div className="relative">
+              <select
+                value={statusFilter}
+                onChange={(e) => {
+                  setStatusFilter(e.target.value);
+                  setPage(1);
+                }}
+                aria-label="Filter by status"
+                className="appearance-none rounded-xl border border-line bg-white py-1.5 pl-3 pr-8 text-xs font-medium text-ink focus:outline-none focus:ring-2 focus:ring-brand-300/40"
+              >
+                {['All statuses', 'Approved', 'In Review', 'Pending', 'Flagged'].map((s) => (
+                  <option key={s}>{s}</option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-2.5 top-2.5 h-3.5 w-3.5 text-muted-light" />
+            </div>
+
+            <div className="flex items-center gap-0.5 rounded-xl border border-line bg-white p-1">
+              <button
+                onClick={() => setViewMode('grid')}
+                aria-label="Grid view"
+                aria-pressed={viewMode === 'grid'}
+                className={`rounded-md p-1.5 transition-colors ${
+                  viewMode === 'grid' ? 'bg-cream-100 text-ink' : 'text-muted-light hover:text-ink-700'
+                }`}
+              >
+                <LayoutGrid className="h-3.5 w-3.5" />
+              </button>
+              <button
+                onClick={() => setViewMode('list')}
+                aria-label="List view"
+                aria-pressed={viewMode === 'list'}
+                className={`rounded-md p-1.5 transition-colors ${
+                  viewMode === 'list' ? 'bg-cream-100 text-ink' : 'text-muted-light hover:text-ink-700'
+                }`}
+              >
+                <List className="h-3.5 w-3.5" />
+              </button>
             </div>
           </div>
         </div>
 
-        {/* Search filters row */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="relative">
-            <Search className="w-3.5 h-3.5 text-muted-light absolute left-3 top-2.5 pointer-events-none" />
-            <input value={localSearch} onChange={(e) => setLocalSearch(e.target.value)} placeholder="Search assets..." className="pl-8 pr-3 py-1.5 bg-white border border-line rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-brand-500/20" />
-          </div>
-          {['All Categories', 'All Status', 'All Campaigns', 'All Tags'].map((f) => (
-            <button key={f} className="flex items-center gap-1 px-2.5 py-1.5 bg-white border border-line rounded-xl text-xs text-ink-700 hover:bg-[#FAF7EF] transition-colors cursor-pointer">
-              {f} <ChevronDown className="w-3 h-3 text-muted-light" />
-            </button>
-          ))}
-        </div>
-
-        {/* Grid */}
-        {viewMode === 'grid' ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-            {filtered.length === 0 && <div className="col-span-full text-center py-12 text-xs text-muted bg-white rounded-2xl border border-line">No assets found.</div>}
-            {filtered.map((ast) => (
-              <div key={ast.id} onClick={() => { setSelectedAsset(ast); setIsDrawerOpen(true); }}
-                className={`bg-white rounded-2xl border overflow-hidden shadow-2xs cursor-pointer hover:-translate-y-0.5 hover:shadow-xs transition-all ${selectedAsset?.id === ast.id ? 'ring-2 ring-brand-500 border-transparent' : 'border-line hover:border-line-strong'}`}>
-                <div className="relative h-36 overflow-hidden bg-[#F1ECE0]">
-                  <img src={ast.thumbnail} alt={ast.name} className="w-full h-full object-cover" />
-                  <div className="absolute top-2 left-2"><StatusBadge status={ast.status} /></div>
+        {/* Gallery */}
+        {paginated.length === 0 ? (
+          <EmptyState
+            icon={<Images className="h-6 w-6" />}
+            title={assets.length === 0 ? 'No assets yet' : 'No assets match these filters'}
+            description={
+              assets.length === 0
+                ? 'Upload a brand file to start the library. Nothing is pre-seeded.'
+                : 'Try another category, status or search term.'
+            }
+            action={
+              assets.length === 0
+                ? { label: 'Upload asset', onClick: () => fileInputRef.current?.click() }
+                : undefined
+            }
+          />
+        ) : viewMode === 'grid' ? (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {paginated.map((ast) => (
+              <AnimatedCard key={ast.id} interactive className="overflow-hidden" onClick={() => openPreview(ast)}>
+                <div className="relative h-36 overflow-hidden bg-cream-100">
+                  <img src={ast.thumbnail} alt="" className="h-full w-full object-cover" loading="lazy" />
+                  <div className="absolute left-2 top-2">
+                    <StatusBadge status={ast.status} />
+                  </div>
                 </div>
                 <div className="p-3">
-                  <p className="font-semibold text-ink-900 text-xs truncate">{ast.name}</p>
-                  <div className="flex items-center gap-2 mt-1 text-[10px] text-muted-light">
-                    <span>{ast.format}</span><span>·</span><span>{ast.uploadedAt}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 mt-2 pt-2 border-t border-[#F5F0E8]">
-                    <button onClick={(e) => e.stopPropagation()} className="p-1 text-muted hover:text-ink-700 rounded transition-colors"><Eye className="w-3.5 h-3.5" /></button>
-                    <button onClick={(e) => e.stopPropagation()} className="p-1 text-muted hover:text-ink-700 rounded transition-colors"><Download className="w-3.5 h-3.5" /></button>
-                    <button onClick={(e) => e.stopPropagation()} className="ml-auto p-1 text-muted hover:text-ink-700 rounded"><MoreVertical className="w-3.5 h-3.5" /></button>
+                  <p className="truncate text-xs font-semibold text-ink">{ast.name}</p>
+                  <p className="mt-0.5 truncate text-2xs text-muted">
+                    {ast.format} · {ast.uploadedAt}
+                  </p>
+                  <div className="mt-2 flex items-center gap-1 border-t border-line pt-2">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openPreview(ast);
+                      }}
+                      aria-label={`Preview ${ast.name}`}
+                      className="rounded-lg p-1.5 text-muted transition-colors hover:bg-cream-100 hover:text-ink"
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDownload(ast);
+                      }}
+                      aria-label={`Download ${ast.name}`}
+                      className="rounded-lg p-1.5 text-muted transition-colors hover:bg-cream-100 hover:text-ink"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                    </button>
+                    <span className="ml-auto truncate text-2xs text-muted-light">{ast.campaign}</span>
                   </div>
                 </div>
-              </div>
+              </AnimatedCard>
             ))}
           </div>
         ) : (
-          <div className="bg-white rounded-2xl border border-line shadow-2xs overflow-hidden">
-            <table className="w-full text-left">
-              <thead><tr className="bg-gradient-to-r from-slate-50 via-blue-50/40 to-pink-50/30 border-b border-slate-200">
-                {['Asset', 'Type', 'Status', 'Campaign', 'Uploaded', 'Actions'].map((h) => <th key={h} className="py-3 px-4 text-[11px] font-semibold text-muted uppercase tracking-wide">{h}</th>)}
-              </tr></thead>
-              <tbody className="divide-y divide-[#F5F0E8]">
-                {filtered.map((ast) => (
-                  <tr key={ast.id} className="hover:bg-[#FAF7EF]/60 transition-colors cursor-pointer" onClick={() => { setSelectedAsset(ast); setIsDrawerOpen(true); }}>
-                    <td className="py-3 px-4"><div className="flex items-center gap-3"><img src={ast.thumbnail} alt="" className="w-9 h-9 rounded-lg object-cover border border-line" /><span className="text-xs font-medium text-ink-900">{ast.name}</span></div></td>
-                    <td className="py-3 px-4 text-xs text-muted">{ast.format}</td>
-                    <td className="py-3 px-4"><StatusBadge status={ast.status} /></td>
-                    <td className="py-3 px-4 text-xs text-muted">{ast.campaign}</td>
-                    <td className="py-3 px-4 text-xs text-muted">{ast.uploadedAt}</td>
-                    <td className="py-3 px-4"><div className="flex items-center gap-1"><Eye className="w-3.5 h-3.5 text-muted" /><Download className="w-3.5 h-3.5 text-muted" /><MoreVertical className="w-3.5 h-3.5 text-muted" /></div></td>
+          <div className="overflow-hidden rounded-2xl border border-line bg-white shadow-card">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[720px] text-left">
+                <thead>
+                  <tr className="border-b border-line bg-cream-50">
+                    {['Asset', 'Type', 'Status', 'Campaign', 'Uploaded', 'Actions'].map((h) => (
+                      <th
+                        key={h}
+                        scope="col"
+                        className="px-3 py-3 text-2xs font-semibold uppercase tracking-[0.06em] text-muted"
+                      >
+                        {h}
+                      </th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-line-soft">
+                  {paginated.map((ast) => (
+                    <tr
+                      key={ast.id}
+                      tabIndex={0}
+                      onClick={() => openPreview(ast)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          openPreview(ast);
+                        }
+                      }}
+                      className="cursor-pointer transition-colors hover:bg-cream-50 focus-visible:bg-cream-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-300"
+                    >
+                      <td className="px-3 py-3">
+                        <div className="flex items-center gap-2.5">
+                          <img src={ast.thumbnail} alt="" className="h-9 w-9 rounded-lg border border-line object-cover" />
+                          <span className="text-xs font-medium text-ink">{ast.name}</span>
+                        </div>
+                      </td>
+                      <td className="px-3 py-3 text-xs text-muted">{ast.format}</td>
+                      <td className="px-3 py-3"><StatusBadge status={ast.status} /></td>
+                      <td className="px-3 py-3 text-xs text-muted">{ast.campaign}</td>
+                      <td className="px-3 py-3 text-xs text-muted">{ast.uploadedAt}</td>
+                      <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => openPreview(ast)}
+                            aria-label={`Preview ${ast.name}`}
+                            className="rounded-lg p-1.5 text-muted transition-colors hover:bg-cream-100 hover:text-ink"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleDownload(ast)}
+                            aria-label={`Download ${ast.name}`}
+                            className="rounded-lg p-1.5 text-muted transition-colors hover:bg-cream-100 hover:text-ink"
+                          >
+                            <Download className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
         {/* Pagination */}
-        <div className="flex items-center justify-between">
-          <p className="text-xs text-muted">Showing 1–{Math.min(filtered.length, 8)} of {filtered.length} assets</p>
-          <div className="flex items-center gap-1">
-            {[1,2,3,4,5].map((p) => <button key={p} className={`w-7 h-7 rounded-lg text-xs font-semibold transition-colors ${p === 1 ? 'bg-gradient-to-r from-brand-600 to-blue-500 text-white shadow-sm font-bold' : 'border border-line text-muted hover:bg-[#FAF7EF]'}`}>{p}</button>)}
-          </div>
-        </div>
-      </main>
-
-      {/* Right panel */}
-      {isDrawerOpen && active && (
-        <aside className="w-[300px] bg-white border-l border-line flex flex-col shrink-0 overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-line shrink-0">
-            <h3 className="text-sm font-bold text-ink-900">Asset Details</h3>
-            <div className="flex items-center gap-2">
-              <button onClick={() => { fileInputRef.current?.click(); }} className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-brand-600 to-blue-600 hover:from-brand-700 hover:to-blue-700 text-white rounded-xl text-xs font-bold shadow-sm hover:shadow-md transition-all cursor-pointer transition-colors cursor-pointer">
-                <Upload className="w-3.5 h-3.5" />Upload
-              </button>
-              <input ref={fileInputRef} type="file" accept="image/*,video/*,.pdf,.docx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
-              <button onClick={() => setIsDrawerOpen(false)} className="p-1 rounded-lg text-muted-light hover:text-ink-700"><X className="w-4 h-4" /></button>
-            </div>
-          </div>
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            <div className="rounded-xl overflow-hidden border border-line">
-              <img src={active.thumbnail} alt={active.name} className="w-full h-40 object-cover" />
-            </div>
-            <div className="flex items-center gap-2">
-              <p className="font-bold text-ink-900 text-sm flex-1 truncate">{active.name}</p>
-              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${active.type === 'image' ? 'bg-blue-50 text-blue-700' : 'bg-slate-50 text-slate-700'}`}>{active.format || active.type}</span>
-              <StatusBadge status={active.status} />
-            </div>
-            <div className="space-y-0">
-              {[['Size', active.size || '—'], ['Dimensions', active.dimensions || '—'], ['Campaign', active.campaign], ['Uploaded By', active.uploadedBy], ['Upload Date', active.uploadedAt]].map(([label, val]) => (
-                <div key={String(label)} className="flex items-center justify-between py-1.5 border-b border-[#F5F0E8] last:border-0 text-xs">
-                  <span className="text-muted">{label}</span>
-                  <span className="font-medium text-ink">{val}</span>
-                </div>
+        {filtered.length > 0 && (
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-2xs text-muted">
+              Showing {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, filtered.length)} of{' '}
+              {filtered.length} assets
+            </p>
+            <div className="flex items-center gap-1">
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setPage(p)}
+                  aria-current={p === safePage ? 'page' : undefined}
+                  className={`h-7 w-7 rounded-lg text-xs font-semibold transition-colors ${
+                    p === safePage ? 'bg-brand-600 text-white' : 'border border-line text-muted hover:bg-cream-50'
+                  }`}
+                >
+                  {p}
+                </button>
               ))}
             </div>
-            {/* Tags */}
-            <div>
-              <p className="text-xs font-bold text-ink-900 mb-2">Tags</p>
-              <div className="flex items-center gap-1.5 flex-wrap">
-                {active.tags.map((tag) => <span key={tag} className="px-2 py-0.5 bg-[#F1ECE0] rounded-full text-[10px] font-medium text-ink-700">{tag}</span>)}
-                <button className="px-2 py-0.5 bg-white border border-dashed border-line rounded-full text-[10px] font-medium text-brand-600 hover:bg-brand-50 transition-colors cursor-pointer">+ Add Tag</button>
+          </div>
+        )}
+      </div>
+
+      {/* Preview modal */}
+      <AnimatedModal
+        open={Boolean(preview)}
+        onClose={() => setPreview(null)}
+        title={preview?.name ?? 'Asset'}
+        description={preview ? `${preview.format} · ${preview.campaign} · ${preview.uploadedAt}` : undefined}
+        maxWidth={720}
+        footer={
+          preview ? (
+            <div className="flex w-full items-center justify-between gap-2">
+              <StatusBadge status={preview.status} />
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleDownload(preview)}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-line bg-white px-3 py-2 text-xs font-semibold text-ink-700 transition-colors hover:bg-cream-50"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  Download
+                </button>
+                {preview.status !== 'Approved' && (
+                  <button
+                    onClick={handleApprove}
+                    disabled={isApproving}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-brand-700 disabled:opacity-60"
+                  >
+                    {isApproving ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                    )}
+                    Approve asset
+                  </button>
+                )}
               </div>
             </div>
-            {/* Related guidelines */}
-            <div className="p-2.5 bg-[#FAF7EF] border border-line rounded-xl flex items-center gap-2 text-xs cursor-pointer hover:bg-[#F1ECE0] transition-colors">
-              <Tag className="w-3.5 h-3.5 text-brand-600 shrink-0" />
-              <span className="text-brand-700 font-medium">Brand Visual Standards v2.0</span>
+          ) : null
+        }
+      >
+        {preview && (
+          <div className="space-y-4">
+            <div className="flex min-h-[220px] items-center justify-center overflow-hidden rounded-xl border border-line bg-cream-100">
+              {previewState === 'loading' ? (
+                <Loader2 className="h-6 w-6 animate-spin text-muted" />
+              ) : previewState === 'missing' || !previewUrl ? (
+                <div className="px-4 py-10 text-center">
+                  <Images className="mx-auto h-6 w-6 text-muted-light" />
+                  <p className="mt-2 text-xs font-medium text-ink-600">No stored file</p>
+                  <p className="mt-0.5 text-2xs text-muted">
+                    Only the generated thumbnail is available for this record.
+                  </p>
+                  <img src={preview.thumbnail} alt="" className="mx-auto mt-3 h-28 rounded-lg object-cover" />
+                </div>
+              ) : preview.type === 'video' ? (
+                <video src={previewUrl} controls className="max-h-[46vh] w-full bg-black/80" />
+              ) : (
+                <img src={previewUrl} alt={preview.name} className="max-h-[46vh] w-full object-contain" />
+              )}
+            </div>
+
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+              {[
+                ['Type', preview.type],
+                ['Format', preview.format],
+                ['Size', preview.size || '—'],
+                ['Dimensions', preview.dimensions || '—'],
+                ['Campaign', preview.campaign],
+                ['Uploaded by', preview.uploadedBy],
+              ].map(([label, value]) => (
+                <div key={label} className="rounded-xl border border-line bg-cream-50 px-2.5 py-2">
+                  <dt className="text-2xs text-muted">{label}</dt>
+                  <dd className="mt-0.5 truncate font-medium text-ink">{value}</dd>
+                </div>
+              ))}
+            </dl>
+
+            <div>
+              <SectionHeader title="Tags" subtitle={preview.tags.length > 0 ? `${preview.tags.length} stored` : undefined} />
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                {preview.tags.length > 0 ? (
+                  preview.tags.map((tag) => (
+                    <span key={tag} className="rounded-full bg-cream-100 px-2 py-0.5 text-2xs font-medium text-ink-700">
+                      {tag}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-2xs text-muted">No tags were stored for this asset.</span>
+                )}
+              </div>
             </div>
           </div>
-          <div className="p-4 border-t border-line space-y-2 shrink-0">
-            <button className="w-full flex items-center justify-center gap-2 py-2.5 bg-white border border-line rounded-xl text-xs font-semibold text-ink-700 hover:bg-[#FAF7EF] transition-colors cursor-pointer">
-              <Download className="w-4 h-4" />Download
-            </button>
-            {active.status !== 'Approved' && (
-              <button onClick={handleApprove} disabled={isApproving} className="w-full flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-brand-600 to-blue-600 hover:from-brand-700 hover:to-blue-700 text-white rounded-xl text-xs font-bold shadow-sm hover:shadow-md transition-all cursor-pointer transition-colors cursor-pointer disabled:opacity-50">
-                {isApproving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}Add to Campaign
-              </button>
-            )}
-          </div>
-        </aside>
-      )}
-    </div>
+        )}
+      </AnimatedModal>
+    </PageTransition>
   );
 };
