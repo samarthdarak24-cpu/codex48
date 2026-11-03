@@ -97,10 +97,24 @@ class LoginIn(BaseModel):
     password: str
 
 
+import logging
+import time
+
+logger = logging.getLogger("uvicorn.error")
+
 @router.post("/auth/login", response_model=TokenOut, tags=["Auth"])
 def login(body: LoginIn, db: Session = Depends(get_db)):
+    t_start = time.perf_counter()
+    
+    t_db_start = time.perf_counter()
     u = db.query(User).filter(User.email == body.email.strip().lower()).first()
-    if not u or not u.password_hash or not verify_password(body.password, u.password_hash):
+    t_db_elapsed = (time.perf_counter() - t_db_start) * 1000
+
+    t_pw_start = time.perf_counter()
+    valid_password = bool(u and u.password_hash and verify_password(body.password, u.password_hash))
+    t_pw_elapsed = (time.perf_counter() - t_pw_start) * 1000
+
+    if not u or not valid_password:
         audit.record(
             db,
             user_id="",
@@ -111,9 +125,18 @@ def login(body: LoginIn, db: Session = Depends(get_db)):
             details=f"Failed login attempt for {body.email}",
             brand=u.workspace if u else "PureGlow",
         )
+        t_total_elapsed = (time.perf_counter() - t_start) * 1000
+        logger.warning(
+            f"[AUTH TIMING /api/v1] FAILED login for '{body.email}' | "
+            f"Total: {t_total_elapsed:.1f}ms | DB: {t_db_elapsed:.1f}ms | PW_Check: {t_pw_elapsed:.1f}ms"
+        )
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
+    t_tok_start = time.perf_counter()
     token = create_token(u.id, u.role)
+    t_tok_elapsed = (time.perf_counter() - t_tok_start) * 1000
+
+    t_audit_start = time.perf_counter()
     audit.record(
         db,
         user_id=u.id,
@@ -124,6 +147,18 @@ def login(body: LoginIn, db: Session = Depends(get_db)):
         details=f"User {u.email} ({u.role}) signed in",
         brand=u.workspace,
     )
+    t_audit_elapsed = (time.perf_counter() - t_audit_start) * 1000
+
+    t_total_elapsed = (time.perf_counter() - t_start) * 1000
+    logger.info(
+        f"[AUTH TIMING /api/v1] SUCCESS login for '{u.email}' ({u.role}) | "
+        f"Total: {t_total_elapsed:.1f}ms | "
+        f"DB Lookup: {t_db_elapsed:.1f}ms | "
+        f"Password Verify: {t_pw_elapsed:.1f}ms | "
+        f"Token: {t_tok_elapsed:.1f}ms | "
+        f"Audit Write: {t_audit_elapsed:.1f}ms"
+    )
+
     return TokenOut(token=token, user=user_to_out(u))
 
 

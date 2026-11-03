@@ -205,12 +205,22 @@ export interface Session {
 
 export const authApi = {
   async login(email: string, password: string): Promise<Session> {
-    const data = await request<Session>('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ email, password }),
-    })
-    setSession({ token: data.token, user: data.user })
-    return data
+    const t0 = performance.now()
+    console.time('[Auth] Login request duration')
+    try {
+      const data = await request<Session>('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      })
+      const elapsed = (performance.now() - t0).toFixed(1)
+      console.timeEnd('[Auth] Login request duration')
+      console.info(`[Auth] Login API responded in ${elapsed}ms for ${email}`)
+      setSession({ token: data.token, user: data.user })
+      return data
+    } catch (err) {
+      console.timeEnd('[Auth] Login request duration')
+      throw err
+    }
   },
 
   async requestReset(email: string): Promise<{ sent: boolean }> {
