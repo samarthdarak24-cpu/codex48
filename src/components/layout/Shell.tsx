@@ -122,7 +122,6 @@ function useNavItems(): { items: NavItem[]; footer: string } {
         { to: '/manager/submissions', label: 'All Submissions', icon: FileText },
         { to: '/manager/guidelines', label: 'Guidelines & Rules', icon: BookOpen },
         { to: '/manager/agent-studio', label: 'Agent Studio', icon: Sparkles },
-        { to: '/manager/agents', label: 'My Agents', icon: Bot },
         { to: '/manager/agent-runs', label: 'Agent Executions', icon: History },
         { to: '/manager/exceptions', label: 'Exceptions', icon: Clock, badge: openExceptions, badgeTone: 'warn' },
         { to: '/manager/sandbox', label: 'Rule Impact Sandbox', icon: FlaskConical },

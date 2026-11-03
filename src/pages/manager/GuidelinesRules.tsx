@@ -13,6 +13,7 @@ import {
   ShieldCheck,
   Sparkles,
   Upload,
+  FileDown,
   Workflow,
   Layers,
   ArrowUpRight,
@@ -27,7 +28,7 @@ import { PriorityBadge, RuleBadge, Badge } from '@/components/ui/Badge'
 import { Modal, ProgressBar, Tabs } from '@/components/ui/Misc'
 import { useToast } from '@/components/ui/Toast'
 import { detectConflicts, guidelineStats, mostOverridden } from '@/lib/selectors'
-import { cn, fmtDate, relative } from '@/lib/utils'
+import { cn, fmtDate, relative, downloadGuidelineDocument, exportRulesCsv } from '@/lib/utils'
 import type { ApprovedClaim, GuidelineDoc, Rule } from '@/lib/types'
 
 const PAGE_SIZE = 8
@@ -72,6 +73,7 @@ export default function GuidelinesRules() {
   const [docDesc, setDocDesc] = useState('')
   const [docCategory, setDocCategory] = useState<GuidelineDoc['category']>('Visual Identity')
   const [docFile, setDocFile] = useState<{ name: string; size: string; type: 'PDF' | 'DOCX'; pages: number } | null>(null)
+  const [docRawFile, setDocRawFile] = useState<File | null>(null)
 
   // rule form
   const [ruleTitle, setRuleTitle] = useState('')
@@ -294,12 +296,14 @@ export default function GuidelinesRules() {
         fileType: docFile.type,
         fileSize: docFile.size,
         pages: docFile.pages,
+        file: docRawFile || undefined,
       })
       toast.success('Document uploaded', 'Text extraction is queued. Extracted rules must be confirmed before activation.')
       setUploadOpen(false)
       setDocName('')
       setDocDesc('')
       setDocFile(null)
+      setDocRawFile(null)
     } finally {
       setBusy(false)
     }
@@ -626,6 +630,7 @@ export default function GuidelinesRules() {
                 onChange={(e) => {
                   const f = e.target.files?.[0]
                   if (!f) return
+                  setDocRawFile(f)
                   setDocFile({
                     name: f.name,
                     size: `${(f.size / (1024 * 1024)).toFixed(1)} MB`,

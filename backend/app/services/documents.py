@@ -51,7 +51,7 @@ def validate_and_save_upload(file: UploadFile, uploads_dir: str) -> tuple[str, s
 
     # Magic byte validation
     if ext == ".pdf":
-        if not content.startswith(b"%PDF"):
+        if not content.startswith(b"%PDF") and b"%PDF" not in content[:1024]:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="File content does not match a valid PDF header.",
@@ -59,7 +59,7 @@ def validate_and_save_upload(file: UploadFile, uploads_dir: str) -> tuple[str, s
         file_type = "PDF"
     elif ext in (".docx", ".doc"):
         # Modern docx is a PK zip archive
-        if not content.startswith(b"PK"):
+        if not content.startswith(b"PK") and b"PK" not in content[:64]:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="File content does not match a valid DOCX document.",

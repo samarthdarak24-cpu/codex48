@@ -26,7 +26,7 @@ import { EmptyState, Pagination } from '@/components/ui/Table'
 import { Modal, Skeleton } from '@/components/ui/Misc'
 import { guidelineStats, submissionStats } from '@/lib/selectors'
 import { useAuth } from '@/context/AuthContext'
-import { cn, fmtDate, relative } from '@/lib/utils'
+import { cn, fmtDate, relative, downloadGuidelineDocument } from '@/lib/utils'
 import { api } from '@/services/api'
 import type { GuidelineDoc } from '@/lib/types'
 
@@ -210,6 +210,19 @@ export default function CreatorGuidelines() {
                     <Button size="sm" variant="outline" className="h-7 px-2.5 text-xs" onClick={() => setPreview(doc)}>
                       View
                     </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 px-2 text-xs text-muted hover:text-ink hidden sm:inline-flex"
+                      icon={<FileDown className="h-3 w-3" />}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        downloadGuidelineDocument(doc, rules.filter((r) => r.sourceDocId === doc.id))
+                      }}
+                      title="Download guideline document"
+                    >
+                      Download
+                    </Button>
                     <button
                       aria-label="More options"
                       className="inline-flex h-7 w-6 items-center justify-center rounded-md text-muted transition-colors hover:bg-[#F1F6FD] hover:text-ink"
@@ -335,8 +348,16 @@ export default function CreatorGuidelines() {
             <Button variant="ghost" onClick={() => setPreview(null)}>
               Close
             </Button>
-            <Button variant="outline" onClick={() => setPreview(null)}>
-              Download {preview?.fileType}
+            <Button
+              variant="outline"
+              icon={<FileDown className="h-3.5 w-3.5" />}
+              onClick={() => {
+                if (preview) {
+                  downloadGuidelineDocument(preview, rules.filter((r) => r.sourceDocId === preview.id))
+                }
+              }}
+            >
+              Download {preview?.fileType || 'Document'}
             </Button>
           </>
         }

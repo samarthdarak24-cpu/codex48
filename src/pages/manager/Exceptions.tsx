@@ -422,7 +422,7 @@ export default function ExceptionsPage() {
               Need help?
             </h2>
             <p className="mt-1 text-xs leading-[16px] text-brand-700/80">
-              Check the exception guidelines or contact your brand manager.
+              Review active brand rules or update exception governance policy.
             </p>
             <Button variant="outline" size="sm" block className="mt-2.5 bg-white" onClick={() => navigate('/manager/guidelines')}>
               View Guidelines
