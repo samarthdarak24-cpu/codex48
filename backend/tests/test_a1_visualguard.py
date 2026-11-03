@@ -578,6 +578,7 @@ def test_evaluate_background_never_guesses_from_an_unreadable_asset():
 # Multilingual (Hindi/Marathi) and RapidOCR Fallback Tests
 # ---------------------------------------------------------------------------
 
+@pytest.mark.skipif(not ocr.tesseract_ready()[0], reason="Tesseract binary not installed on host")
 def test_ocr_hindi_devanagari_traineddata_fixture(tmp_path):
     """Real fixture test using downloaded hin.traineddata."""
     img_path = str(tmp_path / "hindi_creative.png")
@@ -599,6 +600,7 @@ def test_ocr_hindi_devanagari_traineddata_fixture(tmp_path):
     assert "hin" in res["engine"]["langs"]
 
 
+@pytest.mark.skipif(not ocr.tesseract_ready()[0], reason="Tesseract binary not installed on host")
 def test_ocr_marathi_devanagari_traineddata_fixture(tmp_path):
     """Real fixture test using downloaded mar.traineddata."""
     img_path = str(tmp_path / "marathi_creative.png")
