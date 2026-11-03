@@ -308,3 +308,14 @@
     transform: none;
   }
 }
+
+/* Prevent iOS & Android zoom jump on focus by ensuring 16px minimum on mobile */
+@media screen and (max-width: 768px) {
+  input,
+  textarea,
+  select,
+  .field {
+    font-size: 16px !important;
+    touch-action: manipulation;
+  }
+}

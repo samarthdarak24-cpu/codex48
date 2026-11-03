@@ -487,7 +487,7 @@ export default function NewContent() {
                       value={title}
                       onChange={(e) => {
                         setTitle(e.target.value)
-                        setErrors((p) => ({ ...p, title: undefined }))
+                        setErrors((p) => (p.title ? { ...p, title: undefined } : p))
                       }}
                       placeholder={
                         type === 'Text'
@@ -604,7 +604,7 @@ export default function NewContent() {
                         maxLength={MAX_CHARS}
                         onChange={(e) => {
                           setTextCopy(e.target.value)
-                          setErrors((p) => ({ ...p, text: undefined }))
+                          setErrors((p) => (p.text ? { ...p, text: undefined } : p))
                         }}
                         placeholder="This summer, enjoy up to 50% off on our organic skincare products. Pure. Natural. Real results!"
                         invalid={Boolean(errors.text)}
@@ -921,7 +921,7 @@ export default function NewContent() {
                           value={pageUrl}
                           onChange={(e) => {
                             setPageUrl(e.target.value)
-                            setErrors((p) => ({ ...p, url: undefined }))
+                            setErrors((p) => (p.url ? { ...p, url: undefined } : p))
                           }}
                           placeholder="https://pureglow.co/campaigns/summer-collection"
                           className="pl-9"
@@ -954,7 +954,7 @@ export default function NewContent() {
                         maxLength={800}
                         onChange={(e) => {
                           setPageCopy(e.target.value)
-                          setErrors((p) => ({ ...p, text: undefined }))
+                          setErrors((p) => (p.text ? { ...p, text: undefined } : p))
                         }}
                         placeholder="Paste the landing page headline, promo copy, ingredient claims, or terms shown on this webpage..."
                         invalid={Boolean(errors.text)}
