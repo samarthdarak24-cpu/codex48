@@ -353,21 +353,36 @@ export function Modal({
   width?: string
 }) {
   const ref = useRef<HTMLDivElement>(null)
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
+  const wasOpenRef = useRef(false)
 
   useEffect(() => {
-    if (!open) return
+    if (!open) {
+      wasOpenRef.current = false
+      return
+    }
+
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') onCloseRef.current()
     }
     document.addEventListener('keydown', onKey)
     const prev = document.body.style.overflow
     document.body.style.overflow = 'hidden'
-    ref.current?.focus()
+
+    // Focus modal container ONLY on initial mount/open, and NEVER steal focus if an input inside is active
+    if (!wasOpenRef.current) {
+      wasOpenRef.current = true
+      if (!ref.current?.contains(document.activeElement)) {
+        ref.current?.focus()
+      }
+    }
+
     return () => {
       document.removeEventListener('keydown', onKey)
       document.body.style.overflow = prev
     }
-  }, [open, onClose])
+  }, [open])
 
   if (!open) return null
 

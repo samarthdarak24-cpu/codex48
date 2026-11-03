@@ -62,6 +62,7 @@ export interface DocInput {
   fileType: 'PDF' | 'DOCX'
   fileSize: string
   pages: number
+  file?: File
 }
 
 export interface RuleInput {

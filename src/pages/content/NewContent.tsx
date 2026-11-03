@@ -11,6 +11,7 @@ import {
   Image as ImageIcon,
   Info,
   Link2,
+  Loader2,
   Lightbulb,
   Maximize2,
   Paperclip,
@@ -21,6 +22,7 @@ import {
   Upload,
   X,
 } from 'lucide-react'
+import { api } from '@/services/api'
 import { useData } from '@/context/DataContext'
 import { PageHeader } from '@/components/layout/Shell'
 import { BrandAssetsPicker } from '@/components/content/BrandAssetsPicker'
@@ -102,6 +104,9 @@ export default function NewContent() {
   // Errors & States
   const [errors, setErrors] = useState<{ title?: string; text?: string; file?: string; url?: string }>({})
   const [submitting, setSubmitting] = useState(false)
+  const [isExtracting, setIsExtracting] = useState(false)
+  const [extractionStatus, setExtractionStatus] = useState<string | null>(null)
+  const [mobileTab, setMobileTab] = useState<'editor' | 'preview'>('editor')
   const [dragOver, setDragOver] = useState(false)
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null)
 
@@ -131,8 +136,8 @@ export default function NewContent() {
   const activeRules = useMemo(() => rules.filter((r) => r.status === 'active'), [rules])
   const guidance = activeRules.slice(0, 3)
 
-  // Set image file and object URL
-  function handleImageSelected(file: File | null) {
+  // Set image file and run OCR extraction
+  async function handleImageSelected(file: File | null) {
     if (!file) return
     if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl)
     setImageFile(file)
@@ -142,16 +147,60 @@ export default function NewContent() {
       const cleanName = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ')
       setTitle(cleanName.charAt(0).toUpperCase() + cleanName.slice(1))
     }
+
+    // Auto OCR & Text extraction
+    setIsExtracting(true)
+    setExtractionStatus(`Extracting on-image text and copy via OCR from ${file.name}...`)
+    try {
+      const res = await api.extractTextFromFile(file)
+      if (res && res.text && res.text.trim()) {
+        setImageText(res.text)
+        if (!textCopy.trim() || textCopy.length < 15) {
+          setTextCopy(res.text)
+        }
+        setExtractionStatus(`OCR detected ${res.text.length} characters in ${file.name}`)
+        toast.success('Text Extracted via OCR', `Extracted: "${res.text.slice(0, 65)}..." and loaded into preview.`)
+      } else {
+        setExtractionStatus('Image uploaded. No high-contrast copy detected — you can type captions manually.')
+      }
+    } catch (err) {
+      console.warn('Image extraction warning:', err)
+      setExtractionStatus('Image attached for VisualGuard analysis.')
+    } finally {
+      setIsExtracting(false)
+    }
   }
 
-  // Set document file
-  function handleDocSelected(file: File | null) {
+  // Set document file and run text/passage extraction
+  async function handleDocSelected(file: File | null) {
     if (!file) return
     setDocFile(file)
     setErrors((prev) => ({ ...prev, file: undefined }))
     if (!title) {
       const cleanName = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ')
       setTitle(cleanName.charAt(0).toUpperCase() + cleanName.slice(1))
+    }
+
+    // Auto Document & Passage extraction
+    setIsExtracting(true)
+    setExtractionStatus(`Extracting passages from ${file.name}...`)
+    try {
+      const res = await api.extractTextFromFile(file)
+      if (res && res.text && res.text.trim()) {
+        setDocExcerpt(res.text)
+        if (!textCopy.trim() || textCopy.length < 15) {
+          setTextCopy(res.text)
+        }
+        setExtractionStatus(`Extracted ${res.passages || 1} passages from ${file.name}`)
+        toast.success('Passages Extracted', `Extracted ${res.passages || 1} passages from ${file.name} into review copy.`)
+      } else {
+        setExtractionStatus('Document uploaded. Key sections will be indexed for verification.')
+      }
+    } catch (err) {
+      console.warn('Doc extraction warning:', err)
+      setExtractionStatus('Document attached. Enter key claims or excerpts manually.')
+    } finally {
+      setIsExtracting(false)
     }
   }
 
@@ -360,8 +409,58 @@ export default function NewContent() {
             })}
           </div>
 
+          {/* Mobile view switcher */}
+          <div className="flex items-center gap-1.5 rounded-xl border border-line bg-[#FAF7EF] p-1 lg:hidden">
+            <button
+              type="button"
+              onClick={() => setMobileTab('editor')}
+              className={cn(
+                'flex-1 rounded-lg py-1.5 text-xs font-semibold transition',
+                mobileTab === 'editor' ? 'bg-white text-ink shadow-xs border border-line' : 'text-muted hover:text-ink'
+              )}
+            >
+              1. Content Form
+            </button>
+            <button
+              type="button"
+              onClick={() => setMobileTab('preview')}
+              className={cn(
+                'flex-1 rounded-lg py-1.5 text-xs font-semibold transition flex items-center justify-center gap-1.5',
+                mobileTab === 'preview' ? 'bg-white text-ink shadow-xs border border-line' : 'text-muted hover:text-ink'
+              )}
+            >
+              <span>2. Live Preview</span>
+              <span className="h-1.5 w-1.5 rounded-full bg-brand-500 animate-pulse" />
+            </button>
+          </div>
+
+          {/* Extraction status notification */}
+          {(isExtracting || extractionStatus) && (
+            <div className="flex items-center justify-between rounded-xl border border-brand-200 bg-brand-50/70 px-3.5 py-2.5 text-xs text-brand-800 animate-fade-in">
+              <div className="flex items-center gap-2">
+                {isExtracting ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-brand-600 shrink-0" />
+                ) : (
+                  <CheckCircle2 className="h-4 w-4 text-brand-600 shrink-0" />
+                )}
+                <span className="font-medium">{extractionStatus}</span>
+              </div>
+              {!isExtracting && (
+                <button
+                  type="button"
+                  onClick={() => setExtractionStatus(null)}
+                  className="rounded p-1 text-brand-600 hover:bg-brand-100 hover:text-brand-900"
+                  aria-label="Dismiss message"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+          )}
+
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
             {/* Form details card */}
+            <div className={cn(mobileTab === 'preview' ? 'hidden lg:block' : 'block')}>
             <Card className="card-pad">
               <div className="mb-3.5 flex items-center justify-between border-b border-line pb-2.5">
                 <div>
@@ -388,7 +487,7 @@ export default function NewContent() {
                       value={title}
                       onChange={(e) => {
                         setTitle(e.target.value)
-                        setErrors((p) => ({ ...p, title: undefined }))
+                        setErrors((p) => (p.title ? { ...p, title: undefined } : p))
                       }}
                       placeholder={
                         type === 'Text'
@@ -505,7 +604,7 @@ export default function NewContent() {
                         maxLength={MAX_CHARS}
                         onChange={(e) => {
                           setTextCopy(e.target.value)
-                          setErrors((p) => ({ ...p, text: undefined }))
+                          setErrors((p) => (p.text ? { ...p, text: undefined } : p))
                         }}
                         placeholder="This summer, enjoy up to 50% off on our organic skincare products. Pure. Natural. Real results!"
                         invalid={Boolean(errors.text)}
@@ -822,7 +921,7 @@ export default function NewContent() {
                           value={pageUrl}
                           onChange={(e) => {
                             setPageUrl(e.target.value)
-                            setErrors((p) => ({ ...p, url: undefined }))
+                            setErrors((p) => (p.url ? { ...p, url: undefined } : p))
                           }}
                           placeholder="https://pureglow.co/campaigns/summer-collection"
                           className="pl-9"
@@ -855,7 +954,7 @@ export default function NewContent() {
                         maxLength={800}
                         onChange={(e) => {
                           setPageCopy(e.target.value)
-                          setErrors((p) => ({ ...p, text: undefined }))
+                          setErrors((p) => (p.text ? { ...p, text: undefined } : p))
                         }}
                         placeholder="Paste the landing page headline, promo copy, ingredient claims, or terms shown on this webpage..."
                         invalid={Boolean(errors.text)}
@@ -878,9 +977,10 @@ export default function NewContent() {
                 </Button>
               </div>
             </Card>
+            </div>
 
             {/* Dynamic Content Preview Card */}
-            <div className="space-y-4">
+            <div className={cn(mobileTab === 'editor' ? 'hidden lg:block' : 'block', 'space-y-4')}>
               <Card className="overflow-hidden shadow-sm">
                 <CardHeader title="Content Preview" dense />
                 <div className="p-3">

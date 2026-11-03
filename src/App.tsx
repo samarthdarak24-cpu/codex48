@@ -127,7 +127,7 @@ export default function App() {
         <Route path="analytics" element={<AnalyticsHealthPage />} />
         <Route path="audit" element={<AuditHistory />} />
         <Route path="agent-studio" element={<AgentStudioPage />} />
-        <Route path="agents" element={<AgentStudioPage />} />
+        <Route path="agents" element={<Navigate to="/manager/agent-studio" replace />} />
         <Route path="agents/:agentId" element={<AgentDetailPage />} />
         <Route path="agents/:agentId/builder" element={<WorkflowBuilderPage />} />
         <Route path="agents/:agentId/runs" element={<AgentRunsPage />} />

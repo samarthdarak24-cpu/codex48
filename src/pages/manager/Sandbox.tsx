@@ -542,10 +542,10 @@ export default function Sandbox() {
               Need help?
             </h2>
             <p className="mt-1 text-xs leading-[16px] text-brand-700/80">
-              View our documentation or contact your brand manager for complex scenarios.
+              Simulate how planned rule revisions affect historical submissions before publishing.
             </p>
             <Button variant="outline" size="sm" block className="mt-2.5 bg-white" onClick={() => navigate('/manager/guidelines')}>
-              Contact Brand Manager
+              View Active Guidelines
             </Button>
           </Card>
         </div>

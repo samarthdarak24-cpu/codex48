@@ -88,3 +88,63 @@ export function initialsOf(name: string) {
     .map((p) => p[0]?.toUpperCase() ?? '')
     .join('')
 }
+
+
+export function downloadGuidelineDocument(
+  doc: { name: string; version: string; category: string; status: string; description: string; fileType: string; fileSize: string; pages: number; updatedAt: string },
+  docRules: Array<{ code: string; title: string; priority: string; status: string; sourcePassage?: string; sourcePage?: number; sourceVersion?: string; summary?: string }> = []
+) {
+  const content = `# Brand Guideline: ${doc.name} (${doc.version})
+Category: ${doc.category}
+Status: ${doc.status}
+Updated: ${fmtDate(doc.updatedAt)}
+Original Format: ${doc.fileType} (${doc.fileSize}, ~${doc.pages} pages)
+
+## Governance Scope & Description
+${doc.description}
+
+## Extracted Rule Specifications & Evidential Passages (${docRules.length} rules)
+${docRules.length === 0 ? 'No active rules currently mapped to this document.' : docRules.map((r, i) => `${i + 1}. [${r.code}] ${r.title}
+   Priority: ${r.priority} | Status: ${r.status}
+   Evidential Passage: "${r.sourcePassage || 'Official guideline document source'}" (p.${r.sourcePage || 1}, ${r.sourceVersion || doc.version})
+   Summary: ${r.summary || r.title}`).join('\n\n')}
+
+---
+Exported from Precedent Brand Governance Platform · ${new Date().toISOString()}
+`
+  const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${doc.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${doc.version}.md`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}
+
+export function exportRulesCsv(
+  rulesList: Array<{ code: string; title: string; category?: string; priority: string; status: string; condition?: string; action?: string; sourcePassage?: string }>
+) {
+  const headers = ['Code', 'Title', 'Category', 'Priority', 'Status', 'Condition', 'Action', 'Source Passage']
+  const rows = rulesList.map(r => [
+    `"${(r.code || '').replace(/"/g, '""')}"`,
+    `"${(r.title || '').replace(/"/g, '""')}"`,
+    `"${(r.category || 'General').replace(/"/g, '""')}"`,
+    `"${(r.priority || 'Medium').replace(/"/g, '""')}"`,
+    `"${(r.status || 'active').replace(/"/g, '""')}"`,
+    `"${(r.condition || '').replace(/"/g, '""')}"`,
+    `"${(r.action || '').replace(/"/g, '""')}"`,
+    `"${(r.sourcePassage || '').replace(/"/g, '""')}"`,
+  ])
+  const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n')
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `brand-rules-export-${new Date().toISOString().slice(0, 10)}.csv`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}
