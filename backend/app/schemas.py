@@ -13,6 +13,14 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class RegisterRequest(BaseModel):
+    name: str
+    email: str
+    password: str
+    role: str = "creator"
+    workspace: Optional[str] = "PureGlow" 
+
+
 class UserOut(BaseModel):
     id: str
     name: str

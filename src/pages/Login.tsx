@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { ArrowRight, CheckCircle2, Eye, EyeOff, Loader2, Lock, Mail, ShieldCheck, Sparkles, Workflow } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { BrandMark } from '@/components/layout/Shell'
@@ -152,9 +152,9 @@ export default function LoginPage() {
           </div>
           <p className="ml-auto text-xs text-muted">
             New to Precedent?{' '}
-            <a href="mailto:access@precedent.app" className="link">
-              Request access
-            </a>
+            <Link to="/signup" className="font-semibold text-brand-600 hover:text-brand-700 underline underline-offset-4">
+              Create an account
+            </Link>
           </p>
         </div>
 
@@ -220,8 +220,11 @@ export default function LoginPage() {
             ) : (
               <>
                 <h2 className="text-2xl font-semibold tracking-[-0.02em] text-ink">Sign in to your workspace</h2>
-                <p className="mt-1.5 text-base leading-[20px] text-muted">
-                  Your role and permissions are assigned by your workspace administrator.
+                <p className="mt-1.5 text-xs text-muted leading-relaxed">
+                  Enter your credentials, use demo accounts below, or{' '}
+                  <Link to="/signup" className="font-semibold text-brand-600 hover:text-brand-700 underline underline-offset-4">
+                    create a new account
+                  </Link>.
                 </p>
 
                 <form onSubmit={onSubmit} className="mt-6 space-y-3.5" noValidate>

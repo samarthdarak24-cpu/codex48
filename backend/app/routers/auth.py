@@ -10,8 +10,9 @@ from sqlalchemy.orm import Session
 from .. import models
 from ..db import get_db
 from ..deps import get_current_user
-from ..schemas import LoginRequest
-from ..security import create_token, verify_password
+import uuid
+from ..schemas import LoginRequest, RegisterRequest
+from ..security import create_token, hash_password, verify_password
 from ..services import auth
 from ..services.audit import record
 
@@ -90,6 +91,76 @@ def login(body: LoginRequest, db: Session = Depends(get_db)) -> dict:
         f"Token: {t_tok_elapsed:.1f}ms | "
         f"Audit Write: {t_audit_elapsed:.1f}ms"
     )
+
+    return {"token": token, "user": auth.get_user_out(user)}
+
+
+@router.post("/register")
+@router.post("/signup")
+def register(body: RegisterRequest, db: Session = Depends(get_db)) -> dict:
+    normalized = (body.email or "").strip().lower()
+    if not normalized or "@" not in normalized:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="A valid work email address is required.",
+        )
+    if not body.name or not body.name.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Full name is required.",
+        )
+    if not body.password or len(body.password) < 6:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password must be at least 6 characters.",
+        )
+
+    existing = db.query(models.User).filter(models.User.email == normalized).first()
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="An account with this email address already exists. Please sign in.",
+        )
+
+    role = (body.role or "creator").strip().lower()
+    if role not in ("creator", "manager"):
+        role = "creator"
+
+    name_parts = body.name.strip().split()
+    initials = "".join(p[0].upper() for p in name_parts[:2]) or body.name[:2].upper()
+    workspace = (body.workspace or "PureGlow").strip()
+
+    user = models.User(
+        id=f"usr_{uuid.uuid4().hex[:12]}",
+        name=body.name.strip(),
+        email=normalized,
+        role=role,
+        title="Brand Governance Specialist" if role == "manager" else "Content Creator",
+        initials=initials,
+        avatar_tone="blue" if role == "manager" else "green",
+        department="Governance" if role == "manager" else "Creative",
+        workspace=workspace,
+        password_hash=hash_password(body.password),
+        status="active",
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
+    token = create_token(user.id, user.role)
+    record(
+        db,
+        action="Signup",
+        entity_title=f"{user.name} created an account",
+        entity_meta=user.workspace,
+        brand=user.workspace,
+        user_id=user.id,
+        details=f"User {user.email} registered as {user.role} in workspace {user.workspace}",
+        status="Recorded",
+        entity_kind="auth",
+        entity_id=user.id,
+    )
+    db.commit()
 
     return {"token": token, "user": auth.get_user_out(user)}
 

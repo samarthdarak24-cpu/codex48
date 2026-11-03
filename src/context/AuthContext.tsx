@@ -8,6 +8,7 @@ interface AuthState {
   user: User | null
   status: 'loading' | 'authenticated' | 'anonymous'
   login: (email: string, password: string) => Promise<User>
+  register: (payload: { name: string; email: string; password: string; role?: Role; workspace?: string }) => Promise<User>
   switchPersona: (targetRole?: Role) => Promise<User>
   logout: () => void
   hasRole: (role: Role) => boolean
@@ -81,6 +82,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return session.user
   }, [])
 
+  const register = useCallback(async (payload: { name: string; email: string; password: string; role?: Role; workspace?: string }) => {
+    const session = await authApi.register(payload)
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(session))
+    setUser(session.user)
+    setStatus('authenticated')
+    return session.user
+  }, [])
+
   const switchPersona = useCallback(async (targetRole?: Role) => {
     const nextRole = targetRole ?? (user?.role === 'manager' ? 'creator' : 'manager')
     const email = nextRole === 'manager' ? 'david.kim@pureglow.co' : 'emily.carter@pureglow.co'
@@ -102,11 +111,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user,
       status,
       login,
+      register,
       switchPersona,
       logout,
       hasRole: (role: Role) => user?.role === role,
     }),
-    [user, status, login, switchPersona, logout],
+    [user, status, login, register, switchPersona, logout],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

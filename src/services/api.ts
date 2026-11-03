@@ -228,6 +228,21 @@ export const authApi = {
     }
   },
 
+  async register(payload: {
+    name: string
+    email: string
+    password: string
+    role?: string
+    workspace?: string
+  }): Promise<Session> {
+    const data = await request<Session>('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+    setSession({ token: data.token, user: data.user })
+    return data
+  },
+
   async requestReset(email: string): Promise<{ sent: boolean }> {
     return request<{ sent: boolean }>('/auth/request-reset', {
       method: 'POST',

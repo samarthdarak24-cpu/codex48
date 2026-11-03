@@ -3,6 +3,7 @@ import { useAuth } from '@/context/AuthContext'
 import { DashboardLayout } from '@/components/layout/Shell'
 import { BrandMark } from '@/components/layout/Shell'
 import LoginPage from '@/pages/Login'
+import SignupPage from '@/pages/Signup'
 import HomePage from '@/pages/marketing/Home'
 import CreatorOverview from '@/pages/content/Overview'
 import NewContent from '@/pages/content/NewContent'
@@ -62,6 +63,8 @@ export default function App() {
     <Routes>
       <Route path="/" element={<HomePage />} />
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/signup" element={<SignupPage />} />
+      <Route path="/register" element={<Navigate to="/signup" replace />} />
 
       {/* Aliases for Creator Routes */}
       <Route path="/creator" element={<Navigate to="/app/overview" replace />} />
