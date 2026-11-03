@@ -23,6 +23,10 @@ from app.routers import (
     simulations,
     submissions,
     team,
+    agents as agents_router,
+    agent_runs as agent_runs_router,
+    agent_tools as agent_tools_router,
+    assistant as assistant_router,
 )
 
 app = FastAPI(
@@ -108,6 +112,10 @@ def readiness() -> dict:
 
 # Mount Canonical API v1 router
 app.include_router(canonical_v1.router)
+app.include_router(agents_router.router)
+app.include_router(agent_runs_router.router)
+app.include_router(agent_tools_router.router)
+app.include_router(assistant_router.router)
 
 # Mount Legacy Root Routers for 100% frontend and test backwards compatibility
 for _router in (

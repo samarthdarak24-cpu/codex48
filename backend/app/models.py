@@ -922,19 +922,24 @@ class AiCallLog(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
-class AgentRun(Base):
-    __tablename__ = "agent_runs"
-
-    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
-    submission_version_id: Mapped[str] = mapped_column(String, index=True)
-    status: Mapped[str] = mapped_column(String, default="running")  # running | succeeded | failed
-    started_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
-    finished_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    budget: Mapped[dict] = mapped_column(JSON, default=dict)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
-
-
+from app.assistant.models import (
+    AssistantConversation,
+    AssistantMessage,
+    AssistantCitation,
+    AssistantFeedback,
+    AssistantActionDraft,
+)
+from app.agents.models import (
+    Agent,
+    AgentApproval,
+    AgentMemorySession,
+    AgentRun,
+    AgentRunStep,
+    AgentToolPermission,
+    AgentTrigger,
+    AgentVersion,
+    AgentWorkflow,
+)
 class AgentToolCall(Base):
     __tablename__ = "agent_tool_calls"
 

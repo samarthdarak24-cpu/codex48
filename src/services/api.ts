@@ -23,6 +23,18 @@ import type {
   Simulation,
   Submission,
   User,
+  Agent,
+  AgentApproval,
+  AgentPromptResult,
+  AgentRun,
+  AgentRunStep,
+  AgentTemplate,
+  AgentTool,
+  AssistantStatus,
+  AssistantMessage,
+  AssistantConversation,
+  NavCounts,
+  SubmissionsSummary,
 } from '@/lib/types'
 
 export const API_BASE: string = import.meta.env.VITE_API_BASE || 'http://127.0.0.1:8000'
@@ -193,12 +205,22 @@ export interface Session {
 
 export const authApi = {
   async login(email: string, password: string): Promise<Session> {
-    const data = await request<Session>('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ email, password }),
-    })
-    setSession({ token: data.token, user: data.user })
-    return data
+    const t0 = performance.now()
+    console.time('[Auth] Login request duration')
+    try {
+      const data = await request<Session>('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      })
+      const elapsed = (performance.now() - t0).toFixed(1)
+      console.timeEnd('[Auth] Login request duration')
+      console.info(`[Auth] Login API responded in ${elapsed}ms for ${email}`)
+      setSession({ token: data.token, user: data.user })
+      return data
+    } catch (err) {
+      console.timeEnd('[Auth] Login request duration')
+      throw err
+    }
   },
 
   async requestReset(email: string): Promise<{ sent: boolean }> {
@@ -376,7 +398,155 @@ export const api = {
     request<BrandAsset>(`/assets/${id}/approve`, { method: 'POST' }),
 
   /** Fetch a protected asset file with the bearer token and return an object URL. */
-  fetchAssetBlobUrl: async (id: string): Promise<string | null> => {
+  /* ---------------------------------------------------------------- */
+  /* Agent Studio & Workflows                                          */
+  /* ---------------------------------------------------------------- */
+
+  agents: (params?: { status?: string; category?: string; search?: string }) => {
+    const q = new URLSearchParams()
+    if (params?.status) q.set('status', params.status)
+    if (params?.category) q.set('category', params.category)
+    if (params?.search) q.set('search', params.search)
+    const qs = q.toString()
+    return request<Agent[]>(`/api/v1/agents${qs ? `?${qs}` : ''}`)
+  },
+
+  agent: (id: string) => request<Agent>(`/api/v1/agents/${id}`),
+
+  draftAgentFromPrompt: (prompt: string, category?: string) =>
+    request<AgentPromptResult>('/api/v1/agents/draft-from-prompt', {
+      method: 'POST',
+      body: JSON.stringify({ prompt, category }),
+    }),
+
+  createAgent: (payload: Partial<Agent>) =>
+    request<Agent>('/api/v1/agents', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  updateAgent: (id: string, payload: Partial<Agent>) =>
+    request<Agent>(`/api/v1/agents/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }),
+
+  deleteAgent: (id: string) =>
+    request<{ status: string; agent_id: string }>(`/api/v1/agents/${id}`, {
+      method: 'DELETE',
+    }),
+
+  validateAgent: (id: string) =>
+    request<{ valid: boolean; errors: string[] }>(`/api/v1/agents/${id}/validate`, {
+      method: 'POST',
+    }),
+
+  publishAgent: (id: string) =>
+    request<Agent>(`/api/v1/agents/${id}/publish`, {
+      method: 'POST',
+    }),
+
+  pauseAgent: (id: string) =>
+    request<Agent>(`/api/v1/agents/${id}/pause`, {
+      method: 'POST',
+    }),
+
+  testAgent: (id: string, payload: { prompt?: string; submission_id?: string; query?: string; inputs?: Record<string, any> }) =>
+    request<AgentRun>(`/api/v1/agents/${id}/test`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  executeAgent: (id: string, payload: { inputs?: Record<string, any>; trigger_type?: string; session_id?: string }) =>
+    request<AgentRun>(`/api/v1/agents/${id}/execute`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  agentRuns: (agentId: string) =>
+    request<AgentRun[]>(`/api/v1/agents/${agentId}/runs`),
+
+  allAgentRuns: (params?: { agent_id?: string; status?: string; limit?: number }) => {
+    const q = new URLSearchParams()
+    if (params?.agent_id) q.set('agent_id', params.agent_id)
+    if (params?.status) q.set('status', params.status)
+    if (params?.limit) q.set('limit', String(params.limit))
+    const qs = q.toString()
+    return request<AgentRun[]>(`/api/v1/agent-runs${qs ? `?${qs}` : ''}`)
+  },
+
+  agentRun: (runId: string) =>
+    request<AgentRun>(`/api/v1/agent-runs/${runId}`),
+
+  cancelAgentRun: (runId: string) =>
+    request<AgentRun>(`/api/v1/agent-runs/${runId}/cancel`, {
+      method: 'POST',
+    }),
+
+  approveAgentRun: (runId: string, decision: 'approved' | 'rejected', note?: string) =>
+    request<AgentRun>(`/api/v1/agent-runs/${runId}/approve`, {
+      method: 'POST',
+      body: JSON.stringify({ decision, note: note || '' }),
+    }),
+
+  agentTools: () => request<AgentTool[]>('/api/v1/agent-tools'),
+
+  agentTemplates: () => request<AgentTemplate[]>('/api/v1/agent-templates'),
+
+  instantiateTemplate: (templateId: string) =>
+    request<Agent>(`/api/v1/agent-templates/${templateId}/instantiate`, {
+      method: 'POST',
+    }),
+
+  navCounts: () => request<NavCounts>('/api/v1/nav/counts'),
+
+  submissionsSummary: () => request<SubmissionsSummary>('/api/v1/submissions/summary'),
+
+  runReviewCrew: (submissionId: string) =>
+    request<any>(`/api/v1/submissions/${submissionId}/review-crew`, {
+      method: 'POST',
+    }),
+
+  assistant: {
+    status: () => request<AssistantStatus>('/api/v1/assistant/status'),
+
+    createConversation: (data: { title?: string; context_route?: string; resource_type?: string; resource_id?: string }) =>
+      request<AssistantConversation>('/api/v1/assistant/conversations', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+
+    listConversations: () => request<AssistantConversation[]>('/api/v1/assistant/conversations'),
+
+    getConversation: (convId: string) =>
+      request<AssistantConversation>(`/api/v1/assistant/conversations/${convId}`),
+
+    sendMessage: (convId: string, content: string, context_route?: string, resource_id?: string) =>
+      request<{ user_message: AssistantMessage; assistant_message: AssistantMessage }>(
+        `/api/v1/assistant/conversations/${convId}/messages`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ content, context_route, resource_id }),
+        },
+      ),
+
+    submitFeedback: (messageId: string, rating: number, comment?: string) =>
+      request<{ status: string; message: string }>(`/api/v1/assistant/messages/${messageId}/feedback`, {
+        method: 'POST',
+        body: JSON.stringify({ rating, comment }),
+      }),
+
+    getSuggestions: (route: string) =>
+      request<string[]>(`/api/v1/assistant/suggestions?route=${encodeURIComponent(route)}`),
+
+    confirmAction: (draftId: string, confirmed: boolean = true, note?: string) =>
+      request<{ status: string; message: string }>(`/api/v1/assistant/actions/${draftId}/confirm`, {
+        method: 'POST',
+        body: JSON.stringify({ confirmed, note }),
+      }),
+  },
+
+    fetchAssetBlobUrl: async (id: string): Promise<string | null> => {
     try {
       const res = await fetch(`${API_BASE}/assets/${id}/file`, { headers: authHeaders() })
       if (!res.ok) return null

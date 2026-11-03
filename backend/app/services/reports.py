@@ -9,16 +9,16 @@ import csv
 import io
 from datetime import datetime, timezone
 from typing import List, Optional
-from reportlab.lib import colors
-from reportlab.lib.pagesizes import letter
-from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-
 from app.models import Finding, ReviewDecision, Submission
 
 
 def generate_submission_compliance_pdf(submission: Submission) -> bytes:
     """Generates an official PDF compliance certificate for a submission version."""
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import letter
+    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+
     buf = io.BytesIO()
     doc = SimpleDocTemplate(
         buf,

@@ -636,6 +636,96 @@ def main() -> None:
         db.commit()
 
         # ------------------------------------------------------------------
+        # Agent Studio: Agents & Sample Runs
+        # ------------------------------------------------------------------
+        from app.agents.templates import TEMPLATES
+        from app.agents.models import Agent, AgentRun, AgentRunStep
+
+        for tmpl in TEMPLATES:
+            # Seed each template as an agent for David Kim in PureGlow
+            status = "published" if "reviewer" in tmpl["id"] or "research" in tmpl["id"] or "audit" in tmpl["id"] else ("paused" if "sentinel" in tmpl["id"] else "draft")
+            ag = Agent(
+                id=f"ag-{tmpl['id'].replace('template_', '')[:18]}",
+                workspace="PureGlow",
+                created_by_id=david.id,
+                name=tmpl["name"],
+                slug=tmpl["id"].replace("template_", "").replace("_", "-"),
+                description=tmpl["description"],
+                category=tmpl["category"],
+                icon=tmpl["icon"],
+                status=status,
+                current_version=1,
+                published_version=1 if status == "published" else None,
+                visibility="workspace",
+                instructions=tmpl["instructions"],
+                tools=tmpl["tools"],
+                input_schema=tmpl["input_schema"],
+                output_schema=tmpl["output_schema"],
+                memory_config={"enabled": False, "scope": "session"},
+                execution_limits=tmpl["execution_limits"],
+                approval_policy=tmpl["approval_policy"],
+                workflow=tmpl["workflow"],
+                created_at=now() - timedelta(days=5),
+                updated_at=now() - timedelta(days=1),
+            )
+            db.add(ag)
+
+            # Add sample successful run for published agents
+            if status == "published":
+                run = AgentRun(
+                    id=f"run-{ag.id[:14]}",
+                    agent_id=ag.id,
+                    agent_version=1,
+                    workspace="PureGlow",
+                    user_id=david.id,
+                    trigger_type="manual",
+                    status="completed",
+                    inputs={"submission_id": "sub-1", "query": "Check claims"},
+                    outputs={"compliance_status": "reviewed", "findings_count": 1},
+                    started_at=now() - timedelta(hours=3),
+                    finished_at=now() - timedelta(hours=3, seconds=-2),
+                    duration_ms=1840,
+                    tokens_used=420,
+                    tool_call_count=len(tmpl["tools"]),
+                    budget=tmpl["execution_limits"],
+                    created_at=now() - timedelta(hours=3),
+                )
+                db.add(run)
+
+                step1 = AgentRunStep(
+                    id=f"step-1-{run.id[:10]}",
+                    run_id=run.id,
+                    step_number=1,
+                    node_id="node_trigger",
+                    node_type="trigger",
+                    node_label="Manual Trigger",
+                    status="completed",
+                    inputs=run.inputs,
+                    outputs={"status": "triggered"},
+                    explanation="Triggered by manager David Kim.",
+                    ms=12,
+                    created_at=run.started_at,
+                )
+                step2 = AgentRunStep(
+                    id=f"step-2-{run.id[:10]}",
+                    run_id=run.id,
+                    step_number=2,
+                    node_id="node_get_sub",
+                    node_type="tool",
+                    node_label="Get Submission",
+                    status="completed",
+                    tool_id="get_submission",
+                    inputs=run.inputs,
+                    outputs={"id": "sub-1", "title": "Radiant Dew Cream Instagram Ad"},
+                    explanation="Retrieved submission 'Radiant Dew Cream Instagram Ad'.",
+                    ms=120,
+                    created_at=run.started_at + timedelta(seconds=1),
+                )
+                db.add_all([step1, step2])
+
+        db.commit()
+
+        # ------------------------------------------------------------------
         # Summary
         # ------------------------------------------------------------------
         print(

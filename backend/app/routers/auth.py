@@ -2,6 +2,8 @@
 
 Responses are plain dicts with camelCase keys, matching the frontend contract.
 """
+import logging
+import time
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -9,18 +11,31 @@ from .. import models
 from ..db import get_db
 from ..deps import get_current_user
 from ..schemas import LoginRequest
-from ..security import create_token
+from ..security import create_token, verify_password
 from ..services import auth
-
 from ..services.audit import record
+
+logger = logging.getLogger("uvicorn.error")
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/login")
 def login(body: LoginRequest, db: Session = Depends(get_db)) -> dict:
-    user = auth.authenticate(db, body.email, body.password)
-    if not user:
+    t_start = time.perf_counter()
+    
+    # 1. DB User Lookup
+    t_db_start = time.perf_counter()
+    normalized = (body.email or "").strip().lower()
+    user = db.query(models.User).filter(models.User.email == normalized).first()
+    t_db_elapsed = (time.perf_counter() - t_db_start) * 1000
+
+    # 2. Password Check
+    t_pw_start = time.perf_counter()
+    valid_password = bool(user and user.password_hash and verify_password(body.password, user.password_hash))
+    t_pw_elapsed = (time.perf_counter() - t_pw_start) * 1000
+
+    if not user or not valid_password:
         record(
             db,
             action="Security Event",
@@ -34,10 +49,23 @@ def login(body: LoginRequest, db: Session = Depends(get_db)) -> dict:
             entity_id="",
         )
         db.commit()
+        t_total_elapsed = (time.perf_counter() - t_start) * 1000
+        logger.warning(
+            f"[AUTH TIMING] FAILED login for '{body.email}' | "
+            f"Total: {t_total_elapsed:.1f}ms | DB: {t_db_elapsed:.1f}ms | PW_Check: {t_pw_elapsed:.1f}ms"
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",
         )
+
+    # 3. Token Generation
+    t_tok_start = time.perf_counter()
+    token = create_token(user.id, user.role)
+    t_tok_elapsed = (time.perf_counter() - t_tok_start) * 1000
+
+    # 4. Audit Log Write
+    t_audit_start = time.perf_counter()
     record(
         db,
         action="Login",
@@ -51,7 +79,18 @@ def login(body: LoginRequest, db: Session = Depends(get_db)) -> dict:
         entity_id=user.id,
     )
     db.commit()
-    token = create_token(user.id, user.role)
+    t_audit_elapsed = (time.perf_counter() - t_audit_start) * 1000
+
+    t_total_elapsed = (time.perf_counter() - t_start) * 1000
+    logger.info(
+        f"[AUTH TIMING] SUCCESS login for '{user.email}' ({user.role}) | "
+        f"Total: {t_total_elapsed:.1f}ms | "
+        f"DB Lookup: {t_db_elapsed:.1f}ms | "
+        f"Password Verify: {t_pw_elapsed:.1f}ms | "
+        f"Token: {t_tok_elapsed:.1f}ms | "
+        f"Audit Write: {t_audit_elapsed:.1f}ms"
+    )
+
     return {"token": token, "user": auth.get_user_out(user)}
 
 

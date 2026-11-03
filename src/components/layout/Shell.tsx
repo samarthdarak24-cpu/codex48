@@ -2,30 +2,44 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-do
 import { useEffect, useState } from 'react'
 import {
   ArrowLeft,
+  ArrowLeftRight,
+  Loader2,
+  BarChart3,
   Bell,
   BookOpen,
+  Bot,
+  CheckCircle2,
   ChevronDown,
   ChevronRight,
   ClipboardCheck,
   Clock,
   FilePlus2,
+  FileText,
   FlaskConical,
+  History,
+  Image as ImageIcon,
   LayoutDashboard,
   ListChecks,
   LogOut,
   Menu,
   MessageSquare,
   Search,
+  ShieldAlert,
   ShieldCheck,
+  Sparkles,
   Users,
+  Workflow,
   X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { api } from '@/services/api'
 import { useAuth } from '@/context/AuthContext'
 import { useData } from '@/context/DataContext'
 import { exceptionStats, awaitingDecision } from '@/lib/selectors'
 import { Avatar } from '@/components/ui/Misc'
 import { CountBubble } from '@/components/ui/Badge'
+import { AssistantWidget } from '@/components/assistant/AssistantWidget'
+import type { NavCounts } from '@/lib/types'
 
 /* ------------------------------------------------------------------ */
 /* Brand                                                               */
@@ -89,31 +103,57 @@ interface NavItem {
 function useNavItems(): { items: NavItem[]; footer: string } {
   const { user } = useAuth()
   const { submissions, exceptions } = useData()
+  const [navCounts, setNavCounts] = useState<NavCounts | null>(null)
+
+  useEffect(() => {
+    api.navCounts().then(setNavCounts).catch(() => {})
+  }, [submissions, exceptions, user?.id])
 
   if (user?.role === 'manager') {
-    const pending = awaitingDecision(submissions).length
-    const openExceptions = exceptionStats(exceptions).pending + exceptionStats(exceptions).inReview
+    const pending = navCounts?.manager.review_queue ?? awaitingDecision(submissions).length
+    const openExceptions = navCounts?.manager.exceptions ?? (exceptionStats(exceptions).pending + exceptionStats(exceptions).inReview)
+    const sentinelCount = navCounts?.manager.sentinel ?? 2
+
     return {
       footer: 'Smarter brand decisions.',
       items: [
         { to: '/manager/overview', label: 'Overview', icon: LayoutDashboard },
         { to: '/manager/queue', label: 'Review Queue', icon: ListChecks, badge: pending, badgeTone: 'danger' },
+        { to: '/manager/submissions', label: 'All Submissions', icon: FileText },
         { to: '/manager/guidelines', label: 'Guidelines & Rules', icon: BookOpen },
+        { to: '/manager/agent-studio', label: 'Agent Studio', icon: Sparkles },
+        { to: '/manager/agents', label: 'My Agents', icon: Bot },
+        { to: '/manager/agent-runs', label: 'Agent Executions', icon: History },
         { to: '/manager/exceptions', label: 'Exceptions', icon: Clock, badge: openExceptions, badgeTone: 'warn' },
         { to: '/manager/sandbox', label: 'Rule Impact Sandbox', icon: FlaskConical },
+        { to: '/manager/sentinel', label: 'Sentinel Monitoring', icon: ShieldAlert, badge: sentinelCount, badgeTone: 'warn' },
+        { to: '/manager/assets', label: 'Asset Library', icon: ImageIcon },
+        { to: '/manager/analytics', label: 'Analytics & Health', icon: BarChart3 },
         { to: '/manager/audit', label: 'Audit History', icon: ShieldCheck },
       ],
     }
   }
+
+  const mySubs = navCounts?.creator.my_submissions ?? submissions.length
+  const myAiReview = navCounts?.creator.ai_review ?? 1
+  const myExceptions = navCounts?.creator.exception_requests ?? 0
+  const mySentinel = navCounts?.creator.sentinel_tasks ?? 2
+  const myApproved = navCounts?.creator.approved_content ?? 1
+  const unreadNotifs = navCounts?.unread_notifications ?? 0
 
   return {
     footer: 'Better content. Stronger brands.',
     items: [
       { to: '/app/overview', label: 'Overview', icon: LayoutDashboard },
       { to: '/app/new', label: 'New Content', icon: FilePlus2 },
-      { to: '/app/submissions', label: 'My Submissions', icon: ClipboardCheck },
+      { to: '/app/submissions', label: 'My Submissions', icon: ClipboardCheck, badge: mySubs },
+      { to: '/app/feedback', label: 'AI Review', icon: MessageSquare, badge: myAiReview },
       { to: '/app/guidelines', label: 'Brand Guidelines', icon: BookOpen },
-      { to: '/app/feedback', label: 'Review Feedback', icon: MessageSquare },
+      { to: '/app/exceptions', label: 'Exception Requests', icon: Clock, badge: myExceptions, badgeTone: 'warn' },
+      { to: '/app/sentinel', label: 'Sentinel Tasks', icon: ShieldAlert, badge: mySentinel, badgeTone: 'warn' },
+      { to: '/app/approved', label: 'Approved Content', icon: CheckCircle2, badge: myApproved },
+      { to: '/app/notifications', label: 'Notifications', icon: Bell, badge: unreadNotifs, badgeTone: 'danger' },
+      { to: '/app/ai-assistants', label: 'My AI Assistants', icon: Bot },
     ],
   }
 }
@@ -186,11 +226,26 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
 /* ------------------------------------------------------------------ */
 
 function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
-  const { user, logout } = useAuth()
+  const { user, logout, switchPersona } = useAuth()
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
   const [notifOpen, setNotifOpen] = useState(false)
   const [query, setQuery] = useState('')
+  const [switching, setSwitching] = useState(false)
+
+  async function handleSwitchPersona() {
+    if (switching) return
+    try {
+      setSwitching(true)
+      const nextUser = await switchPersona()
+      setMenuOpen(false)
+      navigate(nextUser.role === 'manager' ? '/manager/overview' : '/app/overview', { replace: true })
+    } catch (err) {
+      console.error('Failed to switch persona:', err)
+    } finally {
+      setSwitching(false)
+    }
+  }
 
   useEffect(() => {
     const close = () => {
@@ -236,7 +291,29 @@ function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
         />
       </form>
 
-      <div className="ml-auto flex items-center gap-1.5">
+      <div className="ml-auto flex items-center gap-2">
+        {/* Instant Persona Switcher Button */}
+        <button
+          type="button"
+          onClick={handleSwitchPersona}
+          disabled={switching}
+          aria-label="Switch Persona"
+          className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300 bg-emerald-50/90 px-3 py-1 text-xs font-semibold text-emerald-800 shadow-xs transition hover:bg-emerald-100 hover:border-emerald-400 disabled:opacity-50"
+          title={`Instant switch to ${user?.role === 'manager' ? 'Emily Carter (Content Creator)' : 'David Kim (Brand Manager)'}`}
+        >
+          {switching ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-700" />
+          ) : (
+            <ArrowLeftRight className="h-3.5 w-3.5 text-emerald-700" />
+          )}
+          <span className="hidden sm:inline font-medium">
+            Switch to {user?.role === 'manager' ? 'Creator (Emily)' : 'Manager (David)'}
+          </span>
+          <span className="sm:hidden font-medium">
+            {user?.role === 'manager' ? 'Creator' : 'Manager'}
+          </span>
+        </button>
+
         <div className="relative">
           <button
             onClick={(e) => {
@@ -310,12 +387,18 @@ function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
                 Brand guidelines
               </button>
               <button
+                type="button"
                 role="menuitem"
-                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-base text-ink-600 transition-colors hover:bg-[#F5F9FE]"
-                onClick={() => navigate('/login')}
+                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-50 disabled:opacity-50"
+                onClick={handleSwitchPersona}
+                disabled={switching}
               >
-                <Users className="h-3.5 w-3.5 text-muted" />
-                Switch workspace
+                {switching ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-600" />
+                ) : (
+                  <ArrowLeftRight className="h-3.5 w-3.5 text-emerald-600" />
+                )}
+                <span>Switch to {user?.role === 'manager' ? 'Emily Carter (Creator)' : 'David Kim (Manager)'}</span>
               </button>
               <div className="my-1 h-px bg-line" />
               <button
@@ -423,6 +506,8 @@ export function DashboardLayout() {
           </div>
         </main>
       </div>
+
+      <AssistantWidget />
     </div>
   )
 }
