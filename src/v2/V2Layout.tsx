@@ -16,12 +16,28 @@ export function V2Layout() {
   const reduce = useReducedMotion()
   const [mobileNav, setMobileNav] = useState(false)
   const [theme, setTheme] = useState<'night' | 'day'>(() => {
-    if (typeof window === 'undefined') return 'night'
-    return window.localStorage.getItem('precedent-theme') === 'day' ? 'day' : 'night'
+    if (typeof window === 'undefined') return 'day'
+    const stored = window.localStorage.getItem('precedent-theme') || window.localStorage.getItem('theme')
+    if (stored === 'night' || stored === 'dark') return 'night'
+    return 'day'
   })
 
   useEffect(() => {
     window.localStorage.setItem('precedent-theme', theme)
+    window.localStorage.setItem('theme', theme)
+    const isDark = theme === 'night'
+    const root = document.documentElement
+    if (isDark) {
+      root.classList.add('dark', 'theme-night')
+      root.classList.remove('theme-day')
+      document.body.style.backgroundColor = '#111618'
+      document.body.style.color = '#F0F5F7'
+    } else {
+      root.classList.remove('dark', 'theme-night')
+      root.classList.add('theme-day')
+      document.body.style.backgroundColor = '#FAF7EF'
+      document.body.style.color = '#23282A'
+    }
   }, [theme])
 
   return (

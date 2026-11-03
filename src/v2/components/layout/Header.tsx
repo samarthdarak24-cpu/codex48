@@ -133,12 +133,21 @@ export const Header: React.FC<{
           <button
             type="button"
             onClick={onThemeChange}
-            className="theme-toggle inline-flex items-center gap-1.5 rounded-xl border border-line px-2.5 py-2 text-[11px] font-semibold text-muted transition-all hover:border-brand-300 hover:text-brand-700"
-            aria-label={`Switch to ${theme === 'night' ? 'day' : 'night'} mode`}
-            title={`Switch to ${theme === 'night' ? 'day' : 'night'} mode`}
+            className="theme-toggle inline-flex items-center gap-1.5 rounded-xl border border-line px-2.5 py-1.5 text-[11px] font-semibold transition-all hover:scale-105 active:scale-95 cursor-pointer shadow-xs"
+            aria-label={theme === 'night' ? 'Switch to Light mode' : 'Switch to Dark mode'}
+            title={theme === 'night' ? 'Switch to Light mode' : 'Switch to Dark mode'}
           >
-            {theme === 'night' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-            <span className="hidden md:inline">{theme === 'night' ? 'Day' : 'Night'}</span>
+            {theme === 'night' ? (
+              <>
+                <Sun className="h-3.5 w-3.5 text-amber-400" />
+                <span className="hidden sm:inline text-amber-200">Light</span>
+              </>
+            ) : (
+              <>
+                <Moon className="h-3.5 w-3.5 text-muted-light" />
+                <span className="hidden sm:inline text-ink-700">Dark</span>
+              </>
+            )}
           </button>
 
           {/* Divider */}
