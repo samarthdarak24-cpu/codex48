@@ -291,9 +291,7 @@ export function TestPlaygroundModal({ isOpen, agent, onClose, onPublish }: TestP
                       )}
 
                       {step.outputs && Object.keys(step.outputs).length > 0 && (
-                        <div className="mt-1 rounded-lg border border-line/60 bg-white p-2 font-mono text-[10px] text-ink/70 max-h-24 overflow-y-auto">
-                          {JSON.stringify(step.outputs, null, 2)}
-                        </div>
+                        <StepOutputViewer outputs={step.outputs} />
                       )}
                     </div>
                   ))}
@@ -303,9 +301,7 @@ export function TestPlaygroundModal({ isOpen, agent, onClose, onPublish }: TestP
                 {currentRun.status === 'completed' && currentRun.outputs && (
                   <div className="rounded-xl border border-brand-200 bg-brand-50/60 p-3 space-y-1.5">
                     <span className="font-semibold text-brand-900 text-xs">Final Result Output:</span>
-                    <pre className="rounded-lg bg-white p-2 text-[10px] font-mono text-ink overflow-x-auto border border-brand-100">
-                      {JSON.stringify(currentRun.outputs, null, 2)}
-                    </pre>
+                    <StepOutputViewer outputs={currentRun.outputs} />
                   </div>
                 )}
               </div>
@@ -326,3 +322,128 @@ export function TestPlaygroundModal({ isOpen, agent, onClose, onPublish }: TestP
   )
 }
 
+
+/* ------------------------------------------------------------------ */
+/* Structured Step Output Viewer (Clean Formatted & Raw JSON Toggle)   */
+/* ------------------------------------------------------------------ */
+
+function StepOutputViewer({ outputs }: { outputs: Record<string, any> }) {
+  const [showJson, setShowJson] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  if (!outputs || Object.keys(outputs).length === 0) return null
+
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    navigator.clipboard.writeText(JSON.stringify(outputs, null, 2))
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
+  }
+
+  // Detect special output patterns
+  const rulesList = Array.isArray(outputs.rules) ? outputs.rules : null
+  const subId = outputs.submission_id || outputs.target_submission_id || outputs.id
+  const copyText = outputs.copy || outputs.excerpt || outputs.text
+  const findingsCount = outputs.findings_count !== undefined ? outputs.findings_count : (Array.isArray(outputs.findings) ? outputs.findings.length : null)
+  const statusVal = outputs.status || outputs.action || outputs.trigger
+
+  return (
+    <div className="mt-2 rounded-lg border border-line/70 bg-white p-2.5 space-y-2">
+      <div className="flex items-center justify-between text-[10px]">
+        <span className="font-bold text-ink-700 uppercase tracking-wider">Step Output Data</span>
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => setShowJson(!showJson)}
+            className="rounded border border-brand-200 bg-brand-50 px-2 py-0.5 font-semibold text-brand-700 hover:bg-brand-100 transition cursor-pointer"
+          >
+            {showJson ? 'Formatted View' : '{ } JSON'}
+          </button>
+          {showJson && (
+            <button
+              type="button"
+              onClick={handleCopy}
+              className="rounded border border-line bg-stone-50 px-1.5 py-0.5 text-muted hover:text-ink transition cursor-pointer"
+            >
+              {copied ? 'Copied' : 'Copy'}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {showJson ? (
+        <pre className="rounded bg-stone-900 p-2.5 font-mono text-[9.5px] text-emerald-300 max-h-36 overflow-auto whitespace-pre-wrap leading-relaxed shadow-inner">
+          {JSON.stringify(outputs, null, 2)}
+        </pre>
+      ) : (
+        <div className="space-y-2 text-2xs">
+          {/* 1. Rules list */}
+          {rulesList && (
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between font-semibold text-ink">
+                <span>Rules Retrieved:</span>
+                <span className="rounded bg-brand-50 text-brand-700 font-bold px-1.5 py-0.5 text-[9.5px]">
+                  {rulesList.length} active rules
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-1 max-h-28 overflow-y-auto pt-0.5">
+                {rulesList.map((r: any, idx: number) => (
+                  <span
+                    key={r.id || idx}
+                    className="inline-flex items-center gap-1 rounded border border-line bg-[#FAF7EF] px-1.5 py-0.5 text-[9.5px] text-ink"
+                    title={r.title || r.summary || ''}
+                  >
+                    <span className="font-bold text-brand-700">{r.code || `Rule #${idx + 1}`}</span>
+                    <span className="truncate max-w-[150px] text-muted">{r.title || r.summary || ''}</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 2. Target Submission / Copy Info */}
+          {(subId || copyText) && (
+            <div className="rounded-lg bg-[#FAF9F5] p-2 border border-line/60 space-y-1.5">
+              <div className="flex flex-wrap items-center justify-between gap-1 text-[10px]">
+                {subId && (
+                  <span className="font-mono text-muted">
+                    ID: <span className="font-semibold text-ink">{subId}</span>
+                  </span>
+                )}
+                {statusVal && (
+                  <span className="rounded bg-brand-100 text-brand-800 font-bold px-1.5 py-0.5">
+                    {String(statusVal)}
+                  </span>
+                )}
+                {findingsCount !== null && (
+                  <span className="text-amber-700 font-semibold">
+                    {findingsCount} findings checked
+                  </span>
+                )}
+              </div>
+              {copyText && (
+                <div className="text-[10px] text-ink-700 bg-white p-1.5 rounded border border-line/40 line-clamp-2 italic">
+                  "{copyText}"
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 3. General parameters fallback if not rules/copy */}
+          {!rulesList && !subId && !copyText && (
+            <div className="space-y-1 divide-y divide-line/40">
+              {Object.entries(outputs).map(([key, val]) => (
+                <div key={key} className="flex items-start justify-between gap-2 pt-1 first:pt-0 text-[10px]">
+                  <span className="text-muted font-medium capitalize">{key.replace(/_/g, ' ')}:</span>
+                  <span className="font-semibold text-ink text-right truncate max-w-[220px]">
+                    {typeof val === 'object' && val !== null ? JSON.stringify(val) : String(val)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
