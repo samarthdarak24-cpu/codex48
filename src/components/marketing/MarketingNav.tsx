@@ -46,7 +46,7 @@ export function MarketingNav() {
           scrolled ? 'border-b border-ink/[0.07] bg-white/85 backdrop-blur-xl' : 'border-b border-transparent bg-cream/70 backdrop-blur-sm',
         )}
       >
-        <div className="mkt-container flex h-[68px] items-center justify-between gap-6">
+        <div className="mkt-container flex h-[68px] items-center justify-between gap-3 sm:gap-6">
           <Link to="/" className="flex shrink-0 items-center gap-2.5" aria-label="Precedent home">
             <BrandMark size={26} />
             <span className="text-[17px] font-bold tracking-[-0.025em] text-ink">Precedent</span>

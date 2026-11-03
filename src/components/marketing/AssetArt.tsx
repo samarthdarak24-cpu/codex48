@@ -31,7 +31,7 @@ export const ASSETS: AssetVariant[] = [
     id: 'summer',
     brand: 'PureGlow',
     kicker: 'Skincare',
-    headline: 'This summer,\n50% off',
+    headline: 'This summer,',
     from: '#EAF6C9',
     to: '#B9DE7E',
     ink: '#1F3D12',
