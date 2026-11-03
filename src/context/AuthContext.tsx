@@ -26,7 +26,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // a stale dashboard whose actions all fail with "User not found".
   useEffect(() => {
     let cancelled = false
-    const raw = sessionStorage.getItem(STORAGE_KEY)
+    const raw = sessionStorage.getItem(STORAGE_KEY) || localStorage.getItem(STORAGE_KEY)
     if (!raw) {
       setStatus('anonymous')
       return
@@ -39,10 +39,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     if (!parsed?.token || !parsed?.user?.id) {
       sessionStorage.removeItem(STORAGE_KEY)
+      localStorage.removeItem(STORAGE_KEY)
       setStatus('anonymous')
       return
     }
     setSession(parsed)
+    setUser(parsed.user)
+    setStatus('authenticated')
     authApi
       .me()
       .then((fresh) => {
@@ -51,12 +54,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(fresh)
         setStatus('authenticated')
       })
-      .catch(() => {
+      .catch((err: any) => {
         if (cancelled) return
-        setSession(null)
-        sessionStorage.removeItem(STORAGE_KEY)
-        setUser(null)
-        setStatus('anonymous')
+        if (err?.status === 401) {
+          setSession(null)
+          sessionStorage.removeItem(STORAGE_KEY)
+          localStorage.removeItem(STORAGE_KEY)
+          setUser(null)
+          setStatus('anonymous')
+        } else {
+          console.warn('Backend verification delayed; preserving active session:', err)
+          setUser(parsed!.user)
+          setStatus('authenticated')
+        }
       })
     return () => {
       cancelled = true

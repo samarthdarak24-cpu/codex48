@@ -53,13 +53,13 @@ type SessionRecord = { token: string; user: User }
 
 let session: SessionRecord | null = null
 try {
-  const raw = sessionStorage.getItem(SESSION_KEY)
+  const raw = sessionStorage.getItem(SESSION_KEY) || localStorage.getItem(SESSION_KEY)
   if (raw) session = JSON.parse(raw) as SessionRecord
 } catch {
   session = null
 }
 
-/** Update the in-memory token and persist/remove it in sessionStorage. */
+/** Update the in-memory token and persist/remove it in sessionStorage and localStorage. */
 export function getSession(): SessionRecord | null {
   return session
 }
@@ -67,8 +67,13 @@ export function getSession(): SessionRecord | null {
 export function setSession(next: SessionRecord | null): void {
   session = next
   try {
-    if (next) sessionStorage.setItem(SESSION_KEY, JSON.stringify(next))
-    else sessionStorage.removeItem(SESSION_KEY)
+    if (next) {
+      sessionStorage.setItem(SESSION_KEY, JSON.stringify(next))
+      localStorage.setItem(SESSION_KEY, JSON.stringify(next))
+    } else {
+      sessionStorage.removeItem(SESSION_KEY)
+      localStorage.removeItem(SESSION_KEY)
+    }
   } catch {
     /* storage unavailable — keep the in-memory value */
   }
@@ -82,6 +87,7 @@ function clearSessionAndNotify(): void {
   setSession(null)
   try {
     sessionStorage.removeItem(SESSION_KEY)
+    localStorage.removeItem(SESSION_KEY)
   } catch {
     /* storage unavailable */
   }

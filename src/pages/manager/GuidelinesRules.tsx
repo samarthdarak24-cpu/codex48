@@ -333,6 +333,9 @@ export default function GuidelinesRules() {
       setDocDesc('')
       setDocFile(null)
       setDocRawFile(null)
+    } catch (err) {
+      console.error('Document upload error:', err)
+      toast.error('Upload Failed', err instanceof Error ? err.message : 'Could not upload document.')
     } finally {
       setBusy(false)
     }
