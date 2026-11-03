@@ -638,88 +638,72 @@ def main() -> None:
         # ------------------------------------------------------------------
         # Agent Studio: Agents & Sample Runs
         # ------------------------------------------------------------------
-        from app.agents.templates import TEMPLATES
-        from app.agents.models import Agent, AgentRun, AgentRunStep
+        from app.agents import templates
+        from app.agents.models import StudioAgent, StudioAgentRun, StudioAgentRunStep
+        from app.routers.agents import _create_agent
 
-        for tmpl in TEMPLATES:
+        for tmpl in templates.TEMPLATE_DEFS:
+            spec = templates.build_spec_from_template(tmpl["id"])
+            if spec is None:
+                continue
+
             # Seed each template as an agent for David Kim in PureGlow
             status = "published" if "reviewer" in tmpl["id"] or "research" in tmpl["id"] or "audit" in tmpl["id"] else ("paused" if "sentinel" in tmpl["id"] else "draft")
-            ag = Agent(
-                id=f"ag-{tmpl['id'].replace('template_', '')[:18]}",
-                workspace="PureGlow",
-                created_by_id=david.id,
-                name=tmpl["name"],
-                slug=tmpl["id"].replace("template_", "").replace("_", "-"),
-                description=tmpl["description"],
-                category=tmpl["category"],
-                icon=tmpl["icon"],
-                status=status,
-                current_version=1,
-                published_version=1 if status == "published" else None,
-                visibility="workspace",
-                instructions=tmpl["instructions"],
-                tools=tmpl["tools"],
-                input_schema=tmpl["input_schema"],
-                output_schema=tmpl["output_schema"],
-                memory_config={"enabled": False, "scope": "session"},
-                execution_limits=tmpl["execution_limits"],
-                approval_policy=tmpl["approval_policy"],
-                workflow=tmpl["workflow"],
-                created_at=now() - timedelta(days=5),
-                updated_at=now() - timedelta(days=1),
-            )
-            db.add(ag)
+            ag = _create_agent(db, spec, david, status_value=status)
 
             # Add sample successful run for published agents
             if status == "published":
-                run = AgentRun(
+                run = StudioAgentRun(
                     id=f"run-{ag.id[:14]}",
                     agent_id=ag.id,
-                    agent_version=1,
+                    agent_version_id=ag.published_version_id,
                     workspace="PureGlow",
-                    user_id=david.id,
+                    triggered_by=david.id,
                     trigger_type="manual",
                     status="completed",
-                    inputs={"submission_id": "sub-1", "query": "Check claims"},
-                    outputs={"compliance_status": "reviewed", "findings_count": 1},
+                    input={"submission_id": "sub-1", "query": "Check claims"},
+                    output={"compliance_status": "reviewed", "findings_count": 1},
                     started_at=now() - timedelta(hours=3),
                     finished_at=now() - timedelta(hours=3, seconds=-2),
                     duration_ms=1840,
-                    tokens_used=420,
+                    token_usage={"total_tokens": 420},
+                    step_count=2,
                     tool_call_count=len(tmpl["tools"]),
-                    budget=tmpl["execution_limits"],
                     created_at=now() - timedelta(hours=3),
                 )
                 db.add(run)
+                db.flush()
 
-                step1 = AgentRunStep(
+                step1 = StudioAgentRunStep(
                     id=f"step-1-{run.id[:10]}",
                     run_id=run.id,
-                    step_number=1,
+                    sequence=1,
                     node_id="node_trigger",
                     node_type="trigger",
-                    node_label="Manual Trigger",
+                    node_subtype="manual",
+                    label="Manual Trigger",
                     status="completed",
-                    inputs=run.inputs,
-                    outputs={"status": "triggered"},
-                    explanation="Triggered by manager David Kim.",
-                    ms=12,
-                    created_at=run.started_at,
+                    input=run.input,
+                    output={"status": "triggered"},
+                    started_at=run.started_at,
+                    finished_at=run.started_at + timedelta(milliseconds=12),
+                    duration_ms=12,
                 )
-                step2 = AgentRunStep(
+                step2 = StudioAgentRunStep(
                     id=f"step-2-{run.id[:10]}",
                     run_id=run.id,
-                    step_number=2,
+                    sequence=2,
                     node_id="node_get_sub",
                     node_type="tool",
-                    node_label="Get Submission",
+                    node_subtype="get_submission",
+                    label="Get Submission",
                     status="completed",
                     tool_id="get_submission",
-                    inputs=run.inputs,
-                    outputs={"id": "sub-1", "title": "Radiant Dew Cream Instagram Ad"},
-                    explanation="Retrieved submission 'Radiant Dew Cream Instagram Ad'.",
-                    ms=120,
-                    created_at=run.started_at + timedelta(seconds=1),
+                    input=run.input,
+                    output={"id": "sub-1", "title": "Radiant Dew Cream Instagram Ad"},
+                    started_at=run.started_at + timedelta(seconds=1),
+                    finished_at=run.started_at + timedelta(seconds=1, milliseconds=120),
+                    duration_ms=120,
                 )
                 db.add_all([step1, step2])
 

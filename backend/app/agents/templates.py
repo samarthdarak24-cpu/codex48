@@ -310,3 +310,8 @@ def build_spec_from_template(
         approval_policy=ApprovalPolicy(human_approval_required_for_write_actions=True),
         execution_limits=ExecutionLimits(max_steps=12, timeout_seconds=120),
     )
+
+
+# Backward compatibility alias
+TEMPLATES = TEMPLATE_DEFS
+

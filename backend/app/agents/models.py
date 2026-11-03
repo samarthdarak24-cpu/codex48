@@ -235,3 +235,16 @@ class StudioAgentTrigger(Base):
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     last_fired_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+# Backward compatibility aliases
+Agent = StudioAgent
+AgentVersion = StudioAgentVersion
+AgentWorkflow = StudioAgentWorkflow
+AgentToolPermission = StudioAgentToolPermission
+AgentRun = StudioAgentRun
+AgentRunStep = StudioAgentRunStep
+AgentApproval = StudioAgentApproval
+AgentMemorySession = StudioAgentMemory
+AgentTrigger = StudioAgentTrigger
+
