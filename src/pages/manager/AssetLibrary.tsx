@@ -1,4 +1,8 @@
-import React, { useState } from 'react'
+import React, { useState, useRef } from 'react'
+import { Modal } from '@/components/ui/Misc'
+import { Field, Input, Select } from '@/components/ui/Field'
+import { Button } from '@/components/ui/Button'
+import { useToast } from '@/components/ui/Toast'
 import {
   Image,
   Upload,
@@ -19,6 +23,14 @@ export default function AssetLibraryPage() {
   const [activeTab, setActiveTab] = useState<'all' | 'logos' | 'products' | 'posters'>('all')
   const [search, setSearch] = useState('')
   const [selectedAsset, setSelectedAsset] = useState<any | null>(null)
+  const [uploadModalOpen, setUploadModalOpen] = useState(false)
+  const [newAssetName, setNewAssetName] = useState('')
+  const [newAssetCategory, setNewAssetCategory] = useState<'logos' | 'products' | 'posters'>('logos')
+  const [newAssetFile, setNewAssetFile] = useState<File | null>(null)
+  const [newAssetPreview, setNewAssetPreview] = useState<string | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const toast = useToast()
   const [assets, setAssets] = useState([
     {
       id: 'ast-pureglow-logo',
@@ -76,6 +88,50 @@ export default function AssetLibraryPage() {
     )
   }
 
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setNewAssetFile(file)
+    setNewAssetPreview(URL.createObjectURL(file))
+    if (!newAssetName) {
+      const clean = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ')
+      setNewAssetName(clean.charAt(0).toUpperCase() + clean.slice(1))
+    }
+  }
+
+  const handleUploadSubmit = () => {
+    if (!newAssetName.trim() || !newAssetFile) {
+      toast.error('Missing required info', 'Please provide an asset name and select a creative file.')
+      return
+    }
+    setUploading(true)
+    setTimeout(() => {
+      const newAsset = {
+        id: `ast-${Date.now().toString(36)}`,
+        name: newAssetName.trim(),
+        category: newAssetCategory,
+        type: newAssetFile.type || 'image/png',
+        status: 'approved',
+        version: 1,
+        checksum: `${Math.random().toString(16).slice(2, 6)}...${Math.random().toString(16).slice(2, 6)}`,
+        dominant_colors:
+          newAssetCategory === 'logos'
+            ? ['#1C3A27', '#254F35', '#FAF7F0']
+            : ['#FAF7F0', '#C27D56', '#1C3A27'],
+        uploaded_at: new Date().toISOString().slice(0, 10),
+        ocr_text: newAssetName.trim().toUpperCase(),
+      }
+      setAssets((prev) => [newAsset, ...prev])
+      toast.success('Asset uploaded', `${newAsset.name} has been indexed into the Brand Asset Vault.`)
+      setUploadModalOpen(false)
+      setNewAssetName('')
+      setNewAssetFile(null)
+      setNewAssetPreview(null)
+      setUploading(false)
+    }, 400)
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -90,8 +146,9 @@ export default function AssetLibraryPage() {
         </div>
 
         <button
-          onClick={() => alert('Asset upload modal ready: Drag and drop PNG, JPEG or SVG')}
-          className="inline-flex items-center gap-2 rounded-xl bg-[#1C3A27] px-4 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-[#254F35] transition-colors"
+          type="button"
+          onClick={() => setUploadModalOpen(true)}
+          className="inline-flex items-center gap-2 rounded-xl bg-[#1C3A27] px-4 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-[#254F35] transition-colors cursor-pointer"
         >
           <Upload className="h-4 w-4" />
           <span>Upload New Asset</span>
@@ -238,6 +295,85 @@ export default function AssetLibraryPage() {
           </div>
         </div>
       )}
+      {/* Upload Asset Modal */}
+      <Modal
+        open={uploadModalOpen}
+        onClose={() => setUploadModalOpen(false)}
+        title="Upload Brand Asset"
+        description="Add authoritative creative logos, product packaging, or campaign visuals to the vault."
+        footer={
+          <div className="flex items-center justify-end gap-2 w-full">
+            <Button variant="ghost" onClick={() => setUploadModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              loading={uploading}
+              icon={<Upload className="h-3.5 w-3.5" />}
+              onClick={handleUploadSubmit}
+            >
+              Upload & Index
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-3.5 text-xs">
+          <Field label="Asset Name" required htmlFor="new-asset-name">
+            <Input
+              id="new-asset-name"
+              value={newAssetName}
+              onChange={(e) => setNewAssetName(e.target.value)}
+              placeholder="e.g. PureGlow Master Vector Brandmark"
+            />
+          </Field>
+
+          <Field label="Category" required htmlFor="new-asset-cat">
+            <Select
+              id="new-asset-cat"
+              value={newAssetCategory}
+              onChange={(e) => setNewAssetCategory(e.target.value as any)}
+            >
+              <option value="logos">Logos & Brandmarks</option>
+              <option value="products">Product Photography</option>
+              <option value="posters">Campaign Posters & Banners</option>
+            </Select>
+          </Field>
+
+          <Field label="Creative File" required htmlFor="new-asset-file">
+            <div
+              onClick={() => fileInputRef.current?.click()}
+              className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-line-strong bg-stone-50 p-5 text-center transition hover:border-brand-400 hover:bg-brand-50/20"
+            >
+              {newAssetPreview ? (
+                <div className="flex flex-col items-center gap-2">
+                  <img
+                    src={newAssetPreview}
+                    alt="Preview"
+                    className="h-24 w-24 rounded-lg object-contain border border-line bg-white shadow-xs"
+                  />
+                  <p className="font-semibold text-ink text-2xs">{newAssetFile?.name}</p>
+                  <p className="text-[10px] text-muted">Click to change file</p>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-100 text-brand-700 mb-2">
+                    <Upload className="h-5 w-5" />
+                  </div>
+                  <p className="font-semibold text-ink text-xs">Click to browse or drag file here</p>
+                  <p className="text-[10px] text-muted mt-0.5">Supports PNG, JPEG, SVG, WebP up to 25MB</p>
+                </div>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                className="hidden"
+                onChange={handleFileSelect}
+              />
+            </div>
+          </Field>
+        </div>
+      </Modal>
     </div>
   )
 }

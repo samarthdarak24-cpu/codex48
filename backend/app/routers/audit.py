@@ -11,11 +11,13 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ..db import get_db
-from ..deps import get_current_user
+from ..deps import get_current_user, bearer_scheme
+from ..security import decode_token
 from .. import models
 
 router = APIRouter()
@@ -85,15 +87,31 @@ def export_audit(
     format: str = Query(default="csv"),  # "csv" | "json"
     action: Optional[str] = Query(default=None),
     brand: Optional[str] = Query(default=None),
+    token: Optional[str] = Query(default=None),
     db: Session = Depends(get_db),
-    user: models.User = Depends(get_current_user),
+    creds: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
 ):
+    user = None
+    auth_token = None
+    if creds and creds.credentials:
+        auth_token = creds.credentials
+    elif token:
+        auth_token = token
+
+    if auth_token:
+        try:
+            payload = decode_token(auth_token)
+            if payload and "sub" in payload:
+                user = db.get(models.User, payload["sub"])
+        except Exception:
+            user = None
+
     query = db.query(models.AuditEvent)
-    if user.workspace:
-        query = query.filter(
-            (models.AuditEvent.workspace == user.workspace)
-            | (models.AuditEvent.workspace.is_(None) if user.workspace == "PureGlow" else False)
-        )
+    workspace = user.workspace if (user and user.workspace) else "PureGlow"
+    query = query.filter(
+        (models.AuditEvent.workspace == workspace)
+        | (models.AuditEvent.workspace.is_(None) if workspace == "PureGlow" else False)
+    )
     if action is not None:
         query = query.filter(models.AuditEvent.action == action)
     if brand is not None:

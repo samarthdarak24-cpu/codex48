@@ -60,6 +60,10 @@ try {
 }
 
 /** Update the in-memory token and persist/remove it in sessionStorage. */
+export function getSession(): SessionRecord | null {
+  return session
+}
+
 export function setSession(next: SessionRecord | null): void {
   session = next
   try {

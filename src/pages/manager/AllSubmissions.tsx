@@ -19,8 +19,10 @@ import { api } from '@/services/api'
 import { useData } from '@/context/DataContext'
 import type { Submission, SubmissionsSummary } from '@/lib/types'
 import { cn } from '@/lib/utils'
+import { useToast } from '@/components/ui/Toast'
 
 export default function AllSubmissionsPage() {
+  const toast = useToast()
   const navigate = useNavigate()
   const { submissions, refetch } = useData()
   const [summary, setSummary] = useState<SubmissionsSummary>({
@@ -269,7 +271,7 @@ export default function AllSubmissionsPage() {
             <span>{selectedIds.length} submissions selected</span>
             <div className="flex items-center gap-2">
               <button
-                onClick={() => alert(`Bulk re-check scheduled for ${selectedIds.length} submissions.`)}
+                onClick={() => toast.success('Bulk re-check scheduled', `Scheduled deterministic rule checks for ${selectedIds.length} submissions.`)}
                 className="rounded bg-white border border-brand-300 px-2 py-1 font-medium text-brand-800 hover:bg-brand-100"
               >
                 Re-run check

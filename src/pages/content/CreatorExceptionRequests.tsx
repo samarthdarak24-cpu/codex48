@@ -10,9 +10,11 @@ import {
   ChevronRight,
 } from 'lucide-react'
 import { useData } from '@/context/DataContext'
+import { useToast } from '@/components/ui/Toast'
 import { cn } from '@/lib/utils'
 
 export default function CreatorExceptionRequestsPage() {
+  const toast = useToast()
   const { exceptions, requestException } = useData()
   const [showModal, setShowModal] = useState(false)
   const [selectedRule, setSelectedRule] = useState('CL-04')
@@ -36,7 +38,7 @@ export default function CreatorExceptionRequestsPage() {
       setShowModal(false)
       setReason('')
     } catch (err) {
-      alert('Failed to submit exception request.')
+      toast.error('Submission Failed', 'Could not submit exception request.')
     } finally {
       setSubmitting(false)
     }

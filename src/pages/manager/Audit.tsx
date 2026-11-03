@@ -17,7 +17,7 @@ import {
   CalendarRange,
 } from 'lucide-react'
 import { useData } from '@/context/DataContext'
-import { api } from '@/services/api'
+import { api, getSession } from '@/services/api'
 import { PageHeader } from '@/components/layout/Shell'
 import { Card, MetricCard } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -116,14 +116,90 @@ export default function AuditHistory() {
     setPage(1)
   }
 
-  function exportCsv() {
-    window.open(api.exportAuditUrl('csv'), '_blank')
-    toast.success('Report exported', `${filtered.length} audit events written to CSV.`)
+  async function exportCsv() {
+    try {
+      const token = getSession()?.token
+      let csvText = ''
+      try {
+        const res = await fetch(api.exportAuditUrl('csv'), {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        })
+        if (res.ok) {
+          const raw = await res.text()
+          if (!raw.includes('"detail"')) csvText = raw
+        }
+      } catch (e) {
+        console.warn('Backend export fetch fallback', e)
+      }
+
+      if (!csvText) {
+        const rows = [
+          ['id', 'at', 'user_id', 'action', 'entity_kind', 'entity_id', 'entity_title', 'brand', 'details'],
+          ...filtered.map((a) => [
+            a.id,
+            a.at,
+            a.userId,
+            a.action,
+            a.entityKind,
+            a.entityId,
+            `"${(a.entityTitle || '').replace(/"/g, '""')}"`,
+            a.brand,
+            `"${(a.details || '').replace(/"/g, '""')}"`,
+          ]),
+        ]
+        csvText = rows.map((r) => r.join(',')).join('\r\n')
+      }
+
+      const blob = new Blob([csvText], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `audit_report_${new Date().toISOString().slice(0, 10)}.csv`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+
+      toast.success('Report exported', `${filtered.length} audit events downloaded as CSV.`)
+    } catch (err) {
+      toast.error('Export failed', 'Could not export audit report.')
+    }
   }
 
-  function exportJson() {
-    window.open(api.exportAuditUrl('json'), '_blank')
-    toast.success('Report exported', `${filtered.length} audit events written to JSON.`)
+  async function exportJson() {
+    try {
+      const token = getSession()?.token
+      let jsonText = ''
+      try {
+        const res = await fetch(api.exportAuditUrl('json'), {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        })
+        if (res.ok) {
+          const raw = await res.text()
+          if (!raw.includes('"detail"')) jsonText = raw
+        }
+      } catch (e) {
+        console.warn('Backend export fetch fallback', e)
+      }
+
+      if (!jsonText) {
+        jsonText = JSON.stringify(filtered, null, 2)
+      }
+
+      const blob = new Blob([jsonText], { type: 'application/json;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `audit_report_${new Date().toISOString().slice(0, 10)}.json`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+
+      toast.success('Report exported', `${filtered.length} audit events downloaded as JSON.`)
+    } catch (err) {
+      toast.error('Export failed', 'Could not export audit report.')
+    }
   }
 
   const columns: Column<AuditEvent>[] = [

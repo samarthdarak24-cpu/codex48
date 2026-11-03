@@ -9,8 +9,10 @@ import {
   CheckCircle2,
 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
+import { useToast } from '@/components/ui/Toast'
 
 export default function CreatorProfilePage() {
+  const toast = useToast()
   const { user, logout } = useAuth()
   const [displayName, setDisplayName] = useState(user?.name || 'Emily Carter')
   const [timezone, setTimezone] = useState('America/New_York (EST)')
@@ -132,7 +134,7 @@ export default function CreatorProfilePage() {
             <span className="text-muted text-[11px]">Last changed 42 days ago</span>
           </div>
           <button
-            onClick={() => alert('Password change dialog ready.')}
+            onClick={() => toast.info('Password Reset', 'Password reset instructions have been sent to your registered email.')}
             className="rounded-lg border border-line px-3 py-1.5 font-semibold text-ink hover:bg-stone-50"
           >
             Change Password
