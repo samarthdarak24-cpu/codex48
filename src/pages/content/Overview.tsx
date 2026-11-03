@@ -298,8 +298,8 @@ export default function CreatorOverview() {
                   Quick actions
                 </h2>
                 <div className="space-y-1.5">
-                  <Button block icon={<FilePlus2 className="h-3.5 w-3.5" />} onClick={() => navigate('/app/new')}>
-                    New Content
+                  <Button block variant="outline" icon={<BookOpen className="h-3.5 w-3.5" />} onClick={() => navigate('/app/guidelines')}>
+                    Brand Guidelines
                   </Button>
                   <Button block variant="outline" icon={<ShieldCheck className="h-3.5 w-3.5" />} onClick={() => navigate('/app/feedback')}>
                     Check Content

@@ -1,32 +1,42 @@
 import os
-import re
 
 ROOT = r"d:\tmp\codex48"
 
-def update_shell():
-    path = os.path.join(ROOT, "src", "components", "layout", "Shell.tsx")
+def update_overview():
+    path = os.path.join(ROOT, "src", "pages", "content", "Overview.tsx")
     with open(path, "r", encoding="utf-8") as f:
         content = f.read()
 
-    # Pattern for the outside button in Shell.tsx
-    pattern = r'[ \t]*{/\* Instant Persona Switcher Button \*/}.*?</button>[ \t]*\r?\n?'
-    new_content, count = re.subn(pattern, '', content, flags=re.DOTALL)
-    print(f'Shell.tsx: removed {count} outside switch button(s)')
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(new_content)
+    old_block = """                <div className="space-y-1.5">
+                  <Button block icon={<FilePlus2 className="h-3.5 w-3.5" />} onClick={() => navigate('/app/new')}>
+                    New Content
+                  </Button>
+                  <Button block variant="outline" icon={<ShieldCheck className="h-3.5 w-3.5" />} onClick={() => navigate('/app/feedback')}>
+                    Check Content
+                  </Button>
+                </div>"""
 
-def update_submissions():
-    path = os.path.join(ROOT, "src", "pages", "content", "Submissions.tsx")
-    with open(path, "r", encoding="utf-8") as f:
-        content = f.read()
+    new_block = """                <div className="space-y-1.5">
+                  <Button block variant="outline" icon={<BookOpen className="h-3.5 w-3.5" />} onClick={() => navigate('/app/guidelines')}>
+                    Brand Guidelines
+                  </Button>
+                  <Button block variant="outline" icon={<ShieldCheck className="h-3.5 w-3.5" />} onClick={() => navigate('/app/feedback')}>
+                    Check Content
+                  </Button>
+                </div>"""
 
-    # Pattern for the redundant New Content button inside the table filter toolbar
-    pattern = r'[ \t]*<Button className="w-full sm:w-auto sm:ml-auto" size="md" icon={<Plus className="h-3.5 w-3.5" />} onClick=\{.*?navigate\(\'/app/new\'\)\}>\s*New Content\s*</Button>[ \t]*\r?\n?'
-    new_content, count = re.subn(pattern, '', content)
-    print(f'Submissions.tsx: removed {count} duplicate toolbar button(s)')
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(new_content)
+    # Normalize CRLF
+    content_norm = content.replace("\r\n", "\n")
+    old_norm = old_block.replace("\r\n", "\n")
+    new_norm = new_block.replace("\r\n", "\n")
+
+    if old_norm in content_norm:
+        content_norm = content_norm.replace(old_norm, new_norm)
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(content_norm.replace("\n", "\r\n"))
+        print("Overview.tsx: successfully replaced duplicate New Content button in Quick actions!")
+    else:
+        print("Overview.tsx: target block not found")
 
 if __name__ == '__main__':
-    update_shell()
-    update_submissions()
+    update_overview()
