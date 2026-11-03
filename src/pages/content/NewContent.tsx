@@ -1,18 +1,23 @@
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   AlertCircle,
   ArrowLeft,
   CheckCircle2,
+  ExternalLink,
   FileText,
+  FileType,
+  Globe,
   Image as ImageIcon,
   Info,
   Link2,
   Lightbulb,
+  Maximize2,
   Paperclip,
   Send,
   ShieldAlert,
   Sparkles,
+  Trash2,
   Upload,
   X,
 } from 'lucide-react'
@@ -35,21 +40,72 @@ const TYPES: { key: ContentType; label: string; hint: string; icon: React.Elemen
 ]
 
 const CHANNELS = ['Social Media', 'Website', 'Email', 'Influencer', 'Print', 'In-store']
-const MAX_CHARS = 500
+const TEXT_FORMATS = ['Ad Copy', 'Social Caption', 'Headline & Body', 'Email Newsletter']
+const IMAGE_ASPECT_RATIOS = ['1:1 Square', '9:16 Story/Reel', '16:9 Banner', '4:5 Portrait']
+const IMAGE_PLACEMENTS = ['Social Media Feed', 'Hero Banner', 'Display Ad', 'Product Card']
+const DOC_CATEGORIES = [
+  'Brand Guidelines & Style Guide',
+  'Packaging & Product Label',
+  'Marketing Collateral & Deck',
+  'Press Release & Whitepaper',
+  'Legal & Compliance Deck',
+]
+const URL_PAGE_TYPES = [
+  'Campaign Landing Page',
+  'Product Detail Page (PDP)',
+  'Homepage Hero Section',
+  'Blog Post / Article',
+  'Email Web Version',
+]
+
+const MAX_CHARS = 1000
 
 export default function NewContent() {
   const navigate = useNavigate()
   const { rules, submitContent, requestException, loading } = useData()
   const toast = useToast()
 
+  // 1. Content Type Selector (Text is default)
   const [type, setType] = useState<ContentType>('Text')
+
+  // 2. Common Fields (Same across all options)
   const [title, setTitle] = useState('')
   const [channel, setChannel] = useState('Social Media')
   const [brand, setBrand] = useState<Brand>('PureGlow')
-  const [text, setText] = useState('')
+
+  // 3. Option-Specific: Text Content
+  const [textFormat, setTextFormat] = useState('Ad Copy')
+  const [textCopy, setTextCopy] = useState('')
+
+  // 4. Option-Specific: Image
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null)
+  const [imageAspectRatio, setImageAspectRatio] = useState('1:1 Square')
+  const [imagePlacement, setImagePlacement] = useState('Social Media Feed')
+  const [imageText, setImageText] = useState('')
+
+  // 5. Option-Specific: Document
+  const [docFile, setDocFile] = useState<File | null>(null)
+  const [docCategory, setDocCategory] = useState(DOC_CATEGORIES[0])
+  const [docScope, setDocScope] = useState('Full Document')
+  const [docExcerpt, setDocExcerpt] = useState('')
+
+  // 6. Option-Specific: URL
+  const [pageUrl, setPageUrl] = useState('')
+  const [pageType, setPageType] = useState(URL_PAGE_TYPES[0])
+  const [pageCopy, setPageCopy] = useState('')
+  const [pageMetaTitle, setPageMetaTitle] = useState('')
+
+  // Supporting reference files (all types)
   const [files, setFiles] = useState<string[]>([])
-  const [errors, setErrors] = useState<{ title?: string; text?: string }>({})
+
+  // Errors & States
+  const [errors, setErrors] = useState<{ title?: string; text?: string; file?: string; url?: string }>({})
   const [submitting, setSubmitting] = useState(false)
+  const [dragOver, setDragOver] = useState(false)
+  const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null)
+
+  // Exception modal state
   const [exceptionOpen, setExceptionOpen] = useState(false)
   const [excReason, setExcReason] = useState('')
   const [excRule, setExcRule] = useState('BR-01')
@@ -59,19 +115,95 @@ export default function NewContent() {
     d.setDate(d.getDate() + 30)
     return d.toISOString().slice(0, 10)
   })
-  const [dragOver, setDragOver] = useState(false)
-  const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null)
-  const fileInput = useRef<HTMLInputElement>(null)
+
+  // File input refs
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const imageInputRef = useRef<HTMLInputElement>(null)
+  const docInputRef = useRef<HTMLInputElement>(null)
+
+  // Revoke object URL on unmount or file change
+  useEffect(() => {
+    return () => {
+      if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl)
+    }
+  }, [imagePreviewUrl])
 
   const activeRules = useMemo(() => rules.filter((r) => r.status === 'active'), [rules])
   const guidance = activeRules.slice(0, 3)
 
+  // Set image file and object URL
+  function handleImageSelected(file: File | null) {
+    if (!file) return
+    if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl)
+    setImageFile(file)
+    setImagePreviewUrl(URL.createObjectURL(file))
+    setErrors((prev) => ({ ...prev, file: undefined }))
+    if (!title) {
+      const cleanName = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ')
+      setTitle(cleanName.charAt(0).toUpperCase() + cleanName.slice(1))
+    }
+  }
+
+  // Set document file
+  function handleDocSelected(file: File | null) {
+    if (!file) return
+    setDocFile(file)
+    setErrors((prev) => ({ ...prev, file: undefined }))
+    if (!title) {
+      const cleanName = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ')
+      setTitle(cleanName.charAt(0).toUpperCase() + cleanName.slice(1))
+    }
+  }
+
+  function handleGenericFiles(list: FileList | null) {
+    if (!list) return
+    setFiles((prev) => [...prev, ...Array.from(list).map((f) => f.name)].slice(0, 4))
+  }
+
+  function autofillSampleUrl() {
+    setPageUrl('https://pureglow.co/campaigns/summer-radiance')
+    setPageMetaTitle('PureGlow Skincare — 100% Organic Summer Radiance')
+    setPageCopy(
+      'This summer, experience glowing skin with our pure botanical face serum. Clinically proven 24-hour hydration with zero synthetic fragrances.',
+    )
+    if (!title) setTitle('Summer Radiance Campaign Page')
+    setErrors({})
+  }
+
   function validate() {
-    const next: { title?: string; text?: string } = {}
-    if (!title.trim()) next.title = 'Give your content a title so reviewers can find it.'
-    else if (title.trim().length < 3) next.title = 'Use at least 3 characters.'
-    if (!text.trim()) next.text = 'Add the copy you want reviewed.'
-    else if (text.trim().length < 15) next.text = 'Add at least 15 characters so the guideline check is meaningful.'
+    const next: { title?: string; text?: string; file?: string; url?: string } = {}
+
+    if (!title.trim()) {
+      next.title = 'Give your content a title so reviewers can identify it.'
+    } else if (title.trim().length < 3) {
+      next.title = 'Use at least 3 characters.'
+    }
+
+    if (type === 'Text') {
+      if (!textCopy.trim()) {
+        next.text = 'Add the body copy you want reviewed.'
+      } else if (textCopy.trim().length < 15) {
+        next.text = 'Add at least 15 characters so the guideline check is meaningful.'
+      }
+    } else if (type === 'Image') {
+      if (!imageFile && !selectedAssetId && !imageText.trim()) {
+        next.file = 'Upload an image file or enter on-image text/captions to review.'
+      }
+    } else if (type === 'Document') {
+      if (!docFile && !docExcerpt.trim()) {
+        next.file = 'Upload a document (.pdf or .docx) or paste key text sections to review.'
+      }
+    } else if (type === 'URL') {
+      if (!pageUrl.trim()) {
+        next.url = 'Enter a webpage or landing page URL.'
+      } else if (!/^https?:\/\//i.test(pageUrl.trim())) {
+        next.url = 'URL must start with http:// or https://'
+      }
+      if (!pageCopy.trim()) {
+        next.text = 'Paste the landing page text or copy to verify against brand rules.'
+      }
+    }
+
     setErrors(next)
     return Object.keys(next).length === 0
   }
@@ -80,13 +212,33 @@ export default function NewContent() {
     e.preventDefault()
     if (!validate()) return
     setSubmitting(true)
+
+    // Compile payload text based on content type
+    let compiledText = ''
+    if (type === 'Text') {
+      compiledText = textCopy.trim()
+    } else if (type === 'Image') {
+      const meta = `[Format: ${imageAspectRatio} · ${imagePlacement}]`
+      compiledText = imageText.trim()
+        ? `${meta} ${imageText.trim()}`
+        : `${meta} Image asset submitted for visual brand review: ${imageFile?.name || 'Selected Brand Asset'}`
+    } else if (type === 'Document') {
+      const meta = `[Document: ${docCategory} · Scope: ${docScope}]`
+      compiledText = docExcerpt.trim()
+        ? `${meta}\n${docExcerpt.trim()}`
+        : `${meta} Attached document for brand review: ${docFile?.name || 'Uploaded document'}`
+    } else if (type === 'URL') {
+      const meta = `[Page Type: ${pageType}]`
+      compiledText = `URL: ${pageUrl.trim()}\n${meta}\n${pageMetaTitle ? `Title: ${pageMetaTitle.trim()}\n` : ''}\n${pageCopy.trim()}`
+    }
+
     try {
       const submission = await submitContent({
         title: title.trim(),
         type,
         channel,
         brand,
-        text: text.trim(),
+        text: compiledText,
         assetId: selectedAssetId ?? undefined,
       })
       toast.success(
@@ -110,13 +262,18 @@ export default function NewContent() {
     }
     setSubmitting(true)
     try {
-      // An exception attaches to a stored content version, so the draft is saved first.
+      let draftText = 'Draft submitted together with an exception request.'
+      if (type === 'Text' && textCopy.trim()) draftText = textCopy.trim()
+      else if (type === 'Image') draftText = imageText.trim() || `Image draft: ${imageFile?.name || 'pending asset'}`
+      else if (type === 'Document') draftText = docExcerpt.trim() || `Document draft: ${docFile?.name || 'pending doc'}`
+      else if (type === 'URL') draftText = `URL: ${pageUrl.trim()}\n${pageCopy.trim()}`
+
       const submission = await submitContent({
         title: title.trim() || 'Untitled draft',
         type,
         channel,
         brand,
-        text: text.trim() || 'Draft submitted together with an exception request.',
+        text: draftText,
         assetId: selectedAssetId ?? undefined,
       })
       await requestException({
@@ -136,9 +293,21 @@ export default function NewContent() {
     }
   }
 
-  function handleFiles(list: FileList | null) {
-    if (!list) return
-    setFiles((prev) => [...prev, ...Array.from(list).map((f) => f.name)].slice(0, 4))
+  function handleReset() {
+    setTitle('')
+    setTextCopy('')
+    setImageFile(null)
+    if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl)
+    setImagePreviewUrl(null)
+    setImageText('')
+    setDocFile(null)
+    setDocExcerpt('')
+    setPageUrl('')
+    setPageCopy('')
+    setPageMetaTitle('')
+    setFiles([])
+    setErrors({})
+    setSelectedAssetId(null)
   }
 
   return (
@@ -152,7 +321,7 @@ export default function NewContent() {
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_288px]">
         <form onSubmit={onSubmit} className="min-w-0 space-y-4">
-          {/* Type selector */}
+          {/* Upper Header: Content Type Selector Tabs */}
           <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
             {TYPES.map((t) => {
               const active = t.key === type
@@ -160,12 +329,15 @@ export default function NewContent() {
                 <button
                   key={t.key}
                   type="button"
-                  onClick={() => setType(t.key)}
+                  onClick={() => {
+                    setType(t.key)
+                    setErrors({})
+                  }}
                   aria-pressed={active}
                   className={cn(
                     'flex items-start gap-2.5 rounded-xl border bg-white p-3 text-left transition-all',
                     active
-                      ? 'border-brand-400 bg-brand-50/50 shadow-[0_0_0_3px_rgba(47,111,237,.10)]'
+                      ? 'border-brand-500 bg-brand-50/60 shadow-[0_0_0_3px_rgba(47,111,237,.12)]'
                       : 'border-line hover:border-brand-200 hover:bg-[#FBFDFF]',
                   )}
                 >
@@ -188,145 +360,517 @@ export default function NewContent() {
             })}
           </div>
 
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_264px]">
-            {/* Details */}
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
+            {/* Form details card */}
             <Card className="card-pad">
-              <h2 className="mb-3.5 text-lg font-semibold tracking-[-0.01em] text-ink">Content Details</h2>
-
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <Field label="Content Title" required error={errors.title} htmlFor="title">
-                  <Input
-                    id="title"
-                    value={title}
-                    onChange={(e) => {
-                      setTitle(e.target.value)
-                      setErrors((p) => ({ ...p, title: undefined }))
-                    }}
-                    placeholder="e.g. Summer Festival Campaign"
-                    invalid={Boolean(errors.title)}
-                    maxLength={80}
-                  />
-                </Field>
-                <Field label="Campaign / Channel" htmlFor="channel">
-                  <Select id="channel" value={channel} onChange={(e) => setChannel(e.target.value)}>
-                    {CHANNELS.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </Select>
-                </Field>
-              </div>
-
-              <div className="mt-3">
-                <Field label="Brand" htmlFor="brand">
-                  <Select id="brand" value={brand} onChange={(e) => setBrand(e.target.value as Brand)}>
-                    <option value="PureGlow">PureGlow</option>
-                    <option value="WellnessLife">WellnessLife</option>
-                  </Select>
-                </Field>
-              </div>
-
-              <div className="mt-3">
-                <Field
-                  label={type === 'URL' ? 'Page copy or URL' : 'Content Text'}
-                  required
-                  error={errors.text}
-                  htmlFor="text"
-                  counter={
-                    <span
-                      className={cn(
-                        'text-2xs font-medium tabular-nums',
-                        text.length > MAX_CHARS ? 'text-danger-600' : text.length > MAX_CHARS * 0.85 ? 'text-warn-600' : 'text-muted-light',
-                      )}
-                    >
-                      {text.length}/{MAX_CHARS}
-                    </span>
-                  }
-                >
-                  <Textarea
-                    id="text"
-                    rows={6}
-                    value={text}
-                    maxLength={MAX_CHARS}
-                    onChange={(e) => {
-                      setText(e.target.value)
-                      setErrors((p) => ({ ...p, text: undefined }))
-                    }}
-                    placeholder="This summer, enjoy up to 50% off on our organic skincare products. Pure. Natural. Real results!"
-                    invalid={Boolean(errors.text)}
-                  />
-                </Field>
-              </div>
-
-              <div className="mt-3">
-                <p className="mb-1.5 text-xs font-semibold text-ink-700">
-                  Attach Files <span className="font-normal text-muted">(optional)</span>
-                </p>
-                <div
-                  onDragOver={(e) => {
-                    e.preventDefault()
-                    setDragOver(true)
-                  }}
-                  onDragLeave={() => setDragOver(false)}
-                  onDrop={(e) => {
-                    e.preventDefault()
-                    setDragOver(false)
-                    handleFiles(e.dataTransfer.files)
-                  }}
-                  onClick={() => fileInput.current?.click()}
-                  className={cn(
-                    'flex cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed px-4 py-5 text-center transition-colors',
-                    dragOver ? 'border-brand-400 bg-brand-50/60' : 'border-line-strong bg-[#FBFDFF] hover:border-brand-200',
-                  )}
-                >
-                  <Upload className="mb-1.5 h-4 w-4 text-muted" />
-                  <p className="text-xs font-medium text-ink-600">Drag & drop files here or click to upload</p>
-                  <p className="mt-0.5 text-2xs text-muted-light">Supports: pdf, docx, jpg, png (max 10MB each)</p>
-                  <input
-                    ref={fileInput}
-                    type="file"
-                    multiple
-                    className="hidden"
-                    onChange={(e) => handleFiles(e.target.files)}
-                    accept=".pdf,.docx,.jpg,.jpeg,.png"
-                  />
+              <div className="mb-3.5 flex items-center justify-between border-b border-line pb-2.5">
+                <div>
+                  <h2 className="text-lg font-semibold tracking-[-0.01em] text-ink">Content Details</h2>
+                  <p className="text-2xs text-muted">
+                    {type === 'Text' && 'Draft and verify ad copy, captions, or campaign body text.'}
+                    {type === 'Image' && 'Upload creative posters, banners, and verify on-image text and aspect ratios.'}
+                    {type === 'Document' && 'Upload brand decks, packaging PDFs, and style guide excerpts.'}
+                    {type === 'URL' && 'Validate landing page links, product copy, and web campaign claims.'}
+                  </p>
                 </div>
-                {files.length > 0 && (
-                  <ul className="mt-2 space-y-1">
-                    {files.map((f) => (
-                      <li key={f} className="flex items-center gap-2 rounded-md bg-[#F7FAFE] px-2 py-1.5 text-2xs text-ink-600">
-                        <Paperclip className="h-3 w-3 text-muted" />
-                        <span className="min-w-0 flex-1 truncate">{f}</span>
+                <span className="inline-flex items-center gap-1 rounded-full border border-brand-200 bg-brand-50 px-2 py-0.5 text-2xs font-semibold text-brand-700">
+                  <span className="h-1.5 w-1.5 rounded-full bg-brand-500" />
+                  {type} Mode
+                </span>
+              </div>
+
+              {/* 1. Common Fields (Always visible for all types) */}
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <Field label="Content Title" required error={errors.title} htmlFor="title">
+                    <Input
+                      id="title"
+                      value={title}
+                      onChange={(e) => {
+                        setTitle(e.target.value)
+                        setErrors((p) => ({ ...p, title: undefined }))
+                      }}
+                      placeholder={
+                        type === 'Text'
+                          ? 'e.g. Summer Festival Instagram Copy'
+                          : type === 'Image'
+                            ? 'e.g. Summer Glow Poster 1080x1080'
+                            : type === 'Document'
+                              ? 'e.g. 2026 Product Claims & Label Guide'
+                              : 'e.g. Summer Sale Promo Landing Page'
+                      }
+                      invalid={Boolean(errors.title)}
+                      maxLength={80}
+                    />
+                  </Field>
+                  <Field label="Campaign / Channel" htmlFor="channel">
+                    <Select id="channel" value={channel} onChange={(e) => setChannel(e.target.value)}>
+                      {CHANNELS.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <Field label="Brand" htmlFor="brand">
+                    <Select id="brand" value={brand} onChange={(e) => setBrand(e.target.value as Brand)}>
+                      <option value="PureGlow">PureGlow</option>
+                      <option value="WellnessLife">WellnessLife</option>
+                    </Select>
+                  </Field>
+
+                  {/* Contextual sub-option pill based on type */}
+                  {type === 'Text' && (
+                    <Field label="Copy Format" htmlFor="text-format">
+                      <Select id="text-format" value={textFormat} onChange={(e) => setTextFormat(e.target.value)}>
+                        {TEXT_FORMATS.map((f) => (
+                          <option key={f} value={f}>
+                            {f}
+                          </option>
+                        ))}
+                      </Select>
+                    </Field>
+                  )}
+
+                  {type === 'Image' && (
+                    <Field label="Aspect Ratio" htmlFor="image-aspect">
+                      <Select id="image-aspect" value={imageAspectRatio} onChange={(e) => setImageAspectRatio(e.target.value)}>
+                        {IMAGE_ASPECT_RATIOS.map((ar) => (
+                          <option key={ar} value={ar}>
+                            {ar}
+                          </option>
+                        ))}
+                      </Select>
+                    </Field>
+                  )}
+
+                  {type === 'Document' && (
+                    <Field label="Document Category" htmlFor="doc-cat">
+                      <Select id="doc-cat" value={docCategory} onChange={(e) => setDocCategory(e.target.value)}>
+                        {DOC_CATEGORIES.map((dc) => (
+                          <option key={dc} value={dc}>
+                            {dc}
+                          </option>
+                        ))}
+                      </Select>
+                    </Field>
+                  )}
+
+                  {type === 'URL' && (
+                    <Field label="Page Type" htmlFor="url-type">
+                      <Select id="url-type" value={pageType} onChange={(e) => setPageType(e.target.value)}>
+                        {URL_PAGE_TYPES.map((pt) => (
+                          <option key={pt} value={pt}>
+                            {pt}
+                          </option>
+                        ))}
+                      </Select>
+                    </Field>
+                  )}
+                </div>
+              </div>
+
+              {/* 2. SPECIFIC SECTION: Changes dynamically based on selected tab */}
+              <div className="mt-4 border-t border-line pt-4">
+                {/* -------------------- TAB 1: TEXT CONTENT (DEFAULT) -------------------- */}
+                {type === 'Text' && (
+                  <div className="space-y-3">
+                    <Field
+                      label="Body Copy / Content Text"
+                      required
+                      error={errors.text}
+                      htmlFor="text-copy"
+                      counter={
+                        <span
+                          className={cn(
+                            'text-2xs font-medium tabular-nums',
+                            textCopy.length > MAX_CHARS
+                              ? 'text-danger-600'
+                              : textCopy.length > MAX_CHARS * 0.85
+                                ? 'text-warn-600'
+                                : 'text-muted-light',
+                          )}
+                        >
+                          {textCopy.length}/{MAX_CHARS}
+                        </span>
+                      }
+                    >
+                      <Textarea
+                        id="text-copy"
+                        rows={6}
+                        value={textCopy}
+                        maxLength={MAX_CHARS}
+                        onChange={(e) => {
+                          setTextCopy(e.target.value)
+                          setErrors((p) => ({ ...p, text: undefined }))
+                        }}
+                        placeholder="This summer, enjoy up to 50% off on our organic skincare products. Pure. Natural. Real results!"
+                        invalid={Boolean(errors.text)}
+                      />
+                    </Field>
+                    <p className="text-2xs text-muted-light">
+                      The deterministic rule engine checks this text against active brand rules, prohibited phrases, and claim restrictions.
+                    </p>
+
+                    {/* Optional reference attachments */}
+                    <div className="pt-2">
+                      <p className="mb-1 text-xs font-semibold text-ink-700">
+                        Attach Reference Files <span className="font-normal text-muted">(optional)</span>
+                      </p>
+                      <div
+                        onDragOver={(e) => {
+                          e.preventDefault()
+                          setDragOver(true)
+                        }}
+                        onDragLeave={() => setDragOver(false)}
+                        onDrop={(e) => {
+                          e.preventDefault()
+                          setDragOver(false)
+                          handleGenericFiles(e.dataTransfer.files)
+                        }}
+                        onClick={() => fileInputRef.current?.click()}
+                        className={cn(
+                          'flex cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed px-4 py-3.5 text-center transition-colors',
+                          dragOver ? 'border-brand-400 bg-brand-50/60' : 'border-line-strong bg-[#FBFDFF] hover:border-brand-200',
+                        )}
+                      >
+                        <Upload className="mb-1 h-3.5 w-3.5 text-muted" />
+                        <p className="text-xs font-medium text-ink-600">Drag & drop briefs or guidelines (max 10MB)</p>
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          multiple
+                          className="hidden"
+                          onChange={(e) => handleGenericFiles(e.target.files)}
+                          accept=".pdf,.docx,.jpg,.jpeg,.png"
+                        />
+                      </div>
+                      {files.length > 0 && (
+                        <ul className="mt-2 space-y-1">
+                          {files.map((f) => (
+                            <li key={f} className="flex items-center gap-2 rounded-md bg-[#F7FAFE] px-2 py-1 text-2xs text-ink-600">
+                              <Paperclip className="h-3 w-3 text-muted" />
+                              <span className="min-w-0 flex-1 truncate">{f}</span>
+                              <button
+                                type="button"
+                                onClick={() => setFiles((prev) => prev.filter((x) => x !== f))}
+                                className="text-muted hover:text-danger-600"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* -------------------- TAB 2: IMAGE -------------------- */}
+                {type === 'Image' && (
+                  <div className="space-y-4">
+                    <div>
+                      <div className="mb-1.5 flex items-center justify-between">
+                        <label className="text-xs font-semibold text-ink-700">
+                          Upload Brand Image / Poster <span className="text-danger-500">*</span>
+                        </label>
+                        <span className="text-2xs text-muted">Supports PNG, JPG, WEBP, SVG</span>
+                      </div>
+
+                      {imagePreviewUrl ? (
+                        <div className="relative flex items-center gap-3 rounded-xl border border-brand-200 bg-brand-50/40 p-3">
+                          <img
+                            src={imagePreviewUrl}
+                            alt="Uploaded preview"
+                            className="h-16 w-16 rounded-lg border border-line object-cover shadow-sm"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-xs font-semibold text-ink">{imageFile?.name}</p>
+                            <p className="mt-0.5 text-2xs text-muted">
+                              {imageFile ? `${(imageFile.size / (1024 * 1024)).toFixed(2)} MB` : 'Brand Asset'} · Aspect:{' '}
+                              {imageAspectRatio}
+                            </p>
+                            <span className="mt-1 inline-flex items-center gap-1 text-2xs font-medium text-brand-600">
+                              <CheckCircle2 className="h-3 w-3" /> Ready for visual inspection
+                            </span>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl)
+                              setImageFile(null)
+                              setImagePreviewUrl(null)
+                            }}
+                            className="text-danger-600 hover:bg-danger-50"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div
+                          onDragOver={(e) => {
+                            e.preventDefault()
+                            setDragOver(true)
+                          }}
+                          onDragLeave={() => setDragOver(false)}
+                          onDrop={(e) => {
+                            e.preventDefault()
+                            setDragOver(false)
+                            if (e.dataTransfer.files?.[0]) handleImageSelected(e.dataTransfer.files[0])
+                          }}
+                          onClick={() => imageInputRef.current?.click()}
+                          className={cn(
+                            'flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 text-center transition-all',
+                            dragOver ? 'border-brand-500 bg-brand-50/80' : 'border-line-strong bg-[#FAFBFD] hover:border-brand-300',
+                            errors.file && 'border-danger-400 bg-danger-50/30',
+                          )}
+                        >
+                          <span className="mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-brand-100 text-brand-600">
+                            <ImageIcon className="h-5 w-5" />
+                          </span>
+                          <p className="text-xs font-semibold text-ink-700">Drag & drop your visual asset, or click to browse</p>
+                          <p className="mt-0.5 text-2xs text-muted">Recommended: 1080×1080 (1:1) or 1920×1080 (16:9), up to 25MB</p>
+                          <input
+                            ref={imageInputRef}
+                            type="file"
+                            className="hidden"
+                            accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                            onChange={(e) => {
+                              if (e.target.files?.[0]) handleImageSelected(e.target.files[0])
+                            }}
+                          />
+                        </div>
+                      )}
+                      {errors.file && <p className="mt-1 text-2xs text-danger-600">{errors.file}</p>}
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <Field label="Creative Placement" htmlFor="image-placement">
+                        <Select
+                          id="image-placement"
+                          value={imagePlacement}
+                          onChange={(e) => setImagePlacement(e.target.value)}
+                        >
+                          {IMAGE_PLACEMENTS.map((ip) => (
+                            <option key={ip} value={ip}>
+                              {ip}
+                            </option>
+                          ))}
+                        </Select>
+                      </Field>
+
+                      <div className="flex flex-col justify-end">
+                        <div className="rounded-lg border border-line bg-[#F8FAFC] p-2 text-2xs text-muted">
+                          <span className="font-semibold text-ink-700">VisualGuard:</span> Checks CIE-Lab ΔE76 color distance,
+                          WCAG AA contrast, and clear space around logos.
+                        </div>
+                      </div>
+                    </div>
+
+                    <Field
+                      label="On-Image Text & Taglines (for OCR & Claim Verification)"
+                      htmlFor="image-text"
+                      counter={<span className="text-2xs text-muted-light">{imageText.length}/500</span>}
+                    >
+                      <Textarea
+                        id="image-text"
+                        rows={3}
+                        value={imageText}
+                        maxLength={500}
+                        onChange={(e) => setImageText(e.target.value)}
+                        placeholder="e.g. PureGlow 100% Organic Radiance Serum. Up to 50% Off this weekend only."
+                      />
+                    </Field>
+                  </div>
+                )}
+
+                {/* -------------------- TAB 3: DOCUMENT (PDF / DOCX) -------------------- */}
+                {type === 'Document' && (
+                  <div className="space-y-4">
+                    <div>
+                      <div className="mb-1.5 flex items-center justify-between">
+                        <label className="text-xs font-semibold text-ink-700">
+                          Upload Document File <span className="text-danger-500">*</span>
+                        </label>
+                        <span className="text-2xs text-muted">PDF or DOCX (max 25MB)</span>
+                      </div>
+
+                      {docFile ? (
+                        <div className="relative flex items-center gap-3 rounded-xl border border-brand-200 bg-brand-50/40 p-3">
+                          <span className="flex h-12 w-12 items-center justify-center rounded-lg bg-brand-600 text-white font-bold text-xs uppercase shadow-sm">
+                            {docFile.name.endsWith('.pdf') ? 'PDF' : 'DOCX'}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-xs font-semibold text-ink">{docFile.name}</p>
+                            <p className="mt-0.5 text-2xs text-muted">
+                              {(docFile.size / (1024 * 1024)).toFixed(2)} MB · {docCategory}
+                            </p>
+                            <span className="mt-1 inline-flex items-center gap-1 text-2xs font-medium text-brand-600">
+                              <CheckCircle2 className="h-3 w-3" /> Ready for passage extraction & citation audit
+                            </span>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setDocFile(null)}
+                            className="text-danger-600 hover:bg-danger-50"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div
+                          onDragOver={(e) => {
+                            e.preventDefault()
+                            setDragOver(true)
+                          }}
+                          onDragLeave={() => setDragOver(false)}
+                          onDrop={(e) => {
+                            e.preventDefault()
+                            setDragOver(false)
+                            if (e.dataTransfer.files?.[0]) handleDocSelected(e.dataTransfer.files[0])
+                          }}
+                          onClick={() => docInputRef.current?.click()}
+                          className={cn(
+                            'flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 text-center transition-all',
+                            dragOver ? 'border-brand-500 bg-brand-50/80' : 'border-line-strong bg-[#FAFBFD] hover:border-brand-300',
+                            errors.file && 'border-danger-400 bg-danger-50/30',
+                          )}
+                        >
+                          <span className="mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-brand-100 text-brand-600">
+                            <FileType className="h-5 w-5" />
+                          </span>
+                          <p className="text-xs font-semibold text-ink-700">Drag & drop your PDF or DOCX file</p>
+                          <p className="mt-0.5 text-2xs text-muted">Precedent extracts passages and indexes them for evidence tracking</p>
+                          <input
+                            ref={docInputRef}
+                            type="file"
+                            className="hidden"
+                            accept=".pdf,.docx,.doc"
+                            onChange={(e) => {
+                              if (e.target.files?.[0]) handleDocSelected(e.target.files[0])
+                            }}
+                          />
+                        </div>
+                      )}
+                      {errors.file && <p className="mt-1 text-2xs text-danger-600">{errors.file}</p>}
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <Field label="Review Scope / Target Pages" htmlFor="doc-scope">
+                        <Input
+                          id="doc-scope"
+                          value={docScope}
+                          onChange={(e) => setDocScope(e.target.value)}
+                          placeholder="e.g. Pages 1-5 or Section 3: Claims"
+                        />
+                      </Field>
+                      <div className="flex flex-col justify-end">
+                        <p className="rounded-lg border border-line bg-[#F8FAFC] p-2 text-2xs text-muted">
+                          <span className="font-semibold text-ink-700">Evidence Intelligence:</span> Matches passages to verified
+                          claims and flags unsupported marketing assertions.
+                        </p>
+                      </div>
+                    </div>
+
+                    <Field
+                      label="Key Excerpt / Important Claims to Audit"
+                      htmlFor="doc-excerpt"
+                      counter={<span className="text-2xs text-muted-light">{docExcerpt.length}/800</span>}
+                    >
+                      <Textarea
+                        id="doc-excerpt"
+                        rows={4}
+                        value={docExcerpt}
+                        maxLength={800}
+                        onChange={(e) => setDocExcerpt(e.target.value)}
+                        placeholder="Paste specific paragraphs, ingredient claims, or guarantee statements from this document for immediate deterministic checks..."
+                      />
+                    </Field>
+                  </div>
+                )}
+
+                {/* -------------------- TAB 4: URL (LANDING PAGE / WEB) -------------------- */}
+                {type === 'URL' && (
+                  <div className="space-y-4">
+                    <div>
+                      <div className="mb-1 flex items-center justify-between">
+                        <label className="text-xs font-semibold text-ink-700" htmlFor="page-url">
+                          Page Web URL <span className="text-danger-500">*</span>
+                        </label>
                         <button
                           type="button"
-                          onClick={() => setFiles((prev) => prev.filter((x) => x !== f))}
-                          aria-label={`Remove ${f}`}
-                          className="text-muted transition-colors hover:text-danger-600"
+                          onClick={autofillSampleUrl}
+                          className="text-2xs font-medium text-brand-600 hover:text-brand-700 hover:underline"
                         >
-                          <X className="h-3 w-3" />
+                          Autofill Demo URL
                         </button>
-                      </li>
-                    ))}
-                  </ul>
+                      </div>
+                      <div className="relative">
+                        <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-muted">
+                          <Globe className="h-4 w-4" />
+                        </span>
+                        <Input
+                          id="page-url"
+                          type="url"
+                          value={pageUrl}
+                          onChange={(e) => {
+                            setPageUrl(e.target.value)
+                            setErrors((p) => ({ ...p, url: undefined }))
+                          }}
+                          placeholder="https://pureglow.co/campaigns/summer-collection"
+                          className="pl-9"
+                          invalid={Boolean(errors.url)}
+                        />
+                      </div>
+                      {errors.url && <p className="mt-1 text-2xs text-danger-600">{errors.url}</p>}
+                    </div>
+
+                    <Field label="Page Meta Title (Optional)" htmlFor="page-meta">
+                      <Input
+                        id="page-meta"
+                        value={pageMetaTitle}
+                        onChange={(e) => setPageMetaTitle(e.target.value)}
+                        placeholder="e.g. PureGlow Skincare — 100% Organic Botanical Face Serum"
+                      />
+                    </Field>
+
+                    <Field
+                      label="Landing Page Copy / Key Claims to Verify"
+                      required
+                      error={errors.text}
+                      htmlFor="page-copy"
+                      counter={<span className="text-2xs text-muted-light">{pageCopy.length}/800</span>}
+                    >
+                      <Textarea
+                        id="page-copy"
+                        rows={5}
+                        value={pageCopy}
+                        maxLength={800}
+                        onChange={(e) => {
+                          setPageCopy(e.target.value)
+                          setErrors((p) => ({ ...p, text: undefined }))
+                        }}
+                        placeholder="Paste the landing page headline, promo copy, ingredient claims, or terms shown on this webpage..."
+                        invalid={Boolean(errors.text)}
+                      />
+                    </Field>
+                    <p className="text-2xs text-muted-light">
+                      Checks live web copy against the Approved Claims register and prohibited marketing terminology.
+                    </p>
+                  </div>
                 )}
-                <p className="mt-1.5 text-2xs text-muted-light">
-                  Attachments are stored for reference. Text content is what the rule engine checks in this build.
-                </p>
               </div>
 
-              <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3.5">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full sm:w-auto"
-                  onClick={() => {
-                    setTitle('')
-                    setText('')
-                    setFiles([])
-                    setErrors({})
-                  }}
-                >
+              {/* Form Action Buttons */}
+              <div className="mt-5 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3.5">
+                <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={handleReset}>
                   Clear
                 </Button>
                 <Button type="submit" loading={submitting} className="w-full sm:w-auto" icon={<Send className="h-3.5 w-3.5" />}>
@@ -335,15 +879,33 @@ export default function NewContent() {
               </div>
             </Card>
 
-            {/* Preview */}
+            {/* Dynamic Content Preview Card */}
             <div className="space-y-4">
-              <Card className="overflow-hidden">
+              <Card className="overflow-hidden shadow-sm">
                 <CardHeader title="Content Preview" dense />
                 <div className="p-3">
-                  <PreviewCard title={title} text={text} brand={brand} channel={channel} />
-                  <p className="mt-2 flex items-center gap-1 text-2xs text-muted-light">
-                    <Info className="h-3 w-3" />
-                    Live preview of the copy you entered.
+                  <DynamicPreviewCard
+                    type={type}
+                    title={title}
+                    brand={brand}
+                    channel={channel}
+                    textCopy={textCopy}
+                    textFormat={textFormat}
+                    imagePreviewUrl={imagePreviewUrl}
+                    imageFile={imageFile}
+                    imageAspectRatio={imageAspectRatio}
+                    imageText={imageText}
+                    docFile={docFile}
+                    docCategory={docCategory}
+                    docScope={docScope}
+                    docExcerpt={docExcerpt}
+                    pageUrl={pageUrl}
+                    pageType={pageType}
+                    pageCopy={pageCopy}
+                  />
+                  <p className="mt-2.5 flex items-center gap-1 text-2xs text-muted-light">
+                    <Info className="h-3 w-3 shrink-0" />
+                    <span>Real-time preview adapts to the selected content format.</span>
                   </p>
                 </div>
               </Card>
@@ -353,13 +915,13 @@ export default function NewContent() {
           <div className="flex items-start gap-2 rounded-xl border border-brand-100 bg-brand-50/60 px-3.5 py-2.5">
             <Info className="mt-[1px] h-3.5 w-3.5 shrink-0 text-brand-500" />
             <p className="text-xs leading-[17px] text-brand-700/90">
-              Your content will be checked automatically against the active rule set. You’ll see any issues, suggested
-              minimal changes, and the exact guideline section used for the review.
+              Your content will be checked automatically against the active rule set. You’ll see any issues, suggested minimal
+              changes, and the exact guideline section used for the review.
             </p>
           </div>
         </form>
 
-        {/* Right rail */}
+        {/* Right Rail: Brand Assets Picker, Guidelines, Tips, Exception */}
         <div className="space-y-4">
           <BrandAssetsPicker brand={brand} selectedId={selectedAssetId} onSelect={setSelectedAssetId} />
 
@@ -391,7 +953,9 @@ export default function NewContent() {
             <div className="border-t border-line px-4 py-2.5">
               <p className="flex items-start gap-1.5 text-2xs leading-[15px] text-muted">
                 <Info className="mt-[1px] h-3 w-3 shrink-0 text-brand-400" />
-                Your brand mostly uses green backgrounds for all campaigns.
+                {brand === 'PureGlow'
+                  ? 'PureGlow enforces strict organic claims & green primary tone.'
+                  : 'WellnessLife requires clinical disclaimers on health claims.'}
               </p>
             </div>
           </Card>
@@ -403,9 +967,9 @@ export default function NewContent() {
             </h2>
             <ul className="space-y-1.5">
               {[
-                'Use approved brand colours and logo.',
-                'Avoid unapproved claims (e.g. “100% safe”).',
-                'Check the latest brand guidelines before submitting.',
+                'Use approved brand colours and official logo files.',
+                'Avoid absolute claims (e.g. “100% cure”, “instantly fixes”).',
+                'Ensure sufficient contrast on image overlays (WCAG AA).',
               ].map((tip) => (
                 <li key={tip} className="flex items-start gap-1.5 text-xs leading-[16px] text-ink-600">
                   <CheckCircle2 className="mt-[2px] h-3 w-3 shrink-0 text-success-500" />
@@ -421,8 +985,7 @@ export default function NewContent() {
               Need an Exception?
             </h2>
             <p className="mb-2.5 text-xs leading-[16px] text-muted">
-              If you need to use content that doesn’t follow a rule, you can request an exception. A brand manager must
-              approve it, and it expires on the date you set.
+              If your campaign requires content outside standard brand rules, request an exception. A brand manager must approve it.
             </p>
             <Button variant="outline" block size="sm" onClick={() => setExceptionOpen(true)}>
               Request Exception
@@ -431,6 +994,7 @@ export default function NewContent() {
         </div>
       </div>
 
+      {/* Exception Request Modal */}
       <Modal
         open={exceptionOpen}
         onClose={() => setExceptionOpen(false)}
@@ -451,8 +1015,8 @@ export default function NewContent() {
           <div className="flex items-start gap-2 rounded-lg border border-warn-100 bg-warn-50 px-3 py-2">
             <AlertCircle className="mt-[1px] h-3.5 w-3.5 shrink-0 text-warn-600" />
             <p className="text-2xs leading-[15px] text-warn-700">
-              An exception is not an approval. The content still goes through review, and the exception only applies to
-              the scope and dates recorded here.
+              An exception is not an approval. The content still goes through review, and the exception only applies to the
+              scope and dates recorded here.
             </p>
           </div>
 
@@ -472,7 +1036,7 @@ export default function NewContent() {
               rows={3}
               value={excReason}
               onChange={(e) => setExcReason(e.target.value)}
-              placeholder="e.g. Seasonal campaign requires a colour outside the standard palette."
+              placeholder="e.g. Seasonal holiday campaign requires gold accent foil outside standard green palette."
             />
           </Field>
 
@@ -491,30 +1055,183 @@ export default function NewContent() {
 }
 
 /* ------------------------------------------------------------------ */
-/* Preview                                                             */
+/* Dynamic Preview Card Component                                     */
 /* ------------------------------------------------------------------ */
 
-function PreviewCard({ title, text, brand, channel }: { title: string; text: string; brand: Brand; channel: string }) {
-  return (
-    <div className="overflow-hidden rounded-lg border border-line bg-[#FAF7EF]">
-      <div className="relative flex h-[150px] flex-col justify-between bg-gradient-to-br from-[#E8F5C8] via-[#D7EFB0] to-[#B9DE7E] p-3">
-        <div className="flex items-start justify-between">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#2C4A1E]/70">{brand}</p>
-            <p className="mt-0.5 text-[8px] uppercase tracking-[0.12em] text-[#2C4A1E]/50">Skincare</p>
+interface DynamicPreviewProps {
+  type: ContentType
+  title: string
+  brand: Brand
+  channel: string
+  textCopy: string
+  textFormat: string
+  imagePreviewUrl: string | null
+  imageFile: File | null
+  imageAspectRatio: string
+  imageText: string
+  docFile: File | null
+  docCategory: string
+  docScope: string
+  docExcerpt: string
+  pageUrl: string
+  pageType: string
+  pageCopy: string
+}
+
+function DynamicPreviewCard({
+  type,
+  title,
+  brand,
+  channel,
+  textCopy,
+  textFormat,
+  imagePreviewUrl,
+  imageFile,
+  imageAspectRatio,
+  imageText,
+  docFile,
+  docCategory,
+  docScope,
+  docExcerpt,
+  pageUrl,
+  pageType,
+  pageCopy,
+}: DynamicPreviewProps) {
+  // 1. TEXT PREVIEW
+  if (type === 'Text') {
+    return (
+      <div className="overflow-hidden rounded-xl border border-line bg-[#FAF7EF] shadow-sm">
+        <div className="relative flex min-h-[160px] flex-col justify-between bg-gradient-to-br from-[#E8F5C8] via-[#D7EFB0] to-[#B9DE7E] p-3.5">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#2C4A1E]/80">{brand}</p>
+              <p className="mt-0.5 text-[8px] uppercase tracking-[0.12em] text-[#2C4A1E]/60">{textFormat}</p>
+            </div>
+            <span className="rounded-full bg-white/80 px-2 py-0.5 text-[8.5px] font-semibold text-[#2C4A1E]">
+              {channel}
+            </span>
           </div>
-          <span className="rounded-full bg-white/70 px-1.5 py-0.5 text-[8px] font-medium text-[#2C4A1E]/70">{channel}</span>
-        </div>
-        <div>
-          <p className="text-[15px] font-semibold leading-[17px] text-[#1F3D12]">{title || 'Your campaign title'}</p>
-          <p className="mt-1 line-clamp-3 text-[9.5px] leading-[13px] text-[#2C4A1E]/75">
-            {text || 'Your content copy will preview here as you type.'}
-          </p>
+          <div className="my-2">
+            <p className="text-[14px] font-bold leading-[18px] text-[#1F3D12]">{title || 'Your campaign title'}</p>
+            <p className="mt-1.5 line-clamp-4 text-[10px] leading-[15px] text-[#2C4A1E]/85">
+              {textCopy || 'Your content copy will preview here as you type...'}
+            </p>
+          </div>
+          <div className="flex items-center justify-between border-t border-[#2C4A1E]/15 pt-1.5 text-[8.5px] text-[#2C4A1E]/70">
+            <span>{textCopy ? `${textCopy.length} characters` : 'Draft Copy'}</span>
+            <span>Deterministic Check Active</span>
+          </div>
         </div>
       </div>
-      <div className="flex items-center justify-between px-2.5 py-1.5">
-        <span className="text-[9px] text-muted-light">Preview is illustrative — the saved asset is what gets reviewed.</span>
-        <ArrowLeft className="h-2.5 w-2.5 rotate-180 text-muted-light" />
+    )
+  }
+
+  // 2. IMAGE PREVIEW
+  if (type === 'Image') {
+    return (
+      <div className="overflow-hidden rounded-xl border border-line bg-white shadow-sm">
+        <div className="relative aspect-square w-full overflow-hidden bg-[#1E2922]">
+          {imagePreviewUrl ? (
+            <img src={imagePreviewUrl} alt="Preview" className="h-full w-full object-cover" />
+          ) : (
+            <div className="flex h-full flex-col items-center justify-center p-4 text-center text-white/70">
+              <ImageIcon className="mb-2 h-8 w-8 text-white/40" />
+              <p className="text-xs font-semibold text-white/90">Image Preview</p>
+              <p className="mt-0.5 text-2xs text-white/50">{imageAspectRatio} · Frame</p>
+            </div>
+          )}
+
+          {/* Top badges */}
+          <div className="absolute left-2.5 right-2.5 top-2.5 flex items-center justify-between">
+            <span className="rounded bg-black/60 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white backdrop-blur-sm">
+              {brand}
+            </span>
+            <span className="rounded-full bg-white/90 px-2 py-0.5 text-[8.5px] font-semibold text-ink">
+              {channel}
+            </span>
+          </div>
+
+          {/* Bottom text overlay */}
+          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/50 to-transparent p-3 pt-6 text-white">
+            <p className="text-xs font-bold leading-tight">{title || 'Image Title'}</p>
+            {imageText && <p className="mt-1 line-clamp-2 text-[10px] text-white/80">{imageText}</p>}
+          </div>
+        </div>
+        <div className="flex items-center justify-between bg-[#F8FAFC] px-3 py-1.5 text-2xs text-muted">
+          <span>{imageAspectRatio}</span>
+          <span>{imageFile ? `${(imageFile.size / (1024 * 1024)).toFixed(2)} MB` : 'Awaiting image'}</span>
+        </div>
+      </div>
+    )
+  }
+
+  // 3. DOCUMENT PREVIEW
+  if (type === 'Document') {
+    return (
+      <div className="overflow-hidden rounded-xl border border-line bg-white shadow-sm">
+        <div className="border-b border-line bg-[#FAF7EF] p-3">
+          <div className="flex items-start justify-between">
+            <span className="inline-flex items-center gap-1.5 rounded-md bg-brand-600 px-2 py-0.5 text-[9px] font-bold text-white uppercase">
+              <FileType className="h-3 w-3" />
+              {docFile?.name?.endsWith('.docx') ? 'DOCX' : 'PDF'}
+            </span>
+            <span className="rounded-full bg-white px-2 py-0.5 text-[8.5px] font-semibold text-ink border border-line">
+              {channel}
+            </span>
+          </div>
+          <p className="mt-2 text-xs font-bold text-ink">{title || 'Document Title'}</p>
+          <p className="mt-0.5 text-2xs text-muted">{docCategory}</p>
+        </div>
+
+        <div className="p-3">
+          <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-light">Excerpt / Key Claims</p>
+          <p className="mt-1 line-clamp-4 rounded bg-[#F8FAFC] p-2 text-[10px] leading-[14px] text-ink-700 italic border border-line/60">
+            {docExcerpt || 'No excerpt pasted. The full document will be parsed during review.'}
+          </p>
+          <div className="mt-2.5 flex items-center justify-between text-2xs text-muted">
+            <span>Scope: {docScope}</span>
+            <span>{docFile ? docFile.name.slice(-18) : 'Pending file'}</span>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // 4. URL PREVIEW (Browser frame)
+  return (
+    <div className="overflow-hidden rounded-xl border border-line bg-white shadow-sm">
+      {/* Mock browser header */}
+      <div className="flex items-center gap-2 border-b border-line bg-[#F1F5F9] px-3 py-2">
+        <div className="flex items-center gap-1">
+          <span className="h-2 w-2 rounded-full bg-[#EF4444]" />
+          <span className="h-2 w-2 rounded-full bg-[#F59E0B]" />
+          <span className="h-2 w-2 rounded-full bg-[#10B981]" />
+        </div>
+        <div className="flex flex-1 items-center gap-1 rounded bg-white px-2 py-0.5 text-[9px] text-muted border border-line/80 truncate">
+          <Globe className="h-2.5 w-2.5 shrink-0 text-brand-600" />
+          <span className="truncate">{pageUrl || 'https://pureglow.co/...'}</span>
+        </div>
+      </div>
+
+      <div className="p-3">
+        <div className="flex items-center justify-between text-2xs text-muted mb-1.5">
+          <span className="font-semibold text-brand-700">{brand}</span>
+          <span className="rounded bg-brand-50 px-1.5 py-0.2 text-[8px] font-semibold text-brand-700 border border-brand-200">
+            {pageType}
+          </span>
+        </div>
+        <p className="text-xs font-bold text-ink">{title || 'Web Page Title'}</p>
+        <p className="mt-1.5 line-clamp-4 rounded bg-[#FAFBFD] p-2 text-[10px] leading-[14px] text-ink-800 border border-line/60">
+          {pageCopy || 'Webpage content and promo claims will preview here...'}
+        </p>
+      </div>
+
+      <div className="flex items-center justify-between border-t border-line bg-[#F8FAFC] px-3 py-1.5 text-2xs text-muted">
+        <span className="flex items-center gap-1">
+          <ExternalLink className="h-2.5 w-2.5" />
+          {pageUrl ? new URL(pageUrl.startsWith('http') ? pageUrl : `https://${pageUrl}`).hostname : 'pureglow.co'}
+        </span>
+        <span className="text-success-600 font-medium">Link Active</span>
       </div>
     </div>
   )
