@@ -188,13 +188,16 @@ export default function AgentRunDetailPage() {
           </div>
 
           {run.approvals && run.approvals.length > 0 && (
-            <div className="rounded-xl bg-white p-3 border border-amber-200 space-y-1.5 text-xs">
-              <span className="font-semibold text-ink">Action: {run.approvals[0].action_type}</span>
-              <p className="text-muted">{run.approvals[0].description}</p>
+            <div className="rounded-xl bg-white p-3.5 border border-amber-200 space-y-2 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-ink">Action: {run.approvals[0].action_type}</span>
+                <span className="text-[10px] text-amber-800 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200 font-semibold">
+                  Pending Decision
+                </span>
+              </div>
+              <p className="text-muted text-[11.5px] leading-relaxed">{run.approvals[0].description}</p>
               {run.approvals[0].payload && (
-                <pre className="rounded-lg bg-[#FAF9F5] p-2 text-[10px] font-mono text-ink overflow-x-auto border border-line/60">
-                  {JSON.stringify(run.approvals[0].payload, null, 2)}
-                </pre>
+                <ApprovalPayloadViewer payload={run.approvals[0].payload} />
               )}
             </div>
           )}
@@ -285,12 +288,7 @@ export default function AgentRunDetailPage() {
               )}
 
               {step.outputs && Object.keys(step.outputs).length > 0 && (
-                <div className="space-y-1">
-                  <span className="text-[10px] font-semibold text-muted uppercase">Step Output:</span>
-                  <pre className="rounded-xl bg-[#FAF9F5] p-2.5 text-[10px] font-mono text-ink overflow-x-auto border border-line/60">
-                    {JSON.stringify(step.outputs, null, 2)}
-                  </pre>
-                </div>
+                <TimelineStepOutputViewer outputs={step.outputs} />
               )}
             </div>
           ))}
@@ -300,13 +298,256 @@ export default function AgentRunDetailPage() {
       {/* Final Run Output */}
       {run.outputs && Object.keys(run.outputs).length > 0 && (
         <div className="rounded-2xl border border-brand-200 bg-brand-50/40 p-5 shadow-xs space-y-2">
-          <span className="text-xs font-bold text-brand-900 uppercase tracking-wider">Final Output Payload</span>
-          <pre className="rounded-xl bg-white p-3.5 text-xs font-mono text-ink overflow-x-auto border border-brand-200">
-            {JSON.stringify(run.outputs, null, 2)}
-          </pre>
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-brand-900 uppercase tracking-wider">Final Output Summary</span>
+            <span className="rounded-full bg-brand-100 text-brand-800 font-semibold px-2 py-0.5 text-[10px]">
+              {run.status}
+            </span>
+          </div>
+          <TimelineStepOutputViewer outputs={run.outputs} />
         </div>
       )}
     </div>
   )
 }
 
+
+/* ------------------------------------------------------------------ */
+/* Executive Approval Payload Viewer (Formatted & Raw JSON Toggle)    */
+/* ------------------------------------------------------------------ */
+
+function ApprovalPayloadViewer({ payload }: { payload: Record<string, any> }) {
+  const [showJson, setShowJson] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  if (!payload || Object.keys(payload).length === 0) return null
+
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    navigator.clipboard.writeText(JSON.stringify(payload, null, 2))
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
+  }
+
+  const rulesList = Array.isArray(payload.rules) ? payload.rules : null
+  const subId = payload.submission_id || payload.target_submission_id || payload.id
+
+  return (
+    <div className="space-y-2 mt-2">
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] font-bold uppercase tracking-wider text-amber-900">
+          Staged Actions & Policy Payload
+        </span>
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => setShowJson(!showJson)}
+            className="rounded-lg border border-amber-300 bg-amber-100/70 px-2 py-0.5 text-[10px] font-semibold text-amber-900 hover:bg-amber-200 transition cursor-pointer"
+          >
+            {showJson ? 'Executive View' : '{ } Raw JSON'}
+          </button>
+          {showJson && (
+            <button
+              type="button"
+              onClick={handleCopy}
+              className="rounded-lg border border-amber-200 bg-white px-2 py-0.5 text-[10px] text-muted hover:text-ink transition cursor-pointer"
+            >
+              {copied ? 'Copied' : 'Copy'}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {showJson ? (
+        <pre className="rounded-xl bg-stone-900 p-3 text-[10px] font-mono text-emerald-300 overflow-x-auto border border-stone-800 whitespace-pre-wrap leading-relaxed shadow-inner">
+          {JSON.stringify(payload, null, 2)}
+        </pre>
+      ) : (
+        <div className="rounded-xl border border-amber-200 bg-white p-3.5 space-y-3 shadow-xs">
+          {/* Target submission header */}
+          {subId && (
+            <div className="flex items-center justify-between rounded-lg bg-stone-50 px-3 py-2 border border-line/60 text-xs">
+              <span className="text-muted font-medium">Target Marketing Submission:</span>
+              <span className="font-mono font-bold text-brand-700">{subId}</span>
+            </div>
+          )}
+
+          {/* Staged rules list */}
+          {rulesList && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs font-semibold text-ink">
+                <span>Affected Rules & Reassessment Policies ({rulesList.length}):</span>
+                <span className="text-2xs text-muted">Human checkpoint required</span>
+              </div>
+              <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                {rulesList.map((rule: any, i: number) => (
+                  <div
+                    key={rule.id || i}
+                    className="rounded-lg border border-line/70 bg-[#FAF9F5] p-2.5 text-xs space-y-1 transition hover:border-brand-300"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 font-bold text-ink">
+                        <span className="rounded bg-brand-100 text-brand-800 px-1.5 py-0.5 font-mono text-[10px]">
+                          {rule.code || `Rule #${i + 1}`}
+                        </span>
+                        <span className="text-xs">{rule.title}</span>
+                      </div>
+                      {rule.priority && (
+                        <span
+                          className={`rounded px-1.5 py-0.5 text-[9.5px] font-semibold uppercase ${
+                            rule.priority === 'High'
+                              ? 'bg-red-50 text-red-700 border border-red-200'
+                              : 'bg-amber-50 text-amber-700 border border-amber-200'
+                          }`}
+                        >
+                          {rule.priority}
+                        </span>
+                      )}
+                    </div>
+                    {rule.summary && (
+                      <p className="text-[11px] text-muted leading-relaxed">{rule.summary}</p>
+                    )}
+                    {rule.source_passage && (
+                      <p className="text-[10px] text-ink-600 italic bg-white p-1.5 rounded border border-line/40 line-clamp-2">
+                        Citation: "{rule.source_passage}"
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Other payload parameters if any */}
+          {!rulesList && (
+            <div className="space-y-1.5 text-xs divide-y divide-line/40">
+              {Object.entries(payload).map(([k, v]) => (
+                <div key={k} className="flex items-start justify-between gap-3 pt-1.5 first:pt-0">
+                  <span className="text-muted font-medium capitalize">{k.replace(/_/g, ' ')}:</span>
+                  <span className="font-semibold text-ink text-right max-w-sm truncate">
+                    {typeof v === 'object' && v !== null ? JSON.stringify(v) : String(v)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/* Timeline Step Output Viewer (Clean Formatted & Raw JSON Toggle)    */
+/* ------------------------------------------------------------------ */
+
+function TimelineStepOutputViewer({ outputs }: { outputs: Record<string, any> }) {
+  const [showJson, setShowJson] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  if (!outputs || Object.keys(outputs).length === 0) return null
+
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    navigator.clipboard.writeText(JSON.stringify(outputs, null, 2))
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
+  }
+
+  const rulesList = Array.isArray(outputs.rules) ? outputs.rules : null
+  const subId = outputs.submission_id || outputs.target_submission_id || outputs.id
+  const copyText = outputs.copy || outputs.excerpt || outputs.text
+  const findingsCount = outputs.findings_count !== undefined ? outputs.findings_count : (Array.isArray(outputs.findings) ? outputs.findings.length : null)
+
+  return (
+    <div className="mt-2 space-y-1.5">
+      <div className="flex items-center justify-between text-[10px]">
+        <span className="font-bold text-muted uppercase tracking-wider">Step Output Data</span>
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => setShowJson(!showJson)}
+            className="rounded border border-brand-200 bg-brand-50 px-2 py-0.5 font-semibold text-brand-700 hover:bg-brand-100 transition cursor-pointer"
+          >
+            {showJson ? 'Formatted View' : '{ } JSON'}
+          </button>
+          {showJson && (
+            <button
+              type="button"
+              onClick={handleCopy}
+              className="rounded border border-line bg-stone-50 px-1.5 py-0.5 text-muted hover:text-ink transition cursor-pointer"
+            >
+              {copied ? 'Copied' : 'Copy'}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {showJson ? (
+        <pre className="rounded-xl bg-stone-900 p-2.5 text-[9.5px] font-mono text-emerald-300 overflow-x-auto border border-stone-800 whitespace-pre-wrap leading-relaxed shadow-inner">
+          {JSON.stringify(outputs, null, 2)}
+        </pre>
+      ) : (
+        <div className="rounded-xl border border-line/70 bg-[#FAF9F5] p-3 text-xs space-y-2">
+          {rulesList && (
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between font-semibold text-ink text-2xs">
+                <span>Active Rules In Scope:</span>
+                <span className="rounded bg-brand-50 px-1.5 py-0.5 text-brand-700 text-[9.5px] font-bold">
+                  {rulesList.length} rules
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto">
+                {rulesList.map((r: any, idx: number) => (
+                  <span
+                    key={r.id || idx}
+                    className="inline-flex items-center gap-1 rounded border border-line bg-white px-1.5 py-0.5 text-[9.5px] text-ink"
+                    title={r.title || r.summary || ''}
+                  >
+                    <span className="font-bold text-brand-700">{r.code || `Rule #${idx + 1}`}</span>
+                    <span className="truncate max-w-[150px] text-muted">{r.title || r.summary || ''}</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {(subId || copyText) && (
+            <div className="rounded-lg bg-white p-2 border border-line/60 space-y-1 text-2xs">
+              <div className="flex items-center justify-between text-[10px]">
+                {subId && (
+                  <span className="font-mono text-muted">
+                    Target: <span className="font-bold text-ink">{subId}</span>
+                  </span>
+                )}
+                {findingsCount !== null && (
+                  <span className="font-semibold text-amber-700">
+                    {findingsCount} findings checked
+                  </span>
+                )}
+              </div>
+              {copyText && (
+                <p className="text-[10px] text-ink-700 italic border-t border-line/40 pt-1 line-clamp-2">
+                  "{copyText}"
+                </p>
+              )}
+            </div>
+          )}
+
+          {!rulesList && !subId && !copyText && (
+            <div className="space-y-1 divide-y divide-line/40 text-[10.5px]">
+              {Object.entries(outputs).map(([k, v]) => (
+                <div key={k} className="flex items-start justify-between gap-2 pt-1 first:pt-0">
+                  <span className="font-medium text-muted capitalize">{k.replace(/_/g, ' ')}:</span>
+                  <span className="font-semibold text-ink text-right max-w-sm truncate">
+                    {typeof v === 'object' && v !== null ? JSON.stringify(v) : String(v)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
