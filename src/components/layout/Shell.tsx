@@ -292,27 +292,6 @@ function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
       </form>
 
       <div className="ml-auto flex items-center gap-2">
-        {/* Instant Persona Switcher Button */}
-        <button
-          type="button"
-          onClick={handleSwitchPersona}
-          disabled={switching}
-          aria-label="Switch Persona"
-          className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300 bg-emerald-50/90 px-3 py-1 text-xs font-semibold text-emerald-800 shadow-xs transition hover:bg-emerald-100 hover:border-emerald-400 disabled:opacity-50"
-          title={`Instant switch to ${user?.role === 'manager' ? 'Emily Carter (Content Creator)' : 'David Kim (Brand Manager)'}`}
-        >
-          {switching ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-700" />
-          ) : (
-            <ArrowLeftRight className="h-3.5 w-3.5 text-emerald-700" />
-          )}
-          <span className="hidden sm:inline font-medium">
-            Switch to {user?.role === 'manager' ? 'Creator (Emily)' : 'Manager (David)'}
-          </span>
-          <span className="sm:hidden font-medium">
-            {user?.role === 'manager' ? 'Creator' : 'Manager'}
-          </span>
-        </button>
 
         <div className="relative">
           <button

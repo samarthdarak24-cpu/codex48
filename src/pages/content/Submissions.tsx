@@ -221,9 +221,6 @@ export default function MySubmissions() {
                   <SlidersHorizontal className="h-3.5 w-3.5" />
                 </button>
               </div>
-              <Button className="w-full sm:w-auto sm:ml-auto" size="md" icon={<Plus className="h-3.5 w-3.5" />} onClick={() => navigate('/app/new')}>
-                New Content
-              </Button>
             </div>
 
             <DataTable
