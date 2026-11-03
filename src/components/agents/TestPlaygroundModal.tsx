@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import {
   AlertTriangle,
   ArrowRight,
@@ -81,11 +82,17 @@ export function TestPlaygroundModal({ isOpen, agent, onClose, onPublish }: TestP
     }
   }
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="relative flex h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-line bg-canvas shadow-2xl">
+  return createPortal(
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[#23282A]/45 p-3 sm:p-4 backdrop-blur-sm animate-in fade-in duration-200"
+      onClick={onClose}
+    >
+      <div
+        className="relative flex h-[88vh] max-h-[88vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-line bg-canvas shadow-2xl my-auto animate-in zoom-in-95 duration-200"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-line bg-white px-6 py-3.5">
+        <div className="flex shrink-0 items-center justify-between border-b border-line bg-white px-5 py-3 sm:px-6 sm:py-3.5">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-50 text-brand-600 border border-brand-200 shadow-xs">
               <Play className="h-4 w-4 fill-brand-600" />
@@ -314,7 +321,8 @@ export function TestPlaygroundModal({ isOpen, agent, onClose, onPublish }: TestP
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 

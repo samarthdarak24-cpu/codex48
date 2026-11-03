@@ -480,7 +480,7 @@ export function DashboardLayout() {
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar onOpenMenu={() => setMobileOpen(true)} />
         <main className="flex-1 px-3 py-4 sm:px-6 sm:py-6">
-          <div className="mx-auto w-full max-w-[1180px] animate-fade-up">
+          <div className="mx-auto w-full max-w-[1180px] animate-fade-in">
             <Outlet />
           </div>
         </main>

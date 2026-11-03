@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import {
   AlertTriangle,
@@ -71,6 +72,20 @@ export function PromptToAgentModal({ isOpen, onClose, onCreated }: PromptToAgent
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<AgentPromptResult | null>(null)
 
+  useEffect(() => {
+    if (!isOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', onKey)
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.body.style.overflow = prev
+    }
+  }, [isOpen, onClose])
+
   if (!isOpen) return null
 
   const handleGenerate = async () => {
@@ -110,11 +125,17 @@ export function PromptToAgentModal({ isOpen, onClose, onCreated }: PromptToAgent
     }
   }
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="relative flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-line bg-canvas shadow-2xl">
+  return createPortal(
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[#23282A]/45 p-3 sm:p-4 backdrop-blur-sm animate-in fade-in duration-200"
+      onClick={onClose}
+    >
+      <div
+        className="relative flex max-h-[88vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-line bg-canvas shadow-2xl my-auto animate-in zoom-in-95 duration-200"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Modal Header */}
-        <div className="flex items-center justify-between border-b border-line bg-white px-6 py-4">
+        <div className="flex shrink-0 items-center justify-between border-b border-line bg-white px-5 py-3.5 sm:px-6 sm:py-4">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-50 text-brand-600 shadow-sm border border-brand-100">
               <Sparkles className="h-5 w-5" />
@@ -296,7 +317,7 @@ export function PromptToAgentModal({ isOpen, onClose, onCreated }: PromptToAgent
         </div>
 
         {/* Modal Footer */}
-        <div className="flex items-center justify-between border-t border-line bg-white px-6 py-4">
+        <div className="flex shrink-0 items-center justify-between border-t border-line bg-white px-5 py-3.5 sm:px-6 sm:py-4">
           {!result ? (
             <>
               <button
@@ -355,7 +376,8 @@ export function PromptToAgentModal({ isOpen, onClose, onCreated }: PromptToAgent
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
