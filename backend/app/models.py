@@ -124,6 +124,7 @@ class Campaign(Base):
     end_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     status: Mapped[str] = mapped_column(String, default="active")  # active | paused | archived
     thumbnail_asset_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    is_demo: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
 
@@ -219,6 +220,14 @@ class Submission(Base):
     asset_url: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     asset_source: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     asset_attribution: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+
+    # Stored compliance score (spec Part 4). Computed by services/scoring.py and
+    # only displayed by the UI; `score_formula_version` lets a stale score be
+    # identified instead of silently mixed with a new formula.
+    compliance_score: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    score_formula_version: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    score_computed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    is_demo: Mapped[bool] = mapped_column(Boolean, default=False)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
@@ -348,18 +357,42 @@ class AssetAnalysis(Base):
     __tablename__ = "asset_analysis"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
-    asset_id: Mapped[str] = mapped_column(ForeignKey("brand_assets.id", ondelete="CASCADE"), index=True)
+    workspace: Mapped[str] = mapped_column(String, default="PureGlow", server_default="PureGlow", nullable=True, index=True)
+    workspace_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    asset_id: Mapped[Optional[str]] = mapped_column(String, nullable=True, index=True)
     asset_version: Mapped[int] = mapped_column(Integer, default=1)
-    status: Mapped[str] = mapped_column(String, default="pending")  # pending | running | completed | failed
+    submission_id: Mapped[Optional[str]] = mapped_column(String, nullable=True, index=True)
+    file_path: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+
+    status: Mapped[str] = mapped_column(String, default="pending", index=True)  # pending | running | complete | completed | failed
     stage: Mapped[str] = mapped_column(String, default="queued")
-    ocr_blocks: Mapped[list] = mapped_column(JSON, default=list)
-    ocr_text: Mapped[str] = mapped_column(Text, default="")
-    colors: Mapped[list] = mapped_column(JSON, default=list)
-    logo_matches: Mapped[list] = mapped_column(JSON, default=list)
-    layout: Mapped[dict] = mapped_column(JSON, default=dict)
-    contrast: Mapped[list] = mapped_column(JSON, default=list)
-    analyzer_versions: Mapped[dict] = mapped_column(JSON, default=dict)
     error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    width: Mapped[int] = mapped_column(Integer, default=0)
+    height: Mapped[int] = mapped_column(Integer, default=0)
+
+    ocr_text: Mapped[str] = mapped_column(Text, default="")
+    ocr_blocks: Mapped[list] = mapped_column(JSON, default=list)
+    text_blocks: Mapped[list] = mapped_column(JSON, default=list)
+
+    dominant_colors: Mapped[list] = mapped_column(JSON, default=list)
+    colors: Mapped[list] = mapped_column(JSON, default=list)
+
+    logo_detections: Mapped[list] = mapped_column(JSON, default=list)
+    logo_matches: Mapped[list] = mapped_column(JSON, default=list)
+
+    layout_facts: Mapped[dict] = mapped_column(JSON, default=dict)
+    layout_metrics: Mapped[dict] = mapped_column(JSON, default=dict)
+    layout: Mapped[dict] = mapped_column(JSON, default=dict)
+
+    contrast_samples: Mapped[list] = mapped_column(JSON, default=list)
+    contrast_findings: Mapped[list] = mapped_column(JSON, default=list)
+    contrast: Mapped[list] = mapped_column(JSON, default=list)
+
+    analyzer_versions: Mapped[dict] = mapped_column(JSON, default=dict)
+    unreadable: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_by_id: Mapped[str] = mapped_column(String, default="")
+
     completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
@@ -441,6 +474,7 @@ class PassageEmbedding(Base):
     __tablename__ = "passage_embeddings"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    workspace: Mapped[str] = mapped_column(String, default="PureGlow", server_default="PureGlow", nullable=True, index=True)
     passage_id: Mapped[str] = mapped_column(ForeignKey("guideline_passages.id", ondelete="CASCADE"), index=True)
     model_name: Mapped[str] = mapped_column(String, default="bge-m3")
     dim: Mapped[int] = mapped_column(Integer, default=1024)
@@ -467,7 +501,10 @@ class Rule(Base):
     id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
     workspace: Mapped[str] = mapped_column(String, default="PureGlow", index=True)
     workspace_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    code: Mapped[str] = mapped_column(String, unique=True, nullable=False, index=True)
+    # Codes are unique *within a workspace*, not globally: two brands may each
+    # run their own "CL-03" without colliding, which is what a multi-tenant
+    # rulebook requires.
+    code: Mapped[str] = mapped_column(String, nullable=False, index=True)
     title: Mapped[str] = mapped_column(String, nullable=False)
     name: Mapped[str] = mapped_column(String, default="")
     summary: Mapped[str] = mapped_column(Text, default="")
@@ -494,6 +531,10 @@ class Rule(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
 
     versions: Mapped[List["RuleVersion"]] = relationship("RuleVersion", backref="rule_parent", cascade="all, delete-orphan")
+
+    __table_args__ = (
+        UniqueConstraint("workspace", "code", name="uq_rule_workspace_code"),
+    )
 
 
 class RuleVersion(Base):
@@ -555,7 +596,7 @@ class Evaluation(Base):
     __tablename__ = "evaluations"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
-    submission_version_id: Mapped[str] = mapped_column(String, index=True)
+    submission_version_id: Mapped[Optional[str]] = mapped_column(String, nullable=True, index=True)
     engine_version: Mapped[str] = mapped_column(String, default="1.0.0")
     rule_set_hash: Mapped[str] = mapped_column(String, default="")
     triggered_by: Mapped[str] = mapped_column(String, default="system")
@@ -585,6 +626,7 @@ class Finding(Base):
     evidence_verified: Mapped[bool] = mapped_column(Boolean, default=False)
     region: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)  # [x1, y1, x2, y2]
     confidence: Mapped[float] = mapped_column(Float, default=1.0)
+    outcome: Mapped[str] = mapped_column(String, default='violation', server_default='violation')
     waived_by_exception_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     evaluation_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     facts_used: Mapped[dict] = mapped_column(JSON, default=dict)
@@ -596,8 +638,13 @@ class AiFinding(Base):
     __tablename__ = "ai_findings"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
-    submission_version_id: Mapped[str] = mapped_column(String, index=True)
+    workspace: Mapped[str] = mapped_column(String, default="PureGlow", server_default="PureGlow", nullable=True, index=True)
+    submission_id: Mapped[str] = mapped_column(String, default="", index=True)
+    submission_version_id: Mapped[Optional[str]] = mapped_column(String, nullable=True, index=True)
     rule_code: Mapped[str] = mapped_column(String, default="")
+    rule_title: Mapped[str] = mapped_column(String, default="")
+    source_type: Mapped[str] = mapped_column(String, default="ai_suggestion")
+    similarity: Mapped[float] = mapped_column(Float, default=0.0)
     passage_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     quote: Mapped[str] = mapped_column(Text, default="")
     rationale: Mapped[str] = mapped_column(Text, default="")
@@ -762,8 +809,9 @@ class Publication(Base):
     __tablename__ = "publications"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    workspace: Mapped[str] = mapped_column(String, default="PureGlow", server_default="PureGlow", nullable=True, index=True)
     submission_id: Mapped[str] = mapped_column(ForeignKey("submissions.id", ondelete="CASCADE"), index=True)
-    submission_version_id: Mapped[str] = mapped_column(String, index=True)
+    submission_version_id: Mapped[Optional[str]] = mapped_column(String, nullable=True, index=True)
     channel: Mapped[str] = mapped_column(String, default="Instagram")
     published_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     published_by: Mapped[str] = mapped_column(String, default="")
@@ -776,12 +824,15 @@ class ReassessmentTask(Base):
     __tablename__ = "reassessment_tasks"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    workspace: Mapped[str] = mapped_column(String, default="PureGlow", server_default="PureGlow", nullable=True, index=True)
     workspace_id: Mapped[str] = mapped_column(String, default="PureGlow", index=True)
     submission_id: Mapped[str] = mapped_column(ForeignKey("submissions.id", ondelete="CASCADE"), index=True)
-    submission_version_id: Mapped[str] = mapped_column(String, index=True)
+    submission_version_id: Mapped[Optional[str]] = mapped_column(String, nullable=True, index=True)
     trigger_type: Mapped[str] = mapped_column(String, nullable=False)  # rule_activated | rule_edited | rule_deactivated | exception_expired | exception_revoked | guideline_replaced | claim_changed | manual_scan
     trigger_ref: Mapped[str] = mapped_column(String, default="")
     trigger_hash: Mapped[str] = mapped_column(String, default="")
+    reason: Mapped[str] = mapped_column(Text, default="")
+    affected_rule_codes: Mapped[list] = mapped_column(JSON, default=list)
     assignee_id: Mapped[Optional[str]] = mapped_column(String, nullable=True, index=True)
     priority: Mapped[str] = mapped_column(String, default="High")
     status: Mapped[str] = mapped_column(String, default="open")  # open | in_progress | resolution_submitted | reassessing | awaiting_verification | resolved | closed
@@ -789,8 +840,11 @@ class ReassessmentTask(Base):
     previous_outcome: Mapped[str] = mapped_column(String, default="compliant")
     new_outcome: Mapped[str] = mapped_column(String, default="violation")
     recommended_steps: Mapped[list] = mapped_column(JSON, default=list)
-    resolution: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    resolution: Mapped[Optional[Any]] = mapped_column(JSON, nullable=True)
+    resolution_note: Mapped[str] = mapped_column(Text, default="")
     resolved_version_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    resolved_by_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    resolved_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
 
@@ -825,12 +879,14 @@ class Notification(Base):
     __tablename__ = "notifications"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    workspace: Mapped[str] = mapped_column(String, default="PureGlow", server_default="PureGlow", nullable=True, index=True)
+    workspace_id: Mapped[Optional[str]] = mapped_column(String, nullable=True, index=True)
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     type: Mapped[str] = mapped_column(String, default="system")  # submission_approved | changes_requested | submission_rejected | comment_added | exception_decided | exception_expiring | exception_revoked | guideline_activated | rule_activated | sentinel_task_created | sentinel_task_verified | system
     title: Mapped[str] = mapped_column(String, nullable=False)
     body: Mapped[str] = mapped_column(Text, default="")
     payload: Mapped[dict] = mapped_column(JSON, default=dict)
-    idempotency_key: Mapped[str] = mapped_column(String, default="")
+    idempotency_key: Mapped[Optional[str]] = mapped_column(String, nullable=True, default=None)
     read_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
@@ -874,7 +930,7 @@ class SimulationItem(Base):
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
     simulation_id: Mapped[str] = mapped_column(ForeignKey("simulations.id", ondelete="CASCADE"), index=True)
-    submission_version_id: Mapped[str] = mapped_column(String, index=True)
+    submission_version_id: Mapped[Optional[str]] = mapped_column(String, nullable=True, index=True)
     previous_outcome: Mapped[str] = mapped_column(String, default="compliant")
     proposed_outcome: Mapped[str] = mapped_column(String, default="violation")
     impact_reason: Mapped[str] = mapped_column(Text, default="")
@@ -908,6 +964,7 @@ class AiCallLog(Base):
     __tablename__ = "ai_call_log"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    workspace: Mapped[str] = mapped_column(String, default="PureGlow", server_default="PureGlow", nullable=True, index=True)
     purpose: Mapped[str] = mapped_column(String, default="review")
     provider: Mapped[str] = mapped_column(String, default="openai")
     model: Mapped[str] = mapped_column(String, default="gpt-4o-mini")
@@ -917,29 +974,31 @@ class AiCallLog(Base):
     tokens_out: Mapped[int] = mapped_column(Integer, default=0)
     status: Mapped[str] = mapped_column(String, default="success")  # success | error | fallback
     error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    citations_verified: Mapped[int] = mapped_column(Integer, default=0)
+    citations_rejected: Mapped[int] = mapped_column(Integer, default=0)
+    redaction_count: Mapped[int] = mapped_column(Integer, default=0)
+    citations_verified: Mapped[int] = mapped_column(Integer, default=0)
+    citations_rejected: Mapped[int] = mapped_column(Integer, default=0)
+    redaction_count: Mapped[int] = mapped_column(Integer, default=0)
     redacted_pii_count: Mapped[int] = mapped_column(Integer, default=0)
     request_id: Mapped[str] = mapped_column(String, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
-from app.assistant.models import (
-    AssistantConversation,
-    AssistantMessage,
-    AssistantCitation,
-    AssistantFeedback,
-    AssistantActionDraft,
-)
-from app.agents.models import (
-    Agent,
-    AgentApproval,
-    AgentMemorySession,
-    AgentRun,
-    AgentRunStep,
-    AgentToolPermission,
-    AgentTrigger,
-    AgentVersion,
-    AgentWorkflow,
-)
+class AgentRun(Base):
+    __tablename__ = "agent_runs"
+    __table_args__ = {"extend_existing": True}
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    submission_version_id: Mapped[Optional[str]] = mapped_column(String, nullable=True, index=True)
+    status: Mapped[str] = mapped_column(String, default="running")  # running | succeeded | failed
+    started_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    finished_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    budget: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
 class AgentToolCall(Base):
     __tablename__ = "agent_tool_calls"
 
@@ -1005,3 +1064,121 @@ class Job(Base):
     result: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     finished_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+
+
+# Second Batch Innovations (N10 Approved Snippets, N11 False-Positive Feedback)
+# ---------------------------------------------------------------------------
+
+class ApprovedSnippet(Base):
+    """N10 Approved Snippets library: pre-vetted brand copy, claims, disclosures."""
+
+    __tablename__ = "approved_snippets"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    workspace: Mapped[str] = mapped_column(String, default="PureGlow", server_default="PureGlow", nullable=True, index=True)
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    category: Mapped[str] = mapped_column(String, default="Claim")  # Claim | Disclaimer | Promotion | Legal
+    rule_codes: Mapped[list] = mapped_column(JSON, default=list)
+    claim_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    valid_from: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    valid_until: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # active | expired | retired
+    status: Mapped[str] = mapped_column(String, default="active", index=True)
+    created_by: Mapped[str] = mapped_column(String, default="David Kim")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class FindingFeedback(Base):
+    """N11 False-Positive feedback loop: creator disputes or clarifications on findings."""
+
+    __tablename__ = "finding_feedback"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    workspace: Mapped[str] = mapped_column(String, default="PureGlow", server_default="PureGlow", nullable=True, index=True)
+    finding_id: Mapped[str] = mapped_column(
+        ForeignKey("findings.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    submission_id: Mapped[str] = mapped_column(String, default="", index=True)
+    rule_code: Mapped[str] = mapped_column(String, default="")
+    user_id: Mapped[str] = mapped_column(String, nullable=False)
+    user_name: Mapped[str] = mapped_column(String, default="")
+    # not_a_violation | rule_unclear | exception_applies | other
+    reason: Mapped[str] = mapped_column(String, default="not_a_violation")
+    notes: Mapped[str] = mapped_column(Text, default="")
+    # submitted | under_review | converted_to_test | dismissed
+    status: Mapped[str] = mapped_column(String, default="submitted")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+# ---------------------------------------------------------------------------
+# ProofPass — Approval Passport Stretch Innovation (ImageHash & SHA-256)
+# ---------------------------------------------------------------------------
+
+class ApprovalPassport(Base):
+    """ProofPass approval passport: cryptographic SHA-256 + perceptual pHash certificate."""
+
+    __tablename__ = "approval_passports"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    workspace: Mapped[str] = mapped_column(String, default="PureGlow", server_default="PureGlow", nullable=True, index=True)
+    submission_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    version_id: Mapped[str] = mapped_column(String, nullable=False)
+    version_number: Mapped[int] = mapped_column(Integer, default=1)
+    brand: Mapped[str] = mapped_column(String, default="PureGlow")
+    title: Mapped[str] = mapped_column(String, default="")
+    sha256: Mapped[str] = mapped_column(String, nullable=False)
+    phash: Mapped[str] = mapped_column(String, default="")
+    dhash: Mapped[str] = mapped_column(String, default="")
+    token: Mapped[str] = mapped_column(Text, nullable=False)
+    approved_by: Mapped[str] = mapped_column(String, default="")
+    # active | revoked | expired
+    status: Mapped[str] = mapped_column(String, default="active", index=True)
+    revocation_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+
+
+# ---------------------------------------------------------------------------
+# Review Crew  Bounded Advisory Multi-Agent System (PydanticAI)
+# ---------------------------------------------------------------------------
+
+class AgentTraceRecord(Base):
+    """Persisted audit trace of Review Crew bounded multi-agent executions."""
+
+    __tablename__ = "agent_traces"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    workspace: Mapped[str] = mapped_column(String, default="PureGlow", server_default="PureGlow", nullable=True, index=True)
+    submission_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    version_num: Mapped[int] = mapped_column(Integer, default=1)
+    orchestrator_status: Mapped[str] = mapped_column(String, default="completed", index=True)
+    steps_json: Mapped[str] = mapped_column(Text, default="[]")
+    summary_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    total_duration_ms: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class RuleConflictReview(Base):
+    """A manager's decision to mark a detected rule conflict as reviewed.
+
+    Conflict detection itself is deterministic and recomputed on every read, so
+    a review cannot silently delete a conflict. This row only records that a
+    human acknowledged it, which is what lets the UI show a persistent
+    'reviewed' state instead of a local-only toggle.
+    """
+
+    __tablename__ = "rule_conflict_reviews"
+    __table_args__ = (
+        UniqueConstraint("workspace", "rule_a_code", "rule_b_code", name="uq_conflict_review"),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    workspace: Mapped[str] = mapped_column(String, default="PureGlow", server_default="PureGlow", nullable=True, index=True)
+    rule_a_code: Mapped[str] = mapped_column(String, nullable=False)
+    rule_b_code: Mapped[str] = mapped_column(String, nullable=False)
+    resolution: Mapped[str] = mapped_column(String, default="reviewed")  # reviewed | dismissed
+    note: Mapped[str] = mapped_column(Text, default="")
+    reviewed_by_id: Mapped[str] = mapped_column(String, default="")
+    reviewed_by_name: Mapped[str] = mapped_column(String, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+

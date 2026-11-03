@@ -84,3 +84,4 @@ draw2.text((50, 935), "PureGlow QA Mega Promotion • Limited Stock Available", 
 
 img2.save("qa_test_assets/PureGlow_Poster_Image_02.png")
 print("Saved qa_test_assets/PureGlow_Poster_Image_02.png")
+

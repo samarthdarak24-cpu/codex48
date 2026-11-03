@@ -549,13 +549,34 @@ def publish_submission(
         details=f"Published version v{sub.version} to {body.channel}",
         brand=sub.brand,
     )
-    return pub
+    return {
+        "id": pub.id,
+        "submission_id": pub.submission_id,
+        "submission_version_id": pub.submission_version_id,
+        "channel": pub.channel,
+        "published_at": pub.published_at.isoformat() if pub.published_at else None,
+        "published_by": pub.published_by,
+        "status": pub.status,
+        "external_ref": pub.external_ref,
+    }
 
 
 @router.get("/submissions/{sub_id}/publications", tags=["Publications"])
 def list_submission_publications(sub_id: str, db: Session = Depends(get_db)):
     pubs = db.query(Publication).filter(Publication.submission_id == sub_id).all()
-    return pubs
+    return [
+        {
+            "id": p.id,
+            "submission_id": p.submission_id,
+            "submission_version_id": p.submission_version_id,
+            "channel": p.channel,
+            "published_at": p.published_at.isoformat() if p.published_at else None,
+            "published_by": p.published_by,
+            "status": p.status,
+            "external_ref": p.external_ref,
+        }
+        for p in pubs
+    ]
 
 
 @router.post("/publications/{pub_id}/unpublish", tags=["Publications"])

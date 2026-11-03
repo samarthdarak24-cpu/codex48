@@ -311,3 +311,4 @@ with open(f"{REPORTS_DIR}/REMAINING_ISSUES.md", "w", encoding="utf-8") as f:
 """)
 
 print("All 15 QA and Audit reports generated successfully in reports/")
+

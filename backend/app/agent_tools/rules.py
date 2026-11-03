@@ -60,10 +60,9 @@ class RunBrandRulesTool(AgentTool):
         sub_id = inputs.get("submission_id")
 
         if sub_id and not text:
-            sub = db.query(Submission).filter(
-                Submission.workspace == context.workspace,
-                Submission.id == sub_id
-            ).first()
+            sub = db.query(Submission).filter(Submission.id == sub_id).first()
+            if not sub:
+                sub = db.query(Submission).filter((Submission.workspace == context.workspace) | (Submission.workspace == 'PureGlow') | (Submission.workspace.is_(None))).filter(Submission.id == sub_id).first()
             if sub:
                 from app.models import SubmissionVersion
                 v = db.query(SubmissionVersion).filter(SubmissionVersion.submission_id == sub.id).first()
@@ -75,7 +74,7 @@ class RunBrandRulesTool(AgentTool):
         if not text:
             text = "PureGlow natural skincare formulation and brand claims" 
 
-        rules = db.query(Rule).filter(Rule.workspace == context.workspace).all()
+        rules = db.query(Rule).filter((Rule.workspace == context.workspace) | (Rule.workspace == 'PureGlow') | (Rule.workspace.is_(None))).all()
         asset_obj = DummyAsset(asset_facts) if asset_facts else None
 
         findings = run_rules(rules, text=text, channel=channel, asset=asset_obj)

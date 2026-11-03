@@ -101,7 +101,7 @@ export function AssistantWidget() {
         convId = newConv.id
       }
 
-      const res = await api.assistant.sendMessage(convId, text, location.pathname)
+      const res = await api.assistant.sendMessage(convId || "", text, location.pathname)
       // Replace optimistic message and append real assistant message
       setMessages((prev) => [
         ...prev.filter((m) => m.id !== tempUserMsg.id),

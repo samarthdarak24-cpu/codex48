@@ -12,30 +12,40 @@
  */
 
 import type {
+  AiFinding,
+  AiTrustSummary,
+  AppNotification,
   ApprovedClaim,
+  AssetAnalysis,
   AuditEvent,
   Brand,
   BrandAsset,
   ContentType,
+  EvidenceCapabilities,
   ExceptionRequest,
   GuidelineDoc,
+  MonitoredPublication,
+  Publication,
+  ReassessmentTask,
+  RetrievedPassage,
   Rule,
   Simulation,
   Submission,
+  SystemHealth,
   User,
-  Agent,
-  AgentApproval,
-  AgentPromptResult,
-  AgentRun,
-  AgentRunStep,
-  AgentTemplate,
-  AgentTool,
-  AssistantStatus,
-  AssistantMessage,
-  AssistantConversation,
-  NavCounts,
-  SubmissionsSummary,
 } from '@/lib/types'
+import type {
+  AgentDetail,
+  AgentRun,
+  AgentSpec,
+  AgentStats,
+  AgentSummary,
+  AgentTemplate,
+  DraftFromPromptResponse,
+  ToolCatalog,
+  ValidationResult,
+  WorkflowGraph,
+} from '@/lib/agentTypes'
 
 export const API_BASE: string = import.meta.env.VITE_API_BASE || 'http://127.0.0.1:8000'
 
@@ -87,7 +97,6 @@ function clearSessionAndNotify(): void {
   setSession(null)
   try {
     sessionStorage.removeItem(SESSION_KEY)
-    localStorage.removeItem(SESSION_KEY)
   } catch {
     /* storage unavailable */
   }
@@ -160,6 +169,8 @@ export interface CreateSubmissionInput {
   brand: Brand
   text: string
   assetId?: string
+  campaign?: string
+  status?: 'Draft' | 'Pending'
 }
 
 export interface ExceptionInput {
@@ -183,7 +194,6 @@ export interface DocInput {
   fileType: 'PDF' | 'DOCX'
   fileSize: string
   pages: number
-  file?: File
 }
 
 export interface RuleInput {
@@ -216,31 +226,15 @@ export interface Session {
 
 export const authApi = {
   async login(email: string, password: string): Promise<Session> {
-    const t0 = performance.now()
-    console.time('[Auth] Login request duration')
-    try {
-      const data = await request<Session>('/auth/login', {
-        method: 'POST',
-        body: JSON.stringify({ email, password }),
-      })
-      const elapsed = (performance.now() - t0).toFixed(1)
-      console.timeEnd('[Auth] Login request duration')
-      console.info(`[Auth] Login API responded in ${elapsed}ms for ${email}`)
-      setSession({ token: data.token, user: data.user })
-      return data
-    } catch (err) {
-      console.timeEnd('[Auth] Login request duration')
-      throw err
-    }
+    const data = await request<Session>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    })
+    setSession({ token: data.token, user: data.user })
+    return data
   },
 
-  async register(payload: {
-    name: string
-    email: string
-    password: string
-    role?: string
-    workspace?: string
-  }): Promise<Session> {
+  async register(payload: { email: string; password: string; name: string; role?: 'creator' | 'manager'; workspace?: string }): Promise<Session> {
     const data = await request<Session>('/auth/register', {
       method: 'POST',
       body: JSON.stringify(payload),
@@ -279,12 +273,35 @@ export const api = {
   guidelines: () => request<GuidelineDoc[]>('/guidelines'),
   searchGuidelines: (q: string) => request<any[]>(`/guidelines/search?q=${encodeURIComponent(q)}`),
   rules: () => request<Rule[]>('/rules'),
+  conflicts: () => request<any[]>('/rules/conflicts'),
   claims: () => request<ApprovedClaim[]>('/claims'),
   exceptions: () => request<ExceptionRequest[]>('/exceptions'),
   getExceptionHistory: (id: string) => request<any[]>(`/exceptions/${id}/history`),
   simulations: () => request<Simulation[]>('/simulations'),
   audit: () => request<AuditEvent[]>('/audit'),
-  exportAuditUrl: (format: 'csv' | 'json' = 'csv') => `${API_BASE}/audit/export?format=${format}`,
+  /**
+   * Download the audit export.
+   *
+   * A plain `window.open` cannot attach the bearer token, so the endpoint
+   * would answer 401 and the UI would claim success anyway. Fetch it with the
+   * same auth path as every other call, then hand the browser a blob.
+   */
+  downloadAudit: async (format: 'csv' | 'json' = 'csv'): Promise<void> => {
+    const headers = new Headers()
+    if (session?.token) headers.set('Authorization', `Bearer ${session.token}`)
+    const res = await fetch(`${API_BASE}/audit/export?format=${format}`, { headers })
+    if (!res.ok) throw new ApiError(`Export failed (${res.status})`, res.status)
+
+    const blob = await res.blob()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `precedent-audit.${format === 'csv' ? 'csv' : 'json'}`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+  },
   team: () => request<User[]>('/team'),
 
   /* ---------------------------------------------------------------- */
@@ -302,8 +319,13 @@ export const api = {
         brand: input.brand,
         text: input.text,
         assetId: input.assetId ?? null,
+        campaign: input.campaign ?? null,
+        status: input.status ?? 'Pending',
       }),
     }),
+
+  submitSubmission: (id: string) =>
+    request<Submission>(`/submissions/${id}/submit`, { method: 'POST' }),
 
   addVersion: (id: string, text: string, note: string) =>
     request<Submission>(`/submissions/${id}/versions`, {
@@ -311,6 +333,27 @@ export const api = {
       body: JSON.stringify({ text, note }),
     }),
 
+  extractTextFromFile: async (file: File): Promise<{ text: string; filename: string; type: string; word_count: number; passages?: number }> => {
+    try {
+      const form = new FormData()
+      form.append('file', file, file.name)
+      return await request<{ text: string; filename: string; type: string; word_count: number; passages?: number }>('/api/v1/content/extract-text', {
+        method: 'POST',
+        body: form,
+      })
+    } catch {
+      const cleanName = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ')
+      const text = file.type.startsWith('image/')
+        ? `${cleanName.charAt(0).toUpperCase() + cleanName.slice(1)} — PureGlow Organic Skincare. Pure botanical nourishment for naturally radiant skin.`
+        : `${cleanName.charAt(0).toUpperCase() + cleanName.slice(1)}: Brand Document Overview and Compliance Rules.`
+      return {
+        text,
+        filename: file.name,
+        type: file.type.startsWith('image/') ? 'image' : 'document',
+        word_count: text.split(' ').length,
+      }
+    }
+  },
   addComment: (id: string, body: string) =>
     request<Submission>(`/submissions/${id}/comments`, {
       method: 'POST',
@@ -364,19 +407,8 @@ export const api = {
 
   addDocument: (input: DocInput) => {
     const form = new FormData()
-    if (input.file) {
-      form.append('file', input.file, input.file.name)
-    } else {
-      const sampleText = `${input.name}\n\n${input.description}\n\nCategory: ${input.category}\n`
-      if (input.fileType === 'DOCX') {
-        const blob = new Blob([sampleText], { type: 'text/plain' })
-        form.append('file', blob, `${input.name.toLowerCase().replace(/[^a-z0-9]+/g, '_')}.txt`)
-      } else {
-        const pdfContent = `%PDF-1.4\n1 0 obj\n<< /Title (${input.name}) /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n3 0 obj\n<< /Type /Page /Parent 2 0 R /Contents 4 0 R >>\nendobj\n4 0 obj\n<< /Length 120 >>\nstream\n${sampleText}\nendstream\nendobj\nxref\n0 5\n0000000000 65535 f \n0000000009 00000 n \n0000000074 00000 n \n0000000133 00000 n \n0000000196 00000 n \ntrailer\n<< /Size 5 /Root 1 0 R >>\nstartxref\n350\n%%EOF`
-        const blob = new Blob([pdfContent], { type: 'application/pdf' })
-        form.append('file', blob, `${input.name.toLowerCase().replace(/[^a-z0-9]+/g, '_')}.pdf`)
-      }
-    }
+    const blob = new Blob([`${input.name}\n\n${input.description}`], { type: 'application/octet-stream' })
+    form.append('file', blob, `document.${input.fileType.toLowerCase()}`)
     form.append('name', input.name)
     form.append('description', input.description)
     form.append('category', input.category)
@@ -385,42 +417,15 @@ export const api = {
     return request<GuidelineDoc>('/guidelines', { method: 'POST', body: form })
   },
 
-  extractGuidelineRules: (guidelineId: string) =>
-    request<{ success: boolean; rulesCount: number; rules: Rule[] }>(`/guidelines/${guidelineId}/extract-rules`, {
-      method: 'POST',
-    }),
-
-  guidelineDownloadUrl: (id: string, format: 'pdf' | 'original' = 'pdf') =>
-    `${API_BASE}/guidelines/${id}/download?format=${format}`,
-
-  downloadGuidelinePdf: async (id: string, format: 'pdf' | 'original' = 'pdf'): Promise<Blob> => {
-    const res = await fetch(`${API_BASE}/guidelines/${id}/download?format=${format}`, {
-      headers: authHeaders(),
-    })
-    if (!res.ok) throw new Error(`Download failed with status ${res.status}`)
-    return await res.blob()
-  },
-
-  extractTextFromFile: async (file: File): Promise<{ text: string; filename: string; type: string; word_count: number; passages?: number }> => {
-    try {
-      const form = new FormData()
-      form.append('file', file, file.name)
-      return await request<{ text: string; filename: string; type: string; word_count: number; passages?: number }>('/api/v1/content/extract-text', {
-        method: 'POST',
-        body: form,
-      })
-    } catch {
-      const cleanName = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ')
-      const text = file.type.startsWith('image/')
-        ? `${cleanName.charAt(0).toUpperCase() + cleanName.slice(1)} — PureGlow Organic Skincare. Pure botanical nourishment for naturally radiant skin.`
-        : `${cleanName.charAt(0).toUpperCase() + cleanName.slice(1)}: Brand Document Overview and Compliance Rules.`
-      return {
-        text,
-        filename: file.name,
-        type: file.type.startsWith('image/') ? 'image' : 'document',
-        word_count: text.split(' ').length,
-      }
-    }
+  uploadGuidelineFile: (file: File, name: string, category: string, description: string) => {
+    const form = new FormData()
+    form.append('file', file)
+    form.append('name', name)
+    form.append('description', description)
+    form.append('category', category)
+    form.append('brand', 'PureGlow')
+    form.append('visible_to_creators', 'true')
+    return request<GuidelineDoc>('/guidelines', { method: 'POST', body: form })
   },
 
   setDocStatus: (id: string, status: GuidelineDoc['status']) =>
@@ -473,155 +478,7 @@ export const api = {
     request<BrandAsset>(`/assets/${id}/approve`, { method: 'POST' }),
 
   /** Fetch a protected asset file with the bearer token and return an object URL. */
-  /* ---------------------------------------------------------------- */
-  /* Agent Studio & Workflows                                          */
-  /* ---------------------------------------------------------------- */
-
-  agents: (params?: { status?: string; category?: string; search?: string }) => {
-    const q = new URLSearchParams()
-    if (params?.status) q.set('status', params.status)
-    if (params?.category) q.set('category', params.category)
-    if (params?.search) q.set('search', params.search)
-    const qs = q.toString()
-    return request<Agent[]>(`/api/v1/agents${qs ? `?${qs}` : ''}`)
-  },
-
-  agent: (id: string) => request<Agent>(`/api/v1/agents/${id}`),
-
-  draftAgentFromPrompt: (prompt: string, category?: string) =>
-    request<AgentPromptResult>('/api/v1/agents/draft-from-prompt', {
-      method: 'POST',
-      body: JSON.stringify({ prompt, category }),
-    }),
-
-  createAgent: (payload: Partial<Agent>) =>
-    request<Agent>('/api/v1/agents', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    }),
-
-  updateAgent: (id: string, payload: Partial<Agent>) =>
-    request<Agent>(`/api/v1/agents/${id}`, {
-      method: 'PATCH',
-      body: JSON.stringify(payload),
-    }),
-
-  deleteAgent: (id: string) =>
-    request<{ status: string; agent_id: string }>(`/api/v1/agents/${id}`, {
-      method: 'DELETE',
-    }),
-
-  validateAgent: (id: string) =>
-    request<{ valid: boolean; errors: string[] }>(`/api/v1/agents/${id}/validate`, {
-      method: 'POST',
-    }),
-
-  publishAgent: (id: string) =>
-    request<Agent>(`/api/v1/agents/${id}/publish`, {
-      method: 'POST',
-    }),
-
-  pauseAgent: (id: string) =>
-    request<Agent>(`/api/v1/agents/${id}/pause`, {
-      method: 'POST',
-    }),
-
-  testAgent: (id: string, payload: { prompt?: string; submission_id?: string; query?: string; inputs?: Record<string, any> }) =>
-    request<AgentRun>(`/api/v1/agents/${id}/test`, {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    }),
-
-  executeAgent: (id: string, payload: { inputs?: Record<string, any>; trigger_type?: string; session_id?: string }) =>
-    request<AgentRun>(`/api/v1/agents/${id}/execute`, {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    }),
-
-  agentRuns: (agentId: string) =>
-    request<AgentRun[]>(`/api/v1/agents/${agentId}/runs`),
-
-  allAgentRuns: (params?: { agent_id?: string; status?: string; limit?: number }) => {
-    const q = new URLSearchParams()
-    if (params?.agent_id) q.set('agent_id', params.agent_id)
-    if (params?.status) q.set('status', params.status)
-    if (params?.limit) q.set('limit', String(params.limit))
-    const qs = q.toString()
-    return request<AgentRun[]>(`/api/v1/agent-runs${qs ? `?${qs}` : ''}`)
-  },
-
-  agentRun: (runId: string) =>
-    request<AgentRun>(`/api/v1/agent-runs/${runId}`),
-
-  cancelAgentRun: (runId: string) =>
-    request<AgentRun>(`/api/v1/agent-runs/${runId}/cancel`, {
-      method: 'POST',
-    }),
-
-  approveAgentRun: (runId: string, decision: 'approved' | 'rejected', note?: string) =>
-    request<AgentRun>(`/api/v1/agent-runs/${runId}/approve`, {
-      method: 'POST',
-      body: JSON.stringify({ decision, note: note || '' }),
-    }),
-
-  agentTools: () => request<AgentTool[]>('/api/v1/agent-tools'),
-
-  agentTemplates: () => request<AgentTemplate[]>('/api/v1/agent-templates'),
-
-  instantiateTemplate: (templateId: string) =>
-    request<Agent>(`/api/v1/agent-templates/${templateId}/instantiate`, {
-      method: 'POST',
-    }),
-
-  navCounts: () => request<NavCounts>('/api/v1/nav/counts'),
-
-  submissionsSummary: () => request<SubmissionsSummary>('/api/v1/submissions/summary'),
-
-  runReviewCrew: (submissionId: string) =>
-    request<any>(`/api/v1/submissions/${submissionId}/review-crew`, {
-      method: 'POST',
-    }),
-
-  assistant: {
-    status: () => request<AssistantStatus>('/api/v1/assistant/status'),
-
-    createConversation: (data: { title?: string; context_route?: string; resource_type?: string; resource_id?: string }) =>
-      request<AssistantConversation>('/api/v1/assistant/conversations', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }),
-
-    listConversations: () => request<AssistantConversation[]>('/api/v1/assistant/conversations'),
-
-    getConversation: (convId: string) =>
-      request<AssistantConversation>(`/api/v1/assistant/conversations/${convId}`),
-
-    sendMessage: (convId: string, content: string, context_route?: string, resource_id?: string) =>
-      request<{ user_message: AssistantMessage; assistant_message: AssistantMessage }>(
-        `/api/v1/assistant/conversations/${convId}/messages`,
-        {
-          method: 'POST',
-          body: JSON.stringify({ content, context_route, resource_id }),
-        },
-      ),
-
-    submitFeedback: (messageId: string, rating: number, comment?: string) =>
-      request<{ status: string; message: string }>(`/api/v1/assistant/messages/${messageId}/feedback`, {
-        method: 'POST',
-        body: JSON.stringify({ rating, comment }),
-      }),
-
-    getSuggestions: (route: string) =>
-      request<string[]>(`/api/v1/assistant/suggestions?route=${encodeURIComponent(route)}`),
-
-    confirmAction: (draftId: string, confirmed: boolean = true, note?: string) =>
-      request<{ status: string; message: string }>(`/api/v1/assistant/actions/${draftId}/confirm`, {
-        method: 'POST',
-        body: JSON.stringify({ confirmed, note }),
-      }),
-  },
-
-    fetchAssetBlobUrl: async (id: string): Promise<string | null> => {
+  fetchAssetBlobUrl: async (id: string): Promise<string | null> => {
     try {
       const res = await fetch(`${API_BASE}/assets/${id}/file`, { headers: authHeaders() })
       if (!res.ok) return null
@@ -631,7 +488,622 @@ export const api = {
       return null
     }
   },
+
+  /* ---------------------------------------------------------------- */
+  /* A1 VisualGuard                                                    */
+  /* ---------------------------------------------------------------- */
+
+  /**
+   * Upload a poster. Returns immediately with status "pending"; the analyser
+   * runs in the background, so poll `analysis(id)` until it leaves pending.
+   */
+  uploadPoster: (
+    file: File | null,
+    opts: { submissionId?: string; assetId?: string; title?: string; channel?: string; brand?: string } = {},
+  ) => {
+    const form = new FormData()
+    if (file) form.append('file', file)
+    if (opts.submissionId) form.append('submission_id', opts.submissionId)
+    if (opts.assetId) form.append('asset_id', opts.assetId)
+    form.append('title', opts.title ?? file?.name ?? 'Poster')
+    form.append('channel', opts.channel ?? 'Social Media')
+    form.append('brand', opts.brand ?? 'PureGlow')
+    return request<{ analysisId: string; submissionId: string; status: string }>(
+      '/analysis/upload',
+      { method: 'POST', body: form },
+    )
+  },
+
+  analysis: (id: string) => request<AssetAnalysis>(`/analysis/${id}`),
+
+  analysisForSubmission: (submissionId: string) =>
+    request<AssetAnalysis>(`/analysis/submission/${submissionId}`),
+
+  rerunAnalysis: (id: string) =>
+    request<{ analysisId: string; status: string }>(`/analysis/${id}/rerun`, { method: 'POST' }),
+
+  /** Object URL for the stored poster (the endpoint is token-protected). */
+  fetchPosterBlobUrl: async (submissionId: string): Promise<string | null> => {
+    try {
+      const res = await fetch(`${API_BASE}/analysis/${submissionId}/file`, {
+        headers: authHeaders(),
+      })
+      if (!res.ok) return null
+      const blob = await res.blob()
+      return URL.createObjectURL(blob)
+    } catch {
+      return null
+    }
+  },
+
+  /* ---------------------------------------------------------------- */
+  /* A2 Evidence Intelligence                                          */
+  /* ---------------------------------------------------------------- */
+
+  evidenceCapabilities: () => request<EvidenceCapabilities>('/evidence/capabilities'),
+
+  aiFindings: (submissionId: string) =>
+    request<AiFinding[]>(`/evidence/findings/${submissionId}`),
+
+  runSemanticReview: (submissionId: string, versionId?: string) =>
+    request<{
+      submissionId: string
+      count: number
+      findings: AiFinding[]
+      llmConfigured: boolean
+      aiStatus?: string
+      aiError?: string | null
+    }>(
+      `/evidence/review/${submissionId}`,
+      { method: 'POST', body: JSON.stringify({ versionId: versionId ?? null }) },
+    ),
+
+  searchEvidence: (q: string, topK?: number) =>
+    request<{ query: string; results: RetrievedPassage[]; method: string }>(
+      `/evidence/search?q=${encodeURIComponent(q)}${topK ? `&topK=${topK}` : ''}`,
+    ),
+
+  syncEmbeddings: () =>
+    request<{ model: string | null; indexed: number; skipped: number }>(
+      '/evidence/sync-embeddings',
+      { method: 'POST' },
+    ),
+
+  aiTrust: (days = 30) => request<AiTrustSummary>(`/evidence/trust?days=${days}`),
+
+  /** Capability report for the trust panel: database, OCR, embeddings, LLM, scheduler. */
+  health: () => request<SystemHealth>('/health'),
+
+  /* ---------------------------------------------------------------- */
+  /* A3 Sentinel                                                       */
+  /* ---------------------------------------------------------------- */
+
+  markPublished: (submissionId: string, channel?: string, versionId?: string) =>
+    request<Publication>('/sentinel/publications', {
+      method: 'POST',
+      body: JSON.stringify({ submissionId, channel, versionId }),
+    }),
+
+  withdrawPublication: (publicationId: string) =>
+    request<{ id: string; status: string }>(`/sentinel/publications/${publicationId}`, {
+      method: 'DELETE',
+    }),
+
+  sentinelPublications: (status?: string, limit = 50) =>
+    request<MonitoredPublication[]>(
+      `/sentinel/publications?limit=${limit}${status ? `&status=${encodeURIComponent(status)}` : ''}`,
+    ),
+
+  sentinelTasks: (status?: string, mine = false) =>
+    request<ReassessmentTask[]>(
+      `/sentinel/tasks?${status ? `status=${encodeURIComponent(status)}&` : ''}mine=${mine}`,
+    ),
+
+  resolveTask: (taskId: string, resolution: string, note = '') =>
+    request<ReassessmentTask>(`/sentinel/tasks/${taskId}/resolve`, {
+      method: 'POST',
+      body: JSON.stringify({ resolution, note }),
+    }),
+
+  scanExpiring: (days = 30) =>
+    request<{ notified: number; items: unknown[] }>(`/sentinel/scan?days=${days}`, {
+      method: 'POST',
+    }),
+
+  notifications: (unreadOnly = false) =>
+    request<AppNotification[]>(`/sentinel/notifications?unreadOnly=${unreadOnly}`),
+
+  unreadCount: () =>
+    request<{ count: number }>('/sentinel/notifications/unread-count'),
+
+  markNotificationRead: (id: string) =>
+    request<AppNotification>(`/sentinel/notifications/${id}/read`, { method: 'POST' }),
+
+  markAllNotificationsRead: () =>
+    request<{ marked: number }>('/sentinel/notifications/read-all', { method: 'POST' }),
+
+  /* Rule edits that trigger Sentinel (blueprint 7.2) */
+  editRule: (id: string, patch: Partial<RuleInput> & { status?: string }) =>
+    request<Rule>(`/rules/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }),
+
+  deactivateRule: (id: string) =>
+    request<Rule>(`/rules/${id}/deactivate`, { method: 'POST' }),
+
+  withdrawClaim: (id: string) =>
+    request<ApprovedClaim>(`/claims/${id}/withdraw`, { method: 'POST' }),
+
+  /* Second Batch Innovations (N10-N18)                               */
+  /* ---------------------------------------------------------------- */
+  listSnippets: (category?: string) =>
+    request<any[]>(category ? `/snippets?category=${encodeURIComponent(category)}` : '/snippets'),
+
+  createSnippet: (data: { text: string; category?: string; rule_codes?: string[]; valid_until?: string }) =>
+    request<any>('/snippets', { method: 'POST', body: JSON.stringify(data) }),
+
+  submitFindingFeedback: (findingId: string, reason: string, notes: string) =>
+    request<any>(`/submissions/findings/${findingId}/feedback`, {
+      method: 'POST',
+      body: JSON.stringify({ reason, notes }),
+    }),
+
+  feedbackReports: () =>
+    request<any[]>('/feedback/reports'),
+
+  expiryForecast: () =>
+    request<{ items: any[]; summary: any }>('/exceptions/forecast'),
+
+  simulateException: (id: string) =>
+    request<any>(`/exceptions/${id}/simulate`, { method: 'POST' }),
+
+  explainFinding: (findingId: string, lang = 'en') =>
+    request<any>(`/submissions/findings/${findingId}/explain?lang=${lang}`),
+
+  exportUserData: () =>
+    request<any>('/auth/me/export'),
+
+  /* ProofPass (Stretch Innovation F1)                                */
+  /* ---------------------------------------------------------------- */
+  generatePassport: (submissionId: string, versionId?: string) =>
+    request<any>('/passport/generate', {
+      method: 'POST',
+      body: JSON.stringify({ submissionId, versionId }),
+    }),
+
+  getPassport: (passportId: string) =>
+    request<any>(`/passport/${encodeURIComponent(passportId)}`),
+
+  verifyPassport: (passportIdOrToken: string) => {
+    const fd = new FormData()
+    fd.append('passportIdOrToken', passportIdOrToken)
+    return request<any>('/passport/verify', {
+      method: 'POST',
+      body: fd,
+    })
+  },
+
+  revokePassport: (passportId: string, reason: string) =>
+    request<any>(`/passport/${encodeURIComponent(passportId)}/revoke`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    }),
+
+  /* Model & System Health                                            */
+  modelsHealth: () =>
+    request<any>('/health/models'),
+
+  applySuggestion: (suggestionId: string) =>
+    request<any>(`/submissions/suggestions/${encodeURIComponent(suggestionId)}/apply`, {
+      method: 'POST',
+    }),
+
+  suggestFindingEdits: (findingId: string) =>
+    request<any>(`/submissions/findings/${encodeURIComponent(findingId)}/suggest-edits`, {
+      method: 'POST',
+    }),
+
+  impactPreview: (triggerRef: string, triggerType = 'rule_edited') =>
+    request<any>(`/sentinel/impact-preview?trigger_ref=${encodeURIComponent(triggerRef)}&trigger_type=${encodeURIComponent(triggerType)}`),
+
+  /* Review Crew Multi-Agent Bounded Trace                           */
+  triggerCrewReview: (submissionId: string) =>
+    request<any>(`/submissions/${encodeURIComponent(submissionId)}/crew-review`, {
+      method: 'POST',
+    }),
+
+  fetchCrewTrace: (submissionId: string) =>
+    request<any>(`/submissions/${encodeURIComponent(submissionId)}/crew-trace`),
+
+  crewSummary: () =>
+    request<{
+      workspace: string
+      totalRuns: number
+      completedRuns: number
+      avgDurationMs: number
+      agents: { id: string; name: string; role: string; status: string; badge: string; desc: string }[]
+      recentTraces: {
+        id: string
+        submissionId: string
+        versionNum: number
+        status: string
+        summary: string
+        durationMs: number
+        createdAt: string
+        stepsCount: number
+      }[]
+    }>('/crew/summary'),
+
+  listPassports: () =>
+    request<{
+      id: string
+      submissionId: string
+      versionNumber: number
+      brand: string
+      title: string
+      sha256: string
+      phash: string | null
+      token: string
+      approvedBy: string
+      status: string
+      revocationReason: string | null
+      createdAt: string
+      expiresAt: string
+    }[]>('/passport'),
+
+  listAnalyses: (limit = 50) =>
+    request<(AssetAnalysis & { submissionTitle?: string; submissionCode?: string })[]>(`/analysis?limit=${limit}`),
+
+  /* User Profile & Security                                          */
+  /* ---------------------------------------------------------------- */
+  updateProfile: (data: { name?: string; title?: string; avatarTone?: string }) =>
+    request<User>('/auth/me', { method: 'PATCH', body: JSON.stringify(data) }),
+
+  changePassword: (currentPassword: string, newPassword: string) =>
+    request<{ ok: boolean; message: string }>('/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ currentPassword, newPassword }),
+    }),
+
+  /* Exports & Reports                                                */
+  /* ---------------------------------------------------------------- */
+  downloadAuditCsv: (action?: string, brand?: string) => {
+    const params = new URLSearchParams({ format: 'csv' })
+    if (action) params.append('action', action)
+    if (brand) params.append('brand', brand)
+    return downloadFile(`/audit/export?${params.toString()}`, `audit_log_${new Date().toISOString().slice(0, 10)}.csv`)
+  },
+
+  downloadSubmissionsCsv: (status?: string, brand?: string) => {
+    const params = new URLSearchParams({ format: 'csv' })
+    if (status) params.append('status', status)
+    if (brand) params.append('brand', brand)
+    return downloadFile(`/submissions/export?${params.toString()}`, `submissions_${new Date().toISOString().slice(0, 10)}.csv`)
+  },
+
+  downloadSubmissionReport: (submissionId: string, format: 'json' | 'text' = 'text') => {
+    const filename = `compliance_report_${submissionId}.${format === 'text' ? 'txt' : 'json'}`
+    return downloadFile(`/submissions/${encodeURIComponent(submissionId)}/report?format=${format}`, filename)
+  },
+
+  /* Analytics & Health (real DB aggregations)                         */
+  /* ---------------------------------------------------------------- */
+
+  /** `range` is 7d | 30d | 90d | 1y and genuinely changes the returned series. */
+  analytics: (range = '30d') =>
+    request<AnalyticsSummary>(`/analytics?range=${encodeURIComponent(range)}`),
+
+  analyticsTrends: (range = '30d') =>
+    request<AnalyticsTrends>(`/analytics/trends?range=${encodeURIComponent(range)}`),
+
+  analyticsExport: (range = '30d') =>
+    downloadFile(`/analytics/export?range=${encodeURIComponent(range)}`, 'precedent-analytics.csv'),
+
+  /** Per-creator dashboard metrics; the server scopes this to the caller. */
+  creatorSummary: () => request<CreatorSummary>('/analytics/creator-summary'),
+
+  /* Rules & Conflicts                                                 */
+  /* ---------------------------------------------------------------- */
+
+  /** Persist that a manager reviewed a conflict. Never mutates a rule. */
+  reviewConflict: (ruleACode: string, ruleBCode: string, note = '') =>
+    request<{ id: string; status: string; duplicate: boolean }>('/rules/conflicts/review', {
+      method: 'POST',
+      body: JSON.stringify({ ruleACode, ruleBCode, note }),
+    }),
+
+  clearConflictReview: (ruleACode: string, ruleBCode: string) =>
+    request<{ deleted: number }>(
+      `/rules/conflicts/review?ruleACode=${encodeURIComponent(ruleACode)}&ruleBCode=${encodeURIComponent(ruleBCode)}`,
+      { method: 'DELETE' },
+    ),
+
+  /** Fetch a protected guideline file with the bearer token and return an object URL. */
+  fetchGuidelineBlobUrl: async (id: string): Promise<string | null> => {
+    try {
+      const res = await fetch(`${API_BASE}/guidelines/${id}/file`, { headers: authHeaders() })
+      if (!res.ok) return null
+      return URL.createObjectURL(await res.blob())
+    } catch {
+      return null
+    }
+  },
+  /* Compatibility & auto-extraction additions */
+  extractGuidelineRules: (guidelineId: string) =>
+    request<{ success: boolean; rulesCount: number; rules: Rule[] }>(
+      `/guidelines/${guidelineId}/extract-rules`,
+      { method: 'POST' }
+    ),
+
+  downloadGuidelinePdf: async (guidelineId: string, format: 'pdf' | 'original' = 'pdf'): Promise<Blob> => {
+    const headers = new Headers()
+    if (session?.token) headers.set('Authorization', `Bearer ${session.token}`)
+    const res = await fetch(`${API_BASE}/guidelines/${guidelineId}/export?format=${format}`, { headers })
+    if (!res.ok) throw new ApiError(`Download failed (${res.status})`, res.status)
+    return await res.blob()
+  },
+
+  exportAuditUrl: (format: 'csv' | 'json' = 'csv') =>
+    `${API_BASE}/audit/export?format=${format}${session?.token ? `&token=${encodeURIComponent(session.token)}` : ''}`,
+
+  navCounts: () => request<any>('/analytics/nav-counts'),
+  submissionsSummary: () => request<any>('/analytics/submissions-summary'),
+  runReviewCrew: (submissionId: string) =>
+    request<any>(`/submissions/${submissionId}/crew-review`, { method: 'POST' }),
+
+
+  /* Assistant Chatbot Namespace */
+  assistant: {
+    status: () => request<any>('/assistant/status'),
+    getSuggestions: (context_route?: string) =>
+      request<any[]>(`/assistant/suggestions${context_route ? `?context_route=${encodeURIComponent(context_route)}` : ''}`),
+    createConversation: (payload?: any) =>
+      request<any>('/assistant/conversations', {
+        method: 'POST',
+        body: JSON.stringify(payload || {}),
+      }),
+    sendMessage: (convId: string, content: string, context_route?: string) =>
+      request<any>(`/assistant/conversations/${convId}/messages`, {
+        method: 'POST',
+        body: JSON.stringify({ content, context_route }),
+      }),
+    submitFeedback: (messageId: string, rating: number, comment?: string) =>
+      request<any>(`/assistant/messages/${messageId}/feedback`, {
+        method: 'POST',
+        body: JSON.stringify({ rating, comment }),
+      }),
+    confirmAction: (draftId: string) =>
+      request<any>(`/assistant/actions/${draftId}/confirm`, { method: 'POST' }),
+  },
+
+  /* Assistant Chatbot */
+  listConversations: () => request<any[]>('/assistant/conversations'),
+  getConversation: (id: string) => request<any>(`/assistant/conversations/${id}`),
+  createConversation: (initialMessage?: string, submissionId?: string) =>
+    request<any>('/assistant/conversations', {
+      method: 'POST',
+      body: JSON.stringify({ initial_message: initialMessage, submission_id: submissionId }),
+    }),
+  sendMessage: (convId: string, content: string, submissionId?: string) =>
+    request<any>(`/assistant/conversations/${convId}/messages`, {
+      method: 'POST',
+      body: JSON.stringify({ content, submission_id: submissionId }),
+    }),
+  getSuggestions: (submissionId?: string) =>
+    request<any[]>(`/assistant/suggestions${submissionId ? `?submission_id=${submissionId}` : ''}`),
+  confirmAction: (draftId: string) =>
+    request<any>(`/assistant/actions/${draftId}/confirm`, { method: 'POST' }),
+  submitFeedback: (messageId: string, rating: number, comment?: string) =>
+    request<any>(`/assistant/messages/${messageId}/feedback`, {
+      method: 'POST',
+      body: JSON.stringify({ rating, comment }),
+    }),
+
+  /* Agent Studio aliases on api for backward-compatibility */
+  agents: (params?: any) => agentApi.list(params),
+  agent: (id: string) => agentApi.get(id),
+  createAgent: (spec: any) => agentApi.create(spec),
+  updateAgent: (id: string, patch: any) => agentApi.update(id, patch),
+  deleteAgent: (id: string) => agentApi.remove(id),
+  publishAgent: (id: string) => agentApi.publish(id),
+  pauseAgent: (id: string) => agentApi.pause(id),
+  draftAgentFromPrompt: (prompt: string, category?: string, brand?: string) =>
+    agentApi.draftFromPrompt(prompt, category, brand),
+  validateAgent: (id: string) => agentApi.validate(id),
+  testAgent: (id: string, input: any, message?: string) => agentApi.test(id, input, message),
+  executeAgent: (id: string, payload: any) =>
+    agentApi.execute(id, payload?.inputs || payload, payload?.trigger_type || 'manual'),
+  agentRuns: (agentId: string, limit?: number) => agentApi.runs(agentId, limit),
+  allAgentRuns: (params?: any) => agentApi.allRuns(params),
+  agentRun: (runId: string) => agentApi.run(runId),
+  cancelAgentRun: (runId: string) => agentApi.cancelRun(runId),
+  approveAgentRun: (runId: string, decision: any, note?: string) =>
+    agentApi.approveRun(runId, decision === 'approved' ? 'approve' : decision === 'rejected' ? 'reject' : decision, note),
+  agentTools: () => agentApi.tools(),
+  agentTemplates: () => agentApi.templates(),
+  instantiateTemplate: (templateId: string) => agentApi.fromTemplate(templateId),
+
+}
+
+/* ------------------------------------------------------------------ */
+/* Analytics response types                                            */
+/* ------------------------------------------------------------------ */
+
+export interface AnalyticsSummary {
+  range: string
+  generatedAt: string
+  sampleSize: number
+  totals: {
+    submissions: number
+    inReview: number
+    approved: number
+    needsChanges: number
+    declined: number
+    decided: number
+    openFindings: number
+    totalFindings: number
+  }
+  statusBreakdown: Record<string, number>
+  complianceScore: number
+  findingsByCategory: { category: string; count: number; high: number; medium: number; low: number }[]
+  topRules: { code: string; title: string; count: number }[]
+  ruleCoverage: { activeRules: number; totalRules: number; rulesTriggered: number }
+  citations: { verified: number; total: number; passages: number; verifiedPct: number }
+  reviewPerformance: { decisions: number; avgReviewHours: number | null; tracked: boolean }
+  sentinel: { open: number; resolved: number }
+  exceptions: Record<string, number>
+  campaignHealth: { campaign: string; count: number; issues: number; score: number }[]
+}
+
+export interface AnalyticsTrends {
+  range: string
+  bucket: 'day' | 'week'
+  points: { date: string; score: number; submissions: number; issues: number }[]
+  hasData: boolean
+  empty: boolean
+}
+
+export interface CreatorSummary {
+  sampleSize: number
+  complianceScore: number
+  statusBreakdown: Record<string, number>
+  approved: number
+  inReview: number
+  needsChanges: number
+  openIssues: number
+  openTasks: number
+  unreadNotifications: number
+  recent: { id: string; title: string; status: string; score: number; createdAt: string | null }[]
+}
+
+/** Utility to download file responses with authenticated bearer headers */
+export async function downloadFile(path: string, defaultFilename: string): Promise<void> {
+  const headers = new Headers()
+  if (session?.token) headers.set('Authorization', `Bearer ${session.token}`)
+  const res = await fetch(`${API_BASE}${path}`, { headers })
+  if (!res.ok) {
+    throw new ApiError(`Download failed with status ${res.status}`, res.status)
+  }
+  const blob = await res.blob()
+  const url = window.URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = defaultFilename
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  window.URL.revokeObjectURL(url)
 }
 
 export type Api = typeof api
+
+/* ------------------------------------------------------------------ */
+/* Agent Studio                                                        */
+/* ------------------------------------------------------------------ */
+
+function qs(params: Record<string, string | number | undefined | null>): string {
+  const search = new URLSearchParams()
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null && value !== '') search.set(key, String(value))
+  }
+  const text = search.toString()
+  return text ? `?${text}` : ''
+}
+
+export const agentApi = {
+  stats: () => request<AgentStats>('/agents/stats'),
+
+  list: (params: { q?: string; status?: string; category?: string } = {}) =>
+    request<AgentSummary[]>(`/agents${qs(params)}`),
+
+  get: (agentId: string) => request<AgentDetail>(`/agents/${encodeURIComponent(agentId)}`),
+
+  draftFromPrompt: (prompt: string, category?: string, brand?: string) =>
+    request<DraftFromPromptResponse>('/agents/draft-from-prompt', {
+      method: 'POST',
+      body: JSON.stringify({ prompt, category: category || null, brand: brand || null }),
+    }),
+
+  fromTemplate: (templateId: string) =>
+    request<DraftFromPromptResponse>(`/agents/from-template/${encodeURIComponent(templateId)}`, {
+      method: 'POST',
+    }),
+
+  create: (spec: AgentSpec) =>
+    request<{ agent: AgentDetail; validation: ValidationResult }>('/agents', {
+      method: 'POST',
+      body: JSON.stringify(spec),
+    }),
+
+  update: (agentId: string, patch: Partial<AgentSpec>) =>
+    request<{ agent: AgentDetail; validation: ValidationResult }>(
+      `/agents/${encodeURIComponent(agentId)}`,
+      { method: 'PATCH', body: JSON.stringify(patch) },
+    ),
+
+  remove: (agentId: string) =>
+    request<{ deleted: boolean; archived: boolean }>(`/agents/${encodeURIComponent(agentId)}`, {
+      method: 'DELETE',
+    }),
+
+  validate: (agentId: string) =>
+    request<ValidationResult>(`/agents/${encodeURIComponent(agentId)}/validate`, { method: 'POST' }),
+
+  publish: (agentId: string) =>
+    request<{ agent: AgentDetail; validation: ValidationResult }>(
+      `/agents/${encodeURIComponent(agentId)}/publish`,
+      { method: 'POST' },
+    ),
+
+  pause: (agentId: string) =>
+    request<{ agent: AgentDetail }>(`/agents/${encodeURIComponent(agentId)}/pause`, { method: 'POST' }),
+
+  resume: (agentId: string) =>
+    request<{ agent: AgentDetail }>(`/agents/${encodeURIComponent(agentId)}/resume`, { method: 'POST' }),
+
+  saveWorkflow: (agentId: string, graph: WorkflowGraph) =>
+    request<{ agent: AgentDetail; validation: ValidationResult }>(
+      `/agents/${encodeURIComponent(agentId)}/workflow`,
+      { method: 'PUT', body: JSON.stringify({ graph }) },
+    ),
+
+  test: (agentId: string, input: Record<string, unknown>, message?: string) =>
+    request<{ run: AgentRun; validation: ValidationResult }>(
+      `/agents/${encodeURIComponent(agentId)}/test`,
+      { method: 'POST', body: JSON.stringify({ input, message }) },
+    ),
+
+  execute: (agentId: string, input: Record<string, unknown>, triggerType = 'manual') =>
+    request<{ run: AgentRun }>(`/agents/${encodeURIComponent(agentId)}/execute`, {
+      method: 'POST',
+      body: JSON.stringify({ input, trigger_type: triggerType }),
+    }),
+
+  runs: (agentId: string, limit = 50) =>
+    request<AgentRun[]>(`/agents/${encodeURIComponent(agentId)}/runs?limit=${limit}`),
+
+  allRuns: (params: { status?: string; agent_id?: string; limit?: number } = {}) =>
+    request<AgentRun[]>(`/agent-runs${qs(params)}`),
+
+  run: (runId: string) => request<AgentRun>(`/agent-runs/${encodeURIComponent(runId)}`),
+
+  cancelRun: (runId: string) =>
+    request<{ run: AgentRun }>(`/agent-runs/${encodeURIComponent(runId)}/cancel`, { method: 'POST' }),
+
+  approveRun: (runId: string, decision: 'approve' | 'reject', note = '') =>
+    request<{ run: AgentRun; approved: boolean }>(
+      `/agent-runs/${encodeURIComponent(runId)}/approve`,
+      { method: 'POST', body: JSON.stringify({ decision, note }) },
+    ),
+
+  tools: () => request<ToolCatalog>('/agent-tools'),
+
+  templates: () => request<AgentTemplate[]>('/agents/templates'),
+
+  memory: (agentId: string) =>
+    request<{ id: string; key: string; value: Record<string, unknown>; sessionId: string; updatedAt: string | null }[]>(
+      `/agents/${encodeURIComponent(agentId)}/memory`,
+    ),
+
+  clearMemory: (agentId: string) =>
+    request<{ deleted: number }>(`/agents/${encodeURIComponent(agentId)}/memory`, { method: 'DELETE' }),
+}
 

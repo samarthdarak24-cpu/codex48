@@ -1,0 +1,309 @@
+# PRECEDENT — Visual Detail Panel Audit
+
+**Scope:** All 21 Precedent feature screens (10 Content Creator, 11 Brand Manager)
+**Focus:** Colour-coded detail panels, connected visual flows, and reusable visual primitives
+**Date:** 2 November 2026
+**Build:** React 18 · TypeScript · Vite 5 · Tailwind 3 · Motion for React · Lucide · Recharts · React Flow
+
+---
+
+## 1. Executive summary
+
+Every detail surface in Precedent now answers five questions the moment it opens:
+
+| Question | Answered by |
+| --- | --- |
+| **What is this?** | Tinted `DetailHeader` (icon + title + short description + status/version/date) |
+| **Why is it important?** | `InfoCard` "At a glance" with a meaning-coded tone |
+| **What evidence supports it?** | `EvidenceCard` / `SourceRefCard` with document + page and a real open action |
+| **What happens next?** | `VisualFlow` / `StepTrail` ending in the recorded next step |
+| **What can I do?** | Sticky `ActionFooter` containing only backend-supported actions |
+
+The shared vocabulary lives in **`src/v2/components/detail/index.tsx`** (detail kit) and **`src/v2/components/motion/index.tsx`** (motion primitives). Screens compose these instead of hand-rolling bordered text blocks, which is what made the original drawers read as walls of grey text.
+
+**Result:** 21/21 screens verified rendering with **0 console errors**, TypeScript clean, production bundle builds.
+
+---
+
+## 2. The shared visual system — component inventory
+
+All components support: custom colour (tone), icon, heading, description, optional metadata, optional action, and responsive behaviour.
+
+| Component | File | Purpose |
+| --- | --- | --- |
+| `DetailDrawer` | `detail/index.tsx` | Right-hand panel; pinned header + footer, only the body scrolls |
+| `DetailHeader` | `detail/index.tsx` | Soft tinted header: icon in a circular chip, title, description, badges, meta, close |
+| `InfoCard` | `detail/index.tsx` | Tinted card with left rail, icon, eyebrow, title, body, meta, optional `onClick` |
+| `StatusBadge` | `detail/index.tsx` | Pill with tone + dot/icon; single source of status → colour |
+| `MetaChip` | `detail/index.tsx` | Neutral chip for versions, ids, dates |
+| `SectionHeader` | `detail/index.tsx` | Drawer-scale eyebrow + title + subtitle + action |
+| `EvidenceCard` | `detail/index.tsx` | Quoted passage + document label + page reference |
+| `SourceRefCard` | `detail/index.tsx` | Source document card with page/version and an "open" action only when a real handler exists |
+| `MetadataRow` / `MetadataList` | `detail/index.tsx` | Key/value rows on one shared surface |
+| `VisualFlow` | `detail/index.tsx` | Ordered vertical flow container |
+| `FlowStep` | `detail/index.tsx` | One node: numbered icon circle, drawn connector + arrowhead, tone, title, body, action |
+| `ComparisonPair` | `detail/index.tsx` | Side-by-side contradiction layout (conflicts) |
+| `MetricChip` | `detail/index.tsx` | Compact KPI with meaning-coded tone |
+| `ActionFooter` | `detail/index.tsx` | Sticky footer with actions + explanatory note |
+| `FooterButton` | `detail/index.tsx` | Primary / secondary / ghost action button |
+| `TooltipInfo` | `detail/index.tsx` | Accessible Radix tooltip |
+| **`StepTrail`** | `detail/index.tsx` | **Horizontal connected process strip** (`done` / `active` / `pending` / `error`) |
+| `Timeline` | `motion/index.tsx` | Vertical timeline with animated connector, tone-coded nodes |
+| `EmptyState` | `motion/index.tsx` | Illustrated empty state with optional action |
+| `AnimatedProgress` / `RingProgress` / `AnimatedCounter` | `motion/index.tsx` | Animated data display used inside panels |
+
+> `StepTrail` was added in this pass so a process can read as a single horizontal line (submission pipeline, simulation run, lifecycle). `VisualFlow` remains the vertical form used inside drawers.
+
+---
+
+## 3. Colour system
+
+One palette across the whole product. Colour encodes **meaning**, never decoration. Blue and purple are not used in any live view.
+
+| Token | Colour | Meaning | Where it appears |
+| --- | --- | --- | --- |
+| `brand` | Forest green | The entity itself / primary definition | Rule definition, headers, primary actions |
+| `sage` | Sage green | Supporting evidence, successful / approved | Evidence, source passages, approved state |
+| `olive` | Muted olive | Neutral context, secondary metadata | Category chips, neutral flow steps |
+| `warn` | Amber | Pending, needs attention, upcoming expiry, **next step** | Review-required, recorded next step |
+| `terracotta` | Terracotta | Warnings, significant change, exception variance | Enforcement, conflicts, exceptions |
+| `danger` | Muted red | Violations, conflicts, rejections, errors | Violations, failed checks |
+| `cream` / `neutral` | Warm cream | Inert metadata | Metadata lists, empty surfaces |
+| `ink` / `muted` | Charcoal / grey | Main content / secondary text | Typography |
+
+Saturation is used sparingly: soft background tints, 3px left rails, icon chips and small badges — not full-bleed colour blocks.
+
+---
+
+## 4. Screen-by-screen audit
+
+Legend — **Drawer** = side detail panel; **Flow** = connected visual process; **Info** = tone-coded info/evidence cards; **Timeline** = activity timeline; **StepTrail** = horizontal process strip.
+
+### Content Creator
+
+| # | Screen | Detail panel | Visual process | Status |
+| --- | --- | --- | --- | --- |
+| 1 | Creator Overview (Dashboard) | — | **StepTrail lifecycle** + **activity Timeline** | ✅ Upgraded |
+| 2 | New Content | — | **StepTrail** submission pipeline | ✅ Upgraded |
+| 3 | My Submissions | Drawer + Flow + Info | Vertical flow of version/review | ✅ |
+| 4 | AI Review | — | **StepTrail** 6-stage pipeline + 5 agent cards | ✅ Upgraded |
+| 5 | Brand Guidelines | Drawer | Document metadata | ✅ |
+| 6 | Exception Requests | Drawer + Timeline | Request → review → decision → expiry | ✅ |
+| 7 | Sentinel Tasks | Drawer + Timeline | Alert → affected content → reassessment | ✅ |
+| 8 | Notifications | Drawer | Category icons + read/unread | ✅ |
+| 9 | Approved Content | Flow + Info | Approval history | ✅ |
+| 10 | Creator Profile | Timeline | Account sections | ✅ |
+
+### Brand Manager
+
+| # | Screen | Detail panel | Visual process | Status |
+| --- | --- | --- | --- | --- |
+| 11 | Brand Manager Overview | Drawer + Timeline | Compliance + agent activity | ✅ |
+| 12 | Review Queue | Drawer + Flow + Info | Submission → AI → evidence → decision | ✅ |
+| 13 | All Submissions | Drawer + Info | Version + submission timeline | ✅ |
+| 14 | Brand Guidelines | Drawer | Category colours + version history | ✅ |
+| 15 | **Rules & Conflicts** | **Drawer + Flow + Info (flagship)** | Rule → Condition → Source → Enforcement → Next step | ✅ Upgraded |
+| 16 | Exceptions | Drawer + Timeline | Pending → decision → expiry | ✅ |
+| 17 | Rule Impact Sandbox | Flow (React Flow + **StepTrail**) | Current → Proposed → Impact → Affected → Result | ✅ Upgraded |
+| 18 | Sentinel Monitoring | Drawer + Timeline | Rule change → affected content → reassessment | ✅ |
+| 19 | Asset Library | Modal detail | Image grid + approval badges | ✅ |
+| 20 | Analytics & Health | **Drill-down drawer** | Metric cards + charts + category drill-down | ✅ Upgraded |
+| 21 | Audit History | Timeline | Action → entity → details → version → time | ✅ |
+
+---
+
+## 5. The flagship — Rules & Conflicts drawer
+
+The right-side drawer was rebuilt around a single connected flow:
+
+```
+RULE DEFINITION   (forest green)
+      ↓
+CONDITION         (olive)
+      ↓
+SOURCE GUIDELINE  (sage · document + page + "Open the document")
+      ↓
+ENFORCEMENT       (terracotta · scope + priority chips)
+      ↓
+RECORDED NEXT STEP (amber)
+```
+
+- **Header:** soft circular icon, category eyebrow, title, description, `Active` badge, version chip, effective date, reviewed date, close.
+- **At a glance:** sage `InfoCard` explaining why the rule matters.
+- **Flow:** numbered icon circles joined by drawn connector lines ending in arrowheads; each step a distinct soft tint.
+- **Stored record:** `MetadataRow` list (category, version, effective, scope, priority, status).
+- **Sticky footer:** `View source`, `Test in sandbox`, `Close` + explanatory note. Actions appear only when the record supports them.
+- **Conflicts:** rendered as a dedicated warning layout with `ComparisonPair` (Rule A vs Rule B, "contradicts") rather than a normal flow.
+
+Verified visually: full flow, source card and sticky footer render without clipping.
+
+---
+
+## 6. What this pass changed
+
+| Change | File |
+| --- | --- |
+| Added reusable horizontal `StepTrail` (+ `StepState`, `StepTrailItem`) to the shared kit | `src/v2/components/detail/index.tsx` |
+| Added the 6-stage AI analysis pipeline above the Review Crew cards, state derived from stored artefacts | `src/v2/components/views/creator/AIReviewView.tsx` |
+| Added the 5-step submission pipeline, state mirrored from the form | `src/v2/components/views/creator/NewContentView.tsx` |
+| Added the 5-step simulation flow (current → proposed → impact → affected → result) | `src/v2/components/views/manager/RuleImpactSandboxView.tsx` |
+| Added the submission lifecycle strip + recent-activity `Timeline` | `src/v2/components/views/creator/CreatorDashboardView.tsx` |
+| Added a real drill-down `DetailDrawer` for findings-by-category (severity split + stored record) | `src/v2/components/views/manager/AnalyticsHealthView.tsx` |
+| Filled the empty lower viewport on All Submissions with a five-card "Register insights" block, and fixed the broken date parser behind column sorting | `src/v2/components/views/manager/AllSubmissionsView.tsx` |
+| Added an "Approval record" block (findings stored at approval + category coverage) to fill the sparse gallery | `src/v2/components/views/creator/ApprovedContentView.tsx` |
+| Added "Activity by module / by person" breakdowns; repaired the date-range filter that was hiding every event | `src/v2/components/views/manager/AuditHistoryView.tsx` |
+| Extracted `parseStoredDateTime()` so every view parses the display-formatted timestamps correctly | `src/lib/utils.ts`, `ReviewQueueView.tsx` |
+
+All additions are **additive** — no routes, backend calls, role permissions, or existing buttons were changed. Every value displayed is read from the existing API/context; no evidence, counts or statuses are invented.
+
+### 6.1 All Submissions — filling the dead viewport
+
+The page previously ended after the single "Submissions by campaign" chart, leaving roughly 400px of empty canvas on a 900px-tall viewport. It now continues with a "Register insights" section built entirely from the rows already in `submissions`:
+
+| Card | Content | Real action |
+| --- | --- | --- |
+| Status mix | `StatusDonut` of the stored statuses + legend with counts and share | Clicking a legend row applies that status filter and scrolls the register into view |
+| Score distribution | Five score buckets (80–100 → 0–19) with counts, share and bars | Clicking a bucket applies a `scoreFilter` (with a removable chip beside the type filter) |
+| Needs a decision first | Oldest item still unreviewed (real elapsed days) and the lowest score not yet cleared | Each opens that submission's detail drawer; footer filters to waiting items |
+| Content type mix | Stacked share bar + per-type counts | Clicking a type applies the existing `typeFilter` |
+| Most active creators | Per-creator totals and approval ratio | Clicking a creator writes their name into the search box |
+
+Two defects were found and fixed while building it:
+
+1. **`timestampOf` always returned `0`.** `submittedAt` is pre-formatted as `"Nov 1, 2026 · 6:52 AM"`; the middle dot makes `new Date()` produce `Invalid Date`, so the "Submitted" column sort was a silent no-op and every row looked undated. The parser now strips `·` before falling back. The register sorts newest-first correctly (Nov 1 → Oct 20) and "longest wait" reports real days (e.g. *29 days waiting*).
+2. **The score spread was initially modelled as three pass/fail bands.** The stored scores are derived from open findings (100 − weighted severity) and in this workspace all 15 sit between 0 and 52, so three bands collapsed into a single full bar. Five narrower buckets show the actual distribution (0–19: 5, 20–39: 8, 40–59: 2) and each one is a meaningful filter.
+
+### 6.2 Creator — Approved Content, and Manager — Audit History
+
+A viewport-fill sweep of all 22 screens measured `scrollHeight / clientHeight` inside the app's scroll container. Two screens ended at exactly one viewport, i.e. content stopped early and the rest was empty canvas.
+
+**Creator · Approved Content** (`ratio 1.00 → 1.51`). The gallery held a single approved card in a three-column grid, leaving two empty columns and ~150px of dead canvas. An "Approval record" section now follows it:
+
+| Card | Content | Real action |
+| --- | --- | --- |
+| Findings stored at approval | High/Medium/Low counts and share, then the stored findings themselves (rule title + guideline reference) | Selecting a finding opens the item it was recorded on |
+| Where approved content sits | Category counts with bars, plus average score and last approval in a pinned footer | Selecting a category filters the gallery and scrolls back to it |
+
+**Manager · Audit History** (`ratio 1.00 → 1.79`). This one was not really a design gap — it was a bug. The default "Last 30 days" filter reported **0 of 213 events match** because `timestampOf` called `new Date()` on `"Nov 2, 2026 · 6:52 AM"`; the middle dot yields `Invalid Date`, and the filter treats unparseable rows as out of range. The page therefore rendered its empty state with a large blank area beneath it. With the parser fixed, all events match and the timeline fills the page. "Activity by module" and "Activity by person" cards were then added above the timeline, each row applying the existing module/user filter.
+
+The same defect was present in `ReviewQueueView.timestampOf`, which silently disabled the newest/oldest sort there. All three views now share `parseStoredDateTime()` in `src/lib/utils.ts`.
+
+---
+
+## 7. Verification
+
+### 7.1 Static checks
+- `npx tsc --noEmit` → **exit 0**
+- `npx vite build` (fresh outDir) → **exit 0**, 2990 modules transformed
+
+> Note: `npm run build` targeting the default `dist/` is blocked by the sandbox's bulk-delete guard when Vite empties `dist/images` (72 files > 50 threshold). This is an environment guard, not a code defect. Building to a fresh output directory succeeds.
+
+### 7.2 Live 21-page sweep (`qa_run_check.mjs`, headless Chrome)
+
+| Role | Page | Result |
+| --- | --- | --- |
+| Manager | Overview | PASS |
+| Manager | Review Queue | PASS |
+| Manager | All Submissions | PASS |
+| Manager | Brand Guidelines | PASS |
+| Manager | Rules & Conflicts | PASS |
+| Manager | Exceptions | PASS |
+| Manager | Rule Impact Sandbox | PASS |
+| Manager | Sentinel Monitoring | PASS |
+| Manager | Asset Library | PASS |
+| Manager | Analytics & Health | PASS |
+| Manager | Audit History | PASS |
+| Manager | Notifications | PASS |
+| Manager | Submission detail | PASS |
+| Creator | Dashboard | PASS |
+| Creator | New Content | PASS |
+| Creator | My Submissions | PASS |
+| Creator | AI Review | PASS |
+| Creator | Brand Guidelines | PASS |
+| Creator | Exception Requests | PASS |
+| Creator | Sentinel Tasks | PASS |
+| Creator | Notifications | PASS |
+| Creator | Approved Content | PASS |
+| Creator | Profile | PASS |
+
+**23/23 checks pass · 0 failures · 0 console errors.**
+
+### 7.3 Focused visual regression (screenshots)
+
+| Screen | Check | Result |
+| --- | --- | --- |
+| Rules & Conflicts drawer | Flow, evidence, sticky footer | PASS |
+| AI Review | Pipeline + agent cards | PASS |
+| New Content | Submission pipeline | PASS |
+| Rule Impact Sandbox | Simulation flow | PASS |
+| Creator Dashboard | Lifecycle + activity timeline | PASS |
+| Analytics & Health | Drill-down drawer | PASS |
+| Asset Library | Image grid + detail modal | PASS |
+| All Submissions | Insights block fills the page; 5 cards, 4 filters wired | PASS — 18/18 checks (`scripts/qa_all_submissions_insights.mjs`) |
+| Creator · Approved Content | Approval record fills the page; category + finding rows wired | PASS — 8/8 checks (`scripts/qa_creator_brand_fill.mjs`) |
+| Manager · Audit History | Range filter repaired (0 → 226 events), breakdown cards wired | PASS — 8/8 checks (same script) |
+
+The All Submissions run additionally asserts: content scrolls 2067px inside an 836px viewport (no dead space), a score bucket narrows the register from 15 to 8 rows, the chip clears back to 15, a creator row writes into the search box, and 0 console errors.
+
+---
+
+## 8. Interaction map
+
+| Element | Real action |
+| --- | --- |
+| Rule card "Open" / title | Opens the detail drawer for that rule |
+| Flow step "Open the document" | Opens the stored guideline PDF in a modal |
+| "View source" | Loads the real guideline file via `fetchGuidelineBlobUrl` |
+| "Test in sandbox" | Closes the drawer and navigates to Rule Impact Sandbox |
+| "Mark conflict as reviewed" / "Confirm rule" | Calls the context write handler, refreshes, toasts |
+| Analytics category row | Opens the drill-down drawer for that stored category |
+| Dashboard activity item | Card opens the related submission review |
+| Sidebar items | Route navigation to the matching feature |
+| All Submissions — status legend row | Applies that status filter, scrolls the register into view |
+| All Submissions — score bucket | Applies a score filter (chip appears next to the type filter) |
+| All Submissions — type chip / creator row | Applies the type filter / writes the name into search |
+| All Submissions — "Open record" | Opens that submission's detail drawer |
+| All Submissions — "Filter to waiting" | Applies the pending status filter |
+| Approved Content — category row | Filters the gallery, scrolls back to it |
+| Approved Content — finding row | Opens the item that finding was recorded on |
+| Audit History — module / person row | Applies the module / user filter |
+
+Every interactive element performs a real action; no decorative arrows or dead controls were added.
+
+---
+
+## 9. Accessibility & motion
+
+- Every detail/motion component checks `useReducedMotion()` and renders its final state immediately when reduced motion is requested.
+- Drawers close on backdrop click and Escape; the close button is labelled.
+- Flows use semantic `<ol>` / `<li>`; `StepTrail` and `VisualFlow` accept an `aria-label`.
+- Connectors and decorative icons are `aria-hidden`.
+- Status is never conveyed by colour alone — each badge carries a text label.
+
+---
+
+## 10. Known notes
+
+1. **Build output directory** — see §7.1. Use a non-existent outDir when verifying locally.
+2. **Unused legacy files** — `src/v2/components/ui/StatCard.tsx` and `SharedComponents.tsx` still contain blue/purple tokens but are **not imported by any live view**. The rendered UI is entirely on the warm palette. They can be deleted in a cleanup pass.
+3. **Asset Library** uses a modal rather than the side drawer for image detail (different shell, same tokens). This is intentional; the content is image-led rather than record-led.
+4. **Analytics drill-down** covers findings-by-category (the densest stored breakdown). Other series remain chart-only until the API exposes per-point detail.
+5. **Compliance score is derived, not stored.** `AppContext.complianceScore()` computes `100 − high×15 − medium×8 − low×3` from open findings. It is the same number the Score column already showed; the distribution card just groups it. An approved submission can therefore still show a low score if it carries open findings.
+6. **Undated rows** — if a submission has no parseable timestamp it sorts last in "longest wait" and shows "no date stored" rather than a fabricated age.
+7. **Remaining short pages** — a viewport sweep still finds creator Guidelines, creator Exceptions, creator Notifications, manager Brand Guidelines, manager Notifications and creator Profile at or near one viewport of content. They are legitimately sparse (one or two stored rows), so they were left alone rather than padded with invented panels.
+
+---
+
+## 11. Final goal check
+
+| Requirement | Status |
+| --- | --- |
+| Preserve all 21 pages and routes | ✅ |
+| Preserve backend functionality and role permissions | ✅ |
+| Use real database values only | ✅ |
+| Reusable components instead of duplication | ✅ (shared detail kit) |
+| Consistent colour system (no blue/purple) | ✅ |
+| Connected arrows only where they explain a relationship | ✅ |
+| Subtle, quick motion with reduced-motion support | ✅ |
+| Responsive layouts | ✅ |
+| Detail panels explain WHAT / WHY / EVIDENCE / NEXT / ACTION | ✅ |

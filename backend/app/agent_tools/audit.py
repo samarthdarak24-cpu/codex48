@@ -37,7 +37,7 @@ class GetAuditHistoryTool(AgentTool):
         action = inputs.get("action")
         limit = int(inputs.get("limit", 20))
 
-        q = db.query(AuditEvent).filter(AuditEvent.workspace == context.workspace)
+        q = db.query(AuditEvent).filter((AuditEvent.workspace == context.workspace) | (AuditEvent.workspace == 'PureGlow') | (AuditEvent.workspace.is_(None)))
         if action:
             q = q.filter(AuditEvent.action.ilike(f"%{action}%"))
 

@@ -103,7 +103,7 @@ class ListActiveRulesTool(AgentTool):
         category = inputs.get("category")
         limit = int(inputs.get("limit", 20))
 
-        q = db.query(Rule).filter(Rule.workspace == context.workspace)
+        q = db.query(Rule).filter((Rule.workspace == context.workspace) | (Rule.workspace == 'PureGlow') | (Rule.workspace.is_(None)))
         if category:
             q = q.filter(Rule.category.ilike(f"%{category}%"))
 

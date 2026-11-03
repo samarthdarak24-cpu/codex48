@@ -50,6 +50,24 @@ export function fmtShort(value: string): string {
   return `${MONTHS[d.getMonth()]} ${d.getDate()}`
 }
 
+/**
+ * Parse a timestamp that may already be display-formatted.
+ *
+ * `fmtDateTime()` renders `"Nov 02, 2026 · 6:52 AM"`, and the middle dot makes
+ * `new Date()` return Invalid Date. Any view that sorted or range-filtered on
+ * that string was silently working with NaN — which zeroed sort order and, in
+ * Audit History, dropped every row from the "Last 30 days" filter. Strip the
+ * separator (and normalise whitespace) before giving up.
+ */
+export function parseStoredDateTime(value?: string | null): number {
+  if (!value) return Number.NaN
+  const direct = new Date(value).getTime()
+  if (!Number.isNaN(direct)) return direct
+  const cleaned = value.replace(/·/g, ' ').replace(/\s+/g, ' ').trim()
+  if (!cleaned) return Number.NaN
+  return new Date(cleaned).getTime()
+}
+
 export function relative(value: string): string {
   const diff = NOW.getTime() - new Date(value).getTime()
   const mins = Math.round(diff / 60000)
@@ -88,6 +106,32 @@ export function initialsOf(name: string) {
     .slice(0, 2)
     .map((p) => p[0]?.toUpperCase() ?? '')
     .join('')
+}
+
+export function exportRulesCsv(
+  rulesList: Array<{ code: string; title: string; category?: string; priority: string; status: string; condition?: string; action?: string; sourcePassage?: string }>
+) {
+  const headers = ['Code', 'Title', 'Category', 'Priority', 'Status', 'Condition', 'Action', 'Source Passage']
+  const rows = rulesList.map(r => [
+    `"${(r.code || '').replace(/"/g, '""')}"`,
+    `"${(r.title || '').replace(/"/g, '""')}"`,
+    `"${(r.category || 'General').replace(/"/g, '""')}"`,
+    `"${(r.priority || 'Medium').replace(/"/g, '""')}"`,
+    `"${(r.status || 'active').replace(/"/g, '""')}"`,
+    `"${(r.condition || '').replace(/"/g, '""')}"`,
+    `"${(r.action || '').replace(/"/g, '""')}"`,
+    `"${(r.sourcePassage || '').replace(/"/g, '""')}"`,
+  ])
+  const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n')
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `brand-rules-export-${new Date().toISOString().slice(0, 10)}.csv`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
 }
 
 
@@ -140,11 +184,13 @@ function createClientPdfBlob(title: string, lines: string[]): Blob {
 }
 
 export async function downloadGuidelineDocument(
-  doc: { id?: string; name: string; version: string; category: string; status: string; description: string; fileType: string; fileSize: string; pages: number; updatedAt: string },
-  docRules: Array<{ code: string; title: string; priority: string; status: string; sourcePassage?: string; sourcePage?: number; sourceVersion?: string; summary?: string }> = []
+  doc: { id?: string; name?: string; title?: string; version?: string; category?: string; status?: string; description?: string; fileType?: string; fileSize?: string; pages?: number; updatedAt?: string },
+  docRules: Array<{ code: string; title: string; priority?: string; status?: string; sourcePassage?: string; sourcePage?: number; sourceVersion?: string; summary?: string }> = []
 ) {
-  const safeBase = doc.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')
-  const filename = `${safeBase}-${doc.version}.pdf`
+  const docName = doc.name || doc.title || 'brand-guideline'
+  const docVer = doc.version || '1.0'
+  const safeBase = docName.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+  const filename = `${safeBase}-${docVer}.pdf`
 
   // 1. Try to fetch publication-grade PDF from server
   if (doc.id) {
@@ -166,8 +212,8 @@ export async function downloadGuidelineDocument(
 
   // 2. High-fidelity client PDF fallback (strict .pdf format, never .md)
   const lines: string[] = [
-    `Category: ${doc.category}  |  Version: ${doc.version}  |  Status: ${doc.status.toUpperCase()}`,
-    `Updated: ${fmtDate(doc.updatedAt)}  |  Format: ${doc.fileType} (${doc.fileSize}, ~${doc.pages} pages)`,
+    `Category: ${doc.category || 'Visual Identity'}  |  Version: ${docVer}  |  Status: ${(doc.status || 'Active').toUpperCase()}`,
+    `Format: ${doc.fileType || 'PDF'} (~${doc.pages || 1} pages)`,
     '',
     '--- 1. GOVERNANCE SCOPE & OVERVIEW ---',
     doc.description || 'Official brand policy standard establishing compliance rules.',
@@ -179,7 +225,7 @@ export async function downloadGuidelineDocument(
     lines.push('No active rules mapped to this document yet.')
   } else {
     docRules.forEach((r, i) => {
-      lines.push(`${i + 1}. [${r.code}] ${r.title} (${r.priority.toUpperCase()})`)
+      lines.push(`${i + 1}. [${r.code}] ${r.title} (${(r.priority || 'Medium').toUpperCase()})`)
       if (r.sourcePassage) {
         lines.push(`   Citation: "${r.sourcePassage.slice(0, 85)}..." (p.${r.sourcePage || 1})`)
       }
@@ -191,37 +237,11 @@ export async function downloadGuidelineDocument(
 
   lines.push('', '--- Precedent Certified Brand Governance Export ---')
 
-  const pdfBlob = createClientPdfBlob(`Brand Guideline: ${doc.name} (${doc.version})`, lines)
+  const pdfBlob = createClientPdfBlob(`Brand Guideline: ${docName} (${docVer})`, lines)
   const url = URL.createObjectURL(pdfBlob)
   const a = document.createElement('a')
   a.href = url
   a.download = filename
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  URL.revokeObjectURL(url)
-}
-
-export function exportRulesCsv(
-  rulesList: Array<{ code: string; title: string; category?: string; priority: string; status: string; condition?: string; action?: string; sourcePassage?: string }>
-) {
-  const headers = ['Code', 'Title', 'Category', 'Priority', 'Status', 'Condition', 'Action', 'Source Passage']
-  const rows = rulesList.map(r => [
-    `"${(r.code || '').replace(/"/g, '""')}"`,
-    `"${(r.title || '').replace(/"/g, '""')}"`,
-    `"${(r.category || 'General').replace(/"/g, '""')}"`,
-    `"${(r.priority || 'Medium').replace(/"/g, '""')}"`,
-    `"${(r.status || 'active').replace(/"/g, '""')}"`,
-    `"${(r.condition || '').replace(/"/g, '""')}"`,
-    `"${(r.action || '').replace(/"/g, '""')}"`,
-    `"${(r.sourcePassage || '').replace(/"/g, '""')}"`,
-  ])
-  const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n')
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `brand-rules-export-${new Date().toISOString().slice(0, 10)}.csv`
   document.body.appendChild(a)
   a.click()
   document.body.removeChild(a)

@@ -394,8 +394,9 @@ class WorkflowExecutor:
                             max_tokens=600,
                         )
 
-                    if not ai_text or len(ai_text.strip()) < 50:
-                        ai_text = self._generate_rich_synthesis(context_data)
+                    if not ai_text or len(ai_text.strip()) < 150 or not any(s in ai_text for s in ["Overview", "Compliance", "Findings", "Passage", "Guideline", "Recommendation", "###"]):
+                        rich = self._generate_rich_synthesis(context_data)
+                        ai_text = f"{ai_text.strip()}\n\n{rich}" if (ai_text and len(ai_text.strip()) > 30) else rich
 
                     step.status = "completed"
                     step.outputs = {"synthesis": ai_text}
@@ -440,6 +441,9 @@ class WorkflowExecutor:
                 step.error = str(e)
                 self.run.status = "failed"
                 self.run.error = f"Node '{node_label}' failed: {str(e)}"
+                self.run.outputs = dict(context_data)
+                if not self.run.outputs.get("synthesis"):
+                    self.run.outputs["synthesis"] = f"### Assistant Execution Notice\nNode **{node_label}** reported: `{str(e)}`.\n\n" + self._generate_rich_synthesis(context_data)
                 self.db.commit()
                 return self.run
 

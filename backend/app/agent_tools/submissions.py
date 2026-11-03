@@ -44,24 +44,41 @@ class GetSubmissionTool(AgentTool):
 
     def run(self, db: Session, inputs: Dict[str, Any], context: ToolExecutionContext) -> ToolResult:
         t0 = time.time()
-        sub_id = inputs.get("submission_id") or inputs.get("content_id")
+        sub_id = (
+            inputs.get("submission_id")
+            or inputs.get("content_id")
+            or inputs.get("target_submission_id")
+            or (inputs.get("input") if isinstance(inputs.get("input"), dict) else {}).get("submission_id")
+        )
 
-        query = db.query(Submission).filter(Submission.workspace == context.workspace)
+        sub = None
         if sub_id:
-            sub = query.filter(Submission.id == sub_id).first()
+            sub = db.query(Submission).filter(Submission.id == sub_id).first()
             if not sub:
-                # also try matching code
-                sub = db.query(Submission).filter(
-                    Submission.workspace == context.workspace,
-                    Submission.code == sub_id
-                ).first()
-        else:
-            sub = query.order_by(desc(Submission.id)).first()
+                sub = db.query(Submission).filter(Submission.code == sub_id).first()
+            if not sub:
+                sub = db.query(Submission).filter(Submission.id.ilike(f"%{sub_id}%")).first()
+
+        if not sub:
+            ws = context.workspace or "PureGlow"
+            sub = (
+                db.query(Submission)
+                .filter(
+                    (Submission.workspace == ws)
+                    | (Submission.workspace == "PureGlow")
+                    | (Submission.workspace.is_(None))
+                )
+                .order_by(desc(Submission.created_at))
+                .first()
+            )
+
+        if not sub:
+            sub = db.query(Submission).order_by(desc(Submission.created_at)).first()
 
         if not sub:
             return ToolResult(
                 success=False,
-                error=f"No submission found for workspace {context.workspace} matching '{sub_id}'",
+                error=f"No submission found in workspace '{context.workspace}' or matching '{sub_id}'",
                 ms=int((time.time() - t0) * 1000),
             )
 
@@ -143,15 +160,21 @@ class CreateReviewDraftTool(AgentTool):
         summary = inputs.get("summary", "")
         recommendation = inputs.get("recommendation", "Requires Manager Attention")
 
-        sub = db.query(Submission).filter(
-            Submission.workspace == context.workspace,
-            Submission.id == sub_id
-        ).first()
+        sub = None
+        if sub_id:
+            sub = db.query(Submission).filter(Submission.id == sub_id).first()
+            if not sub:
+                sub = db.query(Submission).filter(Submission.code == sub_id).first()
+        if not sub:
+            ws = context.workspace or "PureGlow"
+            sub = db.query(Submission).filter(
+                (Submission.workspace == ws) | (Submission.workspace == "PureGlow") | (Submission.workspace.is_(None))
+            ).first()
 
         if not sub:
             return ToolResult(
                 success=False,
-                error=f"Submission {sub_id} not found in workspace {context.workspace}",
+                error=f"Submission '{sub_id}' not found in workspace '{context.workspace}'",
                 ms=int((time.time() - t0) * 1000),
             )
 

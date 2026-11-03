@@ -9,14 +9,27 @@ python-jose[cryptography]==3.3.0
 python-multipart==0.0.9
 pymupdf==1.24.13
 python-docx==1.1.0
+# PDF text extraction (primary parser) and compliance PDF/CSV report export.
+# `app/services/reports.py` imports reportlab at module scope, so it is required
+# to boot the API, not optional.
+pypdf>=4.2
+reportlab>=4.1
 httpx==0.27.0
 pytest==8.2.1
-reportlab>=4.1.0
-pillow>=10.0.0
-filetype>=1.2.0
-apscheduler>=3.10.4
-opencv-python-headless>=4.9.0
-numpy>=1.26.0
-websockets>=12.0
-# Optional — enable for Postgres vector search; not required for core features.
+# A1 VisualGuard imaging + OCR (Tesseract binary is a system dependency).
+pillow>=10.3
+numpy>=1.26
+pytesseract>=0.3.10
+opencv-python-headless>=4.9
+# A1 palette extraction â€” deterministic KMeans (falls back to median-cut).
+scikit-learn>=1.4
+# A2 Evidence Intelligence â€” local multilingual sentence embeddings (ONNX).
+onnxruntime>=1.17
+tokenizers>=0.15
+# A3 Sentinel â€” daily in-process scan (one shared idempotent service).
+apscheduler>=3.10
+# Optional â€” enable for Postgres vector search; not required for core features.
 # pgvector==0.2.5
+
+filetype>=1.2.0
+websockets>=12.0

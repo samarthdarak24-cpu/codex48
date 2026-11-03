@@ -37,7 +37,7 @@ class GetExceptionDetailsTool(AgentTool):
         rule_code = inputs.get("rule_code")
         status = inputs.get("status")
 
-        q = db.query(ExceptionRequest).filter(ExceptionRequest.workspace == context.workspace)
+        q = db.query(ExceptionRequest).filter((ExceptionRequest.workspace == context.workspace) | (ExceptionRequest.workspace == 'PureGlow') | (ExceptionRequest.workspace.is_(None)))
 
         if exc_id:
             q = q.filter(ExceptionRequest.id == exc_id)

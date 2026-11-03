@@ -51,18 +51,44 @@ def validate_and_save_upload(file: UploadFile, uploads_dir: str) -> tuple[str, s
 
     # Magic byte validation
     if ext == ".pdf":
-        if not content.startswith(b"%PDF") and b"%PDF" not in content[:1024]:
+        if not content.startswith(b"%PDF"):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="File content does not match a valid PDF header.",
             )
+        try:
+            import fitz
+
+            with fitz.open(stream=content, filetype="pdf") as probe:
+                if probe.page_count < 1:
+                    raise ValueError("no pages")
+        except Exception:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="That PDF is not a readable document.",
+            )
         file_type = "PDF"
     elif ext in (".docx", ".doc"):
-        # Modern docx is a PK zip archive
-        if not content.startswith(b"PK") and b"PK" not in content[:64]:
+        # Modern docx is a PK zip archive. The header alone is not enough: a
+        # truncated archive would otherwise be stored as a document with no
+        # text, so the archive and its main document part are checked here.
+        if not content.startswith(b"PK"):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="File content does not match a valid DOCX document.",
+            )
+        try:
+            import zipfile
+
+            with zipfile.ZipFile(io.BytesIO(content)) as archive:
+                broken = archive.testzip()
+                names = set(archive.namelist())
+            if broken or "word/document.xml" not in names:
+                raise ValueError("missing word/document.xml")
+        except Exception:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="That DOCX file is not a readable Word document.",
             )
         file_type = "DOCX"
     elif ext == ".txt":

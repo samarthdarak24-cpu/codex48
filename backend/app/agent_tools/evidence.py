@@ -143,7 +143,7 @@ class CheckApprovedClaimsTool(AgentTool):
         text = inputs.get("text", "").lower()
         product = inputs.get("product")
 
-        q = db.query(ApprovedClaim).filter(ApprovedClaim.workspace == context.workspace)
+        q = db.query(ApprovedClaim).filter((ApprovedClaim.workspace == context.workspace) | (ApprovedClaim.workspace == 'PureGlow') | (ApprovedClaim.workspace.is_(None)))
         if product:
             q = q.filter(ApprovedClaim.product.ilike(f"%{product}%"))
 

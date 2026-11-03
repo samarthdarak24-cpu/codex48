@@ -3,7 +3,7 @@ import { Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 type Variant = 'primary' | 'outline' | 'ghost' | 'subtle' | 'danger' | 'success'
-type Size = 'xs' | 'sm' | 'md' | 'lg'
+type Size = 'xs' | 'sm' | 'md' | 'lg' | 'icon' | 'icon-sm'
 
 const variants: Record<Variant, string> = {
   primary:
@@ -21,6 +21,8 @@ const sizes: Record<Size, string> = {
   sm: 'h-8 gap-1.5 rounded-lg px-2.5 text-sm',
   md: 'h-[34px] gap-1.5 rounded-lg px-3.5 text-base',
   lg: 'h-10 gap-2 rounded-lg px-4 text-md',
+  icon: 'h-[34px] w-[34px] rounded-lg',
+  'icon-sm': 'h-8 w-8 rounded-lg',
 }
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -33,7 +35,7 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
-  { className, variant = 'primary', size = 'md', loading, icon, iconRight, block, children, disabled, type = 'button', ...props },
+  { className, variant = 'primary', size = 'md', type = 'button', loading, icon, iconRight, block, children, disabled, ...props },
   ref,
 ) {
   return (
@@ -57,25 +59,3 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     </button>
   )
 })
-
-export function IconButton({
-  className,
-  label,
-  children,
-  ...props
-}: React.ButtonHTMLAttributes<HTMLButtonElement> & { label: string }) {
-  return (
-    <button
-      aria-label={label}
-      title={label}
-      className={cn(
-        'inline-flex h-7 w-7 items-center justify-center rounded-md text-muted transition-colors',
-        'hover:bg-[#F1F6FD] hover:text-ink focus-visible:bg-[#F1F6FD]',
-        className,
-      )}
-      {...props}
-    >
-      {children}
-    </button>
-  )
-}

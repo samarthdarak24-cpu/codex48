@@ -1,22 +1,52 @@
-"""Permissions and Workspace Isolation for Precedent Agent Studio."""
-from app.errors import ForbiddenException
-from app.models import User
+"""Row- and role-level authorisation for Agent Studio."""
+from __future__ import annotations
+
+from fastapi import HTTPException, status
+
+from ..models import User
+from .models import StudioAgent
 
 
-def check_agent_access(agent_workspace: str, user: User) -> None:
-    """Enforces workspace boundary isolation."""
-    if agent_workspace != user.workspace:
-        raise ForbiddenException("Access denied: Agent belongs to another workspace.")
+def is_manager(user: User) -> bool:
+    return user.role == "manager"
 
 
-def require_agent_authoring_permission(user: User) -> None:
-    """Ensures only authorized Brand Managers can create, edit, or publish agents."""
-    if user.role != "manager":
-        raise ForbiddenException("Creators do not have permission to build, edit, or publish agents.")
+def assert_manager(user: User) -> None:
+    if not is_manager(user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only a Brand Manager can manage organisation-wide agents.",
+        )
 
 
-def require_approval_permission(user: User) -> None:
-    """Ensures only Brand Managers can approve or reject protected write actions."""
-    if user.role != "manager":
-        raise ForbiddenException("Only Brand Managers can decide approval requests.")
+def assert_agent_visible(agent: StudioAgent | None, user: User) -> StudioAgent:
+    """404 for a missing row *or* a row in another workspace."""
+    if agent is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agent not found")
+    if agent.workspace != (user.workspace or "PureGlow"):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agent not found")
+    return agent
 
+
+def assert_can_manage(agent: StudioAgent | None, user: User) -> StudioAgent:
+    agent = assert_agent_visible(agent, user)
+    assert_manager(user)
+    return agent
+
+
+def assert_can_use(agent: StudioAgent, user: User) -> None:
+    """Creators may only run published agents; managers may run drafts for testing."""
+    if is_manager(user):
+        return
+    if agent.status != "published":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This assistant is not published yet.",
+        )
+
+
+def assert_can_view_runs(agent: StudioAgent, user: User) -> None:
+    if is_manager(user):
+        return
+    if agent.status != "published":
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agent not found")

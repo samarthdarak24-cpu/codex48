@@ -1,267 +1,171 @@
-"""Pydantic schemas for Agent Studio API contracts."""
-from datetime import datetime
-from typing import Any, Dict, List, Literal, Optional
-from pydantic import BaseModel, Field
+"""Validated JSON contract shared by the generator, builder, validator and API.
+
+The LLM is asked to emit this shape. Nothing outside this module defines the
+agent configuration vocabulary, so a malformed model response can never smuggle
+new fields into an execution.
+"""
+from __future__ import annotations
+
+from typing import Literal, Optional
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
-# ---------------------------------------------------------------------------
-# Tool Schemas
-# ---------------------------------------------------------------------------
-
-class ToolParameter(BaseModel):
-    name: str
-    type: str
-    description: str
-    required: bool = True
-    default: Optional[Any] = None
+MemoryScope = Literal["none", "session", "persistent"]
+NodeCategory = Literal["trigger", "ai", "tool", "logic", "approval", "output"]
+AgentStatus = Literal["draft", "published", "paused", "archived"]
 
 
-class ToolDefinitionOut(BaseModel):
-    id: str
-    name: str
-    description: str
-    category: str
-    permission_class: Literal["read", "draft", "write", "action"]
-    requires_approval: bool = False
-    timeout_seconds: int = 30
-    input_schema: Dict[str, Any] = Field(default_factory=dict)
-    output_schema: Dict[str, Any] = Field(default_factory=dict)
+class NodePosition(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    x: float = 0
+    y: float = 0
 
 
-# ---------------------------------------------------------------------------
-# Workflow Graph Schemas
-# ---------------------------------------------------------------------------
+class NodeData(BaseModel):
+    """React Flow `data` payload. Extra keys are preserved for forward compat."""
+
+    model_config = ConfigDict(extra="allow")
+
+    label: str = ""
+    subtype: str = ""
+    toolId: Optional[str] = None
+    description: str = ""
+    config: dict = Field(default_factory=dict)
+
 
 class WorkflowNode(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
     id: str
-    type: str  # trigger | ai | tool | logic | human_approval | output
-    position: Dict[str, float] = Field(default_factory=lambda: {"x": 0.0, "y": 0.0})
-    data: Dict[str, Any] = Field(default_factory=dict)
+    type: NodeCategory = "tool"
+    position: NodePosition = Field(default_factory=NodePosition)
+    data: NodeData = Field(default_factory=NodeData)
 
 
 class WorkflowEdge(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
     id: str
     source: str
     target: str
-    sourceHandle: Optional[str] = None
-    targetHandle: Optional[str] = None
     label: Optional[str] = None
-    data: Optional[Dict[str, Any]] = None
+    condition: Optional[str] = None
 
 
 class WorkflowGraph(BaseModel):
-    nodes: List[WorkflowNode] = Field(default_factory=list)
-    edges: List[WorkflowEdge] = Field(default_factory=list)
-    viewport: Optional[Dict[str, Any]] = None
+    model_config = ConfigDict(extra="ignore")
 
+    nodes: list[WorkflowNode] = Field(default_factory=list)
+    edges: list[WorkflowEdge] = Field(default_factory=list)
 
-# ---------------------------------------------------------------------------
-# Agent Definition Schemas
-# ---------------------------------------------------------------------------
 
 class MemoryConfig(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
     enabled: bool = False
-    scope: Literal["none", "session", "workspace"] = "session"
-    max_turns: int = 10
+    scope: MemoryScope = "none"
 
-
-class ExecutionLimits(BaseModel):
-    max_steps: int = 10
-    timeout_seconds: int = 120
-    max_tokens: int = 4000
+    @field_validator("scope", mode="before")
+    @classmethod
+    def _default_scope(cls, value):
+        return value or "none"
 
 
 class ApprovalPolicy(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
     human_approval_required_for_write_actions: bool = True
-    require_manager_approval: bool = True
+    approval_required_tools: list[str] = Field(default_factory=list)
 
 
-class AgentBase(BaseModel):
-    name: str
+class ExecutionLimits(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    max_steps: int = Field(default=10, ge=1, le=30)
+    timeout_seconds: int = Field(default=120, ge=5, le=600)
+
+
+class AgentSpec(BaseModel):
+    """The complete, validated configuration of one agent version."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    name: str = Field(min_length=1, max_length=120)
     description: str = ""
     category: str = "brand_compliance"
-    icon: str = "Bot"
+    icon: str = "sparkles"
     instructions: str = ""
-    tools: List[str] = Field(default_factory=list)
-    input_schema: Dict[str, Any] = Field(default_factory=dict)
-    output_schema: Dict[str, Any] = Field(default_factory=dict)
-    memory_config: MemoryConfig = Field(default_factory=MemoryConfig)
-    execution_limits: ExecutionLimits = Field(default_factory=ExecutionLimits)
+    tools: list[str] = Field(default_factory=list)
+    input_schema: dict = Field(default_factory=dict)
+    output_schema: dict = Field(default_factory=dict)
+    memory: MemoryConfig = Field(default_factory=MemoryConfig)
+    workflow: WorkflowGraph = Field(default_factory=WorkflowGraph)
     approval_policy: ApprovalPolicy = Field(default_factory=ApprovalPolicy)
-    workflow: Dict[str, Any] = Field(default_factory=lambda: {"nodes": [], "edges": []})
-    visibility: Literal["workspace", "creators", "private"] = "workspace"
+    execution_limits: ExecutionLimits = Field(default_factory=ExecutionLimits)
+
+    @field_validator("tools", mode="before")
+    @classmethod
+    def _clean_tools(cls, value):
+        if value is None:
+            return []
+        seen: list[str] = []
+        for item in value:
+            if isinstance(item, str) and item and item not in seen:
+                seen.append(item)
+        return seen
 
 
-class AgentCreate(AgentBase):
-    pass
+# ---------------------------------------------------------------------------
+# API request / response shapes
+# ---------------------------------------------------------------------------
+
+class DraftFromPromptIn(BaseModel):
+    prompt: str = Field(min_length=8, max_length=4000)
+    category: Optional[str] = None
+    brand: Optional[str] = None
+    workspace: Optional[str] = None
 
 
-class AgentUpdate(BaseModel):
+class AgentCreateIn(AgentSpec):
+    status: AgentStatus = "draft"
+
+
+class AgentPatchIn(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     category: Optional[str] = None
     icon: Optional[str] = None
     instructions: Optional[str] = None
-    tools: Optional[List[str]] = None
-    input_schema: Optional[Dict[str, Any]] = None
-    output_schema: Optional[Dict[str, Any]] = None
-    memory_config: Optional[MemoryConfig] = None
-    execution_limits: Optional[ExecutionLimits] = None
+    tools: Optional[list[str]] = None
+    input_schema: Optional[dict] = None
+    output_schema: Optional[dict] = None
+    memory: Optional[MemoryConfig] = None
+    workflow: Optional[WorkflowGraph] = None
     approval_policy: Optional[ApprovalPolicy] = None
-    workflow: Optional[Dict[str, Any]] = None
-    visibility: Optional[Literal["workspace", "creators", "private"]] = None
-    status: Optional[Literal["draft", "published", "paused", "archived"]] = None
+    execution_limits: Optional[ExecutionLimits] = None
 
 
-class AgentOut(AgentBase):
-    id: str
-    workspace: str
-    created_by_id: str
-    slug: str
-    status: Literal["draft", "published", "paused", "archived"]
-    current_version: int
-    published_version: Optional[int] = None
-    created_at: datetime
-    updated_at: datetime
-    total_runs: int = 0
-    success_rate: float = 0.0
-    last_run_at: Optional[datetime] = None
-
-    class Config:
-        from_attributes = True
+class WorkflowSaveIn(BaseModel):
+    graph: WorkflowGraph
 
 
-# ---------------------------------------------------------------------------
-# Prompt-to-Agent Schemas
-# ---------------------------------------------------------------------------
-
-class AgentPromptIn(BaseModel):
-    prompt: str = Field(..., min_length=5, description="Natural language description of desired agent")
-    category: Optional[str] = None
-    workspace: Optional[str] = None
+class TestAgentIn(BaseModel):
+    input: dict = Field(default_factory=dict)
+    message: Optional[str] = None
 
 
-class AgentPromptSpec(BaseModel):
-    name: str
-    description: str
-    category: str
-    instructions: str
-    tools: List[str]
-    input_schema: Dict[str, Any] = Field(default_factory=dict)
-    output_schema: Dict[str, Any] = Field(default_factory=dict)
-    memory: MemoryConfig = Field(default_factory=MemoryConfig)
-    workflow: Dict[str, Any] = Field(default_factory=lambda: {"nodes": [], "edges": []})
-    approval_policy: ApprovalPolicy = Field(default_factory=ApprovalPolicy)
-    execution_limits: ExecutionLimits = Field(default_factory=ExecutionLimits)
-
-
-class AgentPromptOut(BaseModel):
-    agent: AgentOut
-    spec: AgentPromptSpec
-    tool_matches: List[str]
-    rejected_tools: List[str] = Field(default_factory=list)
-    warnings: List[str] = Field(default_factory=list)
-
-
-# ---------------------------------------------------------------------------
-# Execution & Run Schemas
-# ---------------------------------------------------------------------------
-
-class AgentRunStepOut(BaseModel):
-    id: str
-    run_id: str
-    step_number: int
-    node_id: Optional[str] = None
-    node_type: str
-    node_label: str
-    status: str
-    tool_id: Optional[str] = None
-    inputs: Dict[str, Any] = Field(default_factory=dict)
-    outputs: Dict[str, Any] = Field(default_factory=dict)
-    explanation: Optional[str] = None
-    ms: int = 0
-    error: Optional[str] = None
-    created_at: datetime
-
-    class Config:
-        from_attributes = True
-
-
-class AgentApprovalOut(BaseModel):
-    id: str
-    run_id: str
-    step_id: Optional[str] = None
-    action_type: str
-    description: str
-    payload: Dict[str, Any] = Field(default_factory=dict)
-    requested_by_agent: str
-    status: str
-    decided_by_user_id: Optional[str] = None
-    decided_at: Optional[datetime] = None
-    decision_note: Optional[str] = None
-    created_at: datetime
-
-    class Config:
-        from_attributes = True
-
-
-class AgentApprovalDecisionIn(BaseModel):
-    decision: Literal["approved", "rejected"]
-    note: Optional[str] = ""
-
-
-class AgentRunIn(BaseModel):
-    inputs: Dict[str, Any] = Field(default_factory=dict)
+class ExecuteAgentIn(BaseModel):
+    input: dict = Field(default_factory=dict)
     trigger_type: str = "manual"
-    session_id: Optional[str] = None
+    trigger_ref: str = ""
 
 
-class AgentTestIn(BaseModel):
-    prompt: Optional[str] = None
-    inputs: Optional[Dict[str, Any]] = None
-    submission_id: Optional[str] = None
-    query: Optional[str] = None
+class ApprovalIn(BaseModel):
+    decision: Literal["approve", "reject"]
+    note: str = ""
 
 
-class AgentRunOut(BaseModel):
-    id: str
-    agent_id: Optional[str] = None
-    agent_name: Optional[str] = None
-    agent_version: Optional[int] = None
-    workspace: str
-    trigger_type: str
-    status: str
-    inputs: Dict[str, Any] = Field(default_factory=dict)
-    outputs: Dict[str, Any] = Field(default_factory=dict)
-    duration_ms: int = 0
-    tokens_used: int = 0
-    tool_call_count: int = 0
-    error: Optional[str] = None
-    started_at: datetime
-    finished_at: Optional[datetime] = None
-    created_at: datetime
-    steps: List[AgentRunStepOut] = Field(default_factory=list)
-    approvals: List[AgentApprovalOut] = Field(default_factory=list)
-
-    class Config:
-        from_attributes = True
-
-
-# ---------------------------------------------------------------------------
-# Template Schemas
-# ---------------------------------------------------------------------------
-
-class AgentTemplateOut(BaseModel):
-    id: str
-    name: str
-    description: str
-    category: str
-    icon: str
-    instructions: str
-    tools: List[str]
-    input_schema: Dict[str, Any]
-    output_schema: Dict[str, Any]
-    approval_policy: ApprovalPolicy
-    execution_limits: ExecutionLimits
-    workflow: Dict[str, Any]
-
+class TemplateApplyIn(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
