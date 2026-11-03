@@ -2,6 +2,8 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-do
 import { useEffect, useState } from 'react'
 import {
   ArrowLeft,
+  ArrowLeftRight,
+  Loader2,
   BarChart3,
   Bell,
   BookOpen,
@@ -105,7 +107,7 @@ function useNavItems(): { items: NavItem[]; footer: string } {
 
   useEffect(() => {
     api.navCounts().then(setNavCounts).catch(() => {})
-  }, [submissions, exceptions])
+  }, [submissions, exceptions, user?.id])
 
   if (user?.role === 'manager') {
     const pending = navCounts?.manager.review_queue ?? awaitingDecision(submissions).length
@@ -224,11 +226,26 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
 /* ------------------------------------------------------------------ */
 
 function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
-  const { user, logout } = useAuth()
+  const { user, logout, switchPersona } = useAuth()
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
   const [notifOpen, setNotifOpen] = useState(false)
   const [query, setQuery] = useState('')
+  const [switching, setSwitching] = useState(false)
+
+  async function handleSwitchPersona() {
+    if (switching) return
+    try {
+      setSwitching(true)
+      const nextUser = await switchPersona()
+      setMenuOpen(false)
+      navigate(nextUser.role === 'manager' ? '/manager/overview' : '/app/overview', { replace: true })
+    } catch (err) {
+      console.error('Failed to switch persona:', err)
+    } finally {
+      setSwitching(false)
+    }
+  }
 
   useEffect(() => {
     const close = () => {
@@ -274,7 +291,29 @@ function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
         />
       </form>
 
-      <div className="ml-auto flex items-center gap-1.5">
+      <div className="ml-auto flex items-center gap-2">
+        {/* Instant Persona Switcher Button */}
+        <button
+          type="button"
+          onClick={handleSwitchPersona}
+          disabled={switching}
+          aria-label="Switch Persona"
+          className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300 bg-emerald-50/90 px-3 py-1 text-xs font-semibold text-emerald-800 shadow-xs transition hover:bg-emerald-100 hover:border-emerald-400 disabled:opacity-50"
+          title={`Instant switch to ${user?.role === 'manager' ? 'Emily Carter (Content Creator)' : 'David Kim (Brand Manager)'}`}
+        >
+          {switching ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-700" />
+          ) : (
+            <ArrowLeftRight className="h-3.5 w-3.5 text-emerald-700" />
+          )}
+          <span className="hidden sm:inline font-medium">
+            Switch to {user?.role === 'manager' ? 'Creator (Emily)' : 'Manager (David)'}
+          </span>
+          <span className="sm:hidden font-medium">
+            {user?.role === 'manager' ? 'Creator' : 'Manager'}
+          </span>
+        </button>
+
         <div className="relative">
           <button
             onClick={(e) => {
@@ -348,12 +387,18 @@ function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
                 Brand guidelines
               </button>
               <button
+                type="button"
                 role="menuitem"
-                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-base text-ink-600 transition-colors hover:bg-[#F5F9FE]"
-                onClick={() => navigate('/login')}
+                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-50 disabled:opacity-50"
+                onClick={handleSwitchPersona}
+                disabled={switching}
               >
-                <Users className="h-3.5 w-3.5 text-muted" />
-                Switch workspace
+                {switching ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-600" />
+                ) : (
+                  <ArrowLeftRight className="h-3.5 w-3.5 text-emerald-600" />
+                )}
+                <span>Switch to {user?.role === 'manager' ? 'Emily Carter (Creator)' : 'David Kim (Manager)'}</span>
               </button>
               <div className="my-1 h-px bg-line" />
               <button

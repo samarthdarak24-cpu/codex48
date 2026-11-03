@@ -8,6 +8,7 @@ interface AuthState {
   user: User | null
   status: 'loading' | 'authenticated' | 'anonymous'
   login: (email: string, password: string) => Promise<User>
+  switchPersona: (targetRole?: Role) => Promise<User>
   logout: () => void
   hasRole: (role: Role) => boolean
 }
@@ -80,6 +81,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return session.user
   }, [])
 
+  const switchPersona = useCallback(async (targetRole?: Role) => {
+    const nextRole = targetRole ?? (user?.role === 'manager' ? 'creator' : 'manager')
+    const email = nextRole === 'manager' ? 'david.kim@pureglow.co' : 'emily.carter@pureglow.co'
+    const session = await authApi.login(email, 'precedent')
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(session))
+    setUser(session.user)
+    setStatus('authenticated')
+    return session.user
+  }, [user])
+
   const logout = useCallback(() => {
     sessionStorage.removeItem(STORAGE_KEY)
     setUser(null)
@@ -91,10 +102,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user,
       status,
       login,
+      switchPersona,
       logout,
       hasRole: (role: Role) => user?.role === role,
     }),
-    [user, status, login, logout],
+    [user, status, login, switchPersona, logout],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

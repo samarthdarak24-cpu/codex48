@@ -122,7 +122,7 @@ const EMPTY: DataBundle = {
 const DataContext = createContext<DataState | null>(null)
 
 export function DataProvider({ children }: { children: React.ReactNode }) {
-  const { status } = useAuth()
+  const { status, user } = useAuth()
   const [bundle, setBundle] = useState<DataBundle>(EMPTY)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -165,7 +165,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true
     }
-  }, [nonce, status])
+  }, [nonce, status, user?.id])
 
   const refetch = useCallback(() => setNonce((n) => n + 1), [])
 
