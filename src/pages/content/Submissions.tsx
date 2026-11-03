@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   ArrowRight,
@@ -29,13 +29,11 @@ import type { Submission, SubmissionStatus } from '@/lib/types'
 
 const PAGE_SIZE = 6
 const TYPES = ['All Types', 'Text', 'Image', 'Document', 'URL']
-const STATUSES: (SubmissionStatus | 'All Statuses')[] = [
+const STATUSES: string[] = [
   'All Statuses',
-  'Pending',
   'In Review',
-  'Ready for Approval',
-  'Changes Requested',
   'Approved',
+  'Changes Requested',
   'Declined',
 ]
 
@@ -51,6 +49,17 @@ export default function MySubmissions() {
   const [sort, setSort] = useState('newest')
   const [page, setPage] = useState(1)
 
+  useEffect(() => {
+    const s = params.get('status')
+    if (s && s !== status) {
+      setStatus(s)
+      setPage(1)
+    } else if (!s && status !== 'All Statuses') {
+      setStatus('All Statuses')
+      setPage(1)
+    }
+  }, [params])
+
   const mine = useMemo(() => submissions.filter((s) => s.creatorId === user?.id), [submissions, user?.id])
   const stats = submissionStats(mine)
 
@@ -59,7 +68,11 @@ export default function MySubmissions() {
       const q = query.trim().toLowerCase()
       const matchesQuery = !q || s.title.toLowerCase().includes(q) || s.code.toLowerCase().includes(q) || s.excerpt.toLowerCase().includes(q)
       const matchesType = type === 'All Types' || s.type === type
-      const matchesStatus = status === 'All Statuses' || s.status === status
+      const matchesStatus =
+        status === 'All Statuses' ||
+        (status === 'In Review' || status === 'Pending' || status === 'Pending Review'
+          ? s.status === 'In Review' || s.status === 'Pending' || s.status === 'Ready for Approval'
+          : s.status.toLowerCase() === status.toLowerCase())
       return matchesQuery && matchesType && matchesStatus
     })
     rows = rows.sort((a, b) => {
@@ -177,7 +190,7 @@ export default function MySubmissions() {
               sub="Need attention"
               icon={<Clock3 className="h-4 w-4" />}
               tone="amber"
-              onClick={() => applyStatus('Pending')}
+              onClick={() => applyStatus('In Review')}
             />
             <MetricCard
               label="Approved"
