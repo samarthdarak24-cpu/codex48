@@ -89,6 +89,10 @@ def run_migrations_online() -> None:
         )
         with context.begin_transaction():
             context.run_migrations()
+        # pysqlite runs in legacy isolation mode, where DDL is *not* committed
+        # automatically. Without this the upgrade prints "Running upgrade …",
+        # exits 0, and then rolls every ALTER back when the connection closes.
+        connection.commit()
 
 
 if context.is_offline_mode():

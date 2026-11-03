@@ -46,13 +46,39 @@ def ai_available() -> bool:
     return bool(settings.llm_api_key and settings.llm_base_url)
 
 
-def llm_complete(system: str, user: str, max_tokens: int = 800, temperature: float = 0.2) -> Optional[str]:
-    """Return the model's text, or None on any failure / when not configured."""
-    if not ai_available():
-        return None
+#: Why the last call failed. `llm_complete` must never raise into a request, so
+#: without this a bad key or a wrong URL looked identical to "AI not configured"
+#: and the caller silently fell back to the deterministic engine.
+_LAST_ERROR: Optional[str] = None
+
+
+def last_error() -> Optional[str]:
+    return _LAST_ERROR
+
+
+def _endpoint() -> str:
+    """Resolve the chat-completions URL from whatever the operator configured.
+
+    `LLM_BASE_URL` is documented as a base (`https://api.groq.com/openai/v1`) but
+    was used verbatim as the request URL, so the common case silently 404'd and
+    degraded to "no AI". Both forms are now accepted.
+    """
+    url = (settings.llm_base_url or "").strip().rstrip("/")
+    if not url:
+        return ""
+    if url.endswith("/chat/completions"):
+        return url
+    return f"{url}/chat/completions"
+
+
+def _post(system: str, user: str, max_tokens: int, temperature: float) -> tuple[Optional[str], dict]:
+    """One chat-completions call. Returns (content, meta)."""
+    global _LAST_ERROR
+
+    url = _endpoint()
     try:
         resp = httpx.post(
-            settings.llm_base_url,
+            url,
             headers={"Authorization": f"Bearer {settings.llm_api_key}", "Content-Type": "application/json"},
             json={
                 "model": settings.llm_model,
@@ -63,14 +89,84 @@ def llm_complete(system: str, user: str, max_tokens: int = 800, temperature: flo
                 "temperature": temperature,
                 "max_tokens": max_tokens,
             },
-            timeout=30,
+            timeout=settings.llm_timeout_seconds or 30,
         )
         resp.raise_for_status()
         data = resp.json()
-        return data["choices"][0]["message"]["content"]
-    except Exception:
+        choice = (data.get("choices") or [{}])[0]
+        message = choice.get("message") or {}
+        usage = data.get("usage") or {}
+        meta = {
+            "finishReason": choice.get("finish_reason"),
+            "reasoningTokens": (usage.get("completion_tokens_details") or {}).get("reasoning_tokens", 0),
+            "completionTokens": usage.get("completion_tokens"),
+            "maxTokens": max_tokens,
+        }
+        _LAST_ERROR = None
+        return message.get("content"), meta
+    except httpx.HTTPStatusError as exc:
+        body = exc.response.text[:300].replace("\n", " ")
+        _LAST_ERROR = f"HTTP {exc.response.status_code} from {url} — {body}"
+        return None, {}
+    except Exception as exc:
         # Never raise into the request path; degrade to deterministic behaviour.
+        _LAST_ERROR = f"{type(exc).__name__} calling {url} — {exc}"
+        return None, {}
+
+
+def llm_complete(system: str, user: str, max_tokens: int = 800, temperature: float = 0.2) -> Optional[str]:
+    """Return the model's text, or None on any failure / when not configured.
+
+    Reasoning models (gpt-oss, o-series, qwen3 thinking) count their hidden
+    reasoning against `max_tokens`. A budget that looks generous for the answer
+    can be consumed entirely by reasoning, returning `finish_reason="length"`.
+
+    Two different failures come out of that, and both need the retry:
+
+      - empty `content`  -> the reasoning used the whole budget
+      - truncated `content` -> e.g. 864 characters of a half-written JSON
+        object. This one is worse than empty: the caller gets *something*,
+        tries to parse it, fails, and silently degrades to the deterministic
+        path while reporting a vague "the model did not return valid JSON".
+        The model was fine; the budget was not.
+
+    So truncation is treated as a failure regardless of how much text arrived.
+    """
+    global _LAST_ERROR
+
+    if not ai_available():
+        _LAST_ERROR = "not configured (LLM_BASE_URL / LLM_API_KEY empty)"
         return None
+
+    content, meta = _post(system, user, max_tokens, temperature)
+
+    if meta.get("finishReason") == "length":
+        retry_budget = min(max(max_tokens * 5, 1200), 8192)
+        if retry_budget > max_tokens:
+            content, meta = _post(system, user, retry_budget, temperature)
+
+    if (content or "").strip():
+        if meta.get("finishReason") == "length":
+            # Still truncated after the bigger budget: hand back what exists so
+            # callers that want plain prose can use it, but leave a trace.
+            _LAST_ERROR = (
+                f"truncated after retry — reasoning used "
+                f"{meta.get('reasoningTokens')} of {meta.get('maxTokens')} tokens "
+                f"(model={settings.llm_model})"
+            )
+        else:
+            _LAST_ERROR = None
+        return content
+
+    if meta.get("finishReason") == "length":
+        _LAST_ERROR = (
+            f"empty content after retry — reasoning used "
+            f"{meta.get('reasoningTokens')} of {meta.get('maxTokens')} tokens "
+            f"(model={settings.llm_model})"
+        )
+    elif meta:
+        _LAST_ERROR = f"empty content (finish_reason={meta.get('finishReason')}, model={settings.llm_model})"
+    return None
 
 
 def _parse_json_list(text: Optional[str]) -> Optional[list]:

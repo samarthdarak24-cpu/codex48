@@ -4,7 +4,7 @@
  * Thumbnails, counts, tags and file previews all come from `useApp().assets`
  * and the protected `/assets/:id/file` endpoint. Nothing is seeded.
  */
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle, CheckCircle2, ChevronDown, Download, Eye, Images, LayoutGrid,
   List, Loader2, Lock, Search, Upload, UploadCloud, X,
@@ -67,6 +67,11 @@ export const AssetLibraryView: React.FC = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [isApproving, setIsApproving] = useState(false);
   const [uploadedName, setUploadedName] = useState<string | null>(null);
+  /* Real thumbnails: `/assets/:id/file` requires the bearer token, so each
+     uploaded file is fetched once and shown via an object URL. */
+  const [thumbs, setThumbs] = useState<Record<string, string>>({});
+  const requestedThumbs = useRef<Set<string>>(new Set());
+  const thumbUrls = useRef<string[]>([]);
 
   const approvedCount = assets.filter((a) => a.status === 'Approved').length;
   const pendingCount = assets.filter((a) => a.status === 'In Review' || a.status === 'Pending').length;
@@ -175,6 +180,29 @@ export const AssetLibraryView: React.FC = () => {
     [],
   );
 
+  useEffect(() => {
+    const missing = assets.filter((a) => !requestedThumbs.current.has(a.id));
+    if (missing.length === 0) return;
+    for (const a of missing) requestedThumbs.current.add(a.id);
+    (async () => {
+      const loaded: Record<string, string> = {};
+      for (const a of missing) {
+        const url = await api.fetchAssetBlobUrl(a.id);
+        if (url) {
+          thumbUrls.current.push(url);
+          loaded[a.id] = url;
+        }
+      }
+      // Deliberately not gated on a cleanup flag: React StrictMode's simulated
+      // unmount would otherwise cancel the only fetch and leave placeholders.
+      if (Object.keys(loaded).length > 0) setThumbs((prev) => ({ ...prev, ...loaded }));
+    })();
+  }, [assets]);
+
+  useEffect(() => () => {
+    for (const url of thumbUrls.current) URL.revokeObjectURL(url);
+  }, []);
+
   /* ---- Fetch the real file for the preview modal ---- */
   useEffect(() => {
     if (!preview) return;
@@ -257,6 +285,8 @@ export const AssetLibraryView: React.FC = () => {
     setIsApproving(true);
     try {
       await api.approveAsset(preview.id);
+      setPreview((current) => (current ? { ...current, status: 'Approved' } : current));
+      setSelectedAsset({ ...preview, status: 'Approved' });
       await refresh();
       showToast('Asset approved.');
     } catch (err) {
@@ -507,7 +537,12 @@ export const AssetLibraryView: React.FC = () => {
             {paginated.map((ast) => (
               <AnimatedCard key={ast.id} interactive className="overflow-hidden" onClick={() => openPreview(ast)}>
                 <div className="relative h-36 overflow-hidden bg-cream-100">
-                  <img src={ast.thumbnail} alt="" className="h-full w-full object-cover" loading="lazy" />
+                  <img
+                    src={thumbs[ast.id] ?? ast.thumbnail}
+                    alt={ast.name}
+                    className="h-full w-full object-cover"
+                    loading="lazy"
+                  />
                   <div className="absolute left-2 top-2">
                     <StatusBadge status={ast.status} />
                   </div>

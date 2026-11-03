@@ -12,9 +12,10 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../../context/AppContext';
 import { api } from '@/services/api';
+import { parseStoredDateTime } from '@/lib/utils';
 import type { AuditEvent } from '../../../types';
 import {
-  AnimatedCard, AnimatedCounter, PageTransition, Stagger, StaggerItem,
+  AnimatedCard, AnimatedCounter, ChartContainer, PageTransition, Stagger, StaggerItem,
   type Tone,
 } from '../../motion';
 
@@ -60,12 +61,11 @@ const toneRing: Record<Tone, string> = {
   danger: 'border-danger-200 text-danger-600',
 };
 
-const timestampOf = (e: AuditEvent): number => {
-  const raw = e.dateTime || `${e.date ?? ''} ${e.time ?? ''}`.trim();
-  if (!raw) return Number.NaN;
-  const t = new Date(raw).getTime();
-  return t;
-};
+/** `dateTime` is the display string ("Nov 2, 2026 · 6:52 AM"), so it must be
+    parsed through the shared helper — `new Date()` alone returns Invalid Date
+    on the middle dot and dropped every event from the range filter. */
+const timestampOf = (e: AuditEvent): number =>
+  parseStoredDateTime(e.dateTime || `${e.date ?? ''} ${e.time ?? ''}`.trim());
 
 /* ------------------------------------------------------------------ */
 /* View                                                                */
@@ -90,6 +90,26 @@ export const AuditHistoryView: React.FC = () => {
     () => Array.from(new Set(auditEvents.map((e) => e.module))).sort(),
     [auditEvents],
   );
+
+  /* Counted over the whole log, not the filtered slice, so the breakdown stays
+     a stable map of the workspace while you drill into one module or person. */
+  const moduleBreakdown = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const e of auditEvents) map.set(e.module, (map.get(e.module) ?? 0) + 1);
+    return Array.from(map.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 4)
+      .map(([name, count]) => ({ name, count }));
+  }, [auditEvents]);
+
+  const actorBreakdown = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const e of auditEvents) map.set(e.user.name, (map.get(e.user.name) ?? 0) + 1);
+    return Array.from(map.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 4)
+      .map(([name, count]) => ({ name, count }));
+  }, [auditEvents]);
 
   const filtered = useMemo(() => {
     const days = RANGE_DAYS[range];
@@ -313,6 +333,95 @@ export const AuditHistoryView: React.FC = () => {
           {filtered.length} of {totalCount} events match · {failureCount} failed event
           {failureCount === 1 ? '' : 's'} in the full log
         </p>
+
+        {/* Where the activity comes from */}
+        {auditEvents.length > 0 && (
+          <div className="grid gap-4 lg:grid-cols-2">
+            <ChartContainer
+              title="Activity by module"
+              subtitle="Across the full log · select a row to filter"
+            >
+              <ul className="space-y-1">
+                {moduleBreakdown.map((row) => {
+                  const active = moduleFilter === row.name;
+                  const max = moduleBreakdown[0]?.count ?? 1;
+                  return (
+                    <li key={row.name}>
+                      <button
+                        onClick={() => {
+                          setModuleFilter(active ? 'All modules' : row.name);
+                          setPage(1);
+                        }}
+                        aria-pressed={active}
+                        className={`w-full rounded-lg border px-2.5 py-1.5 text-left transition-colors ${
+                          active
+                            ? 'border-brand-400 bg-brand-50/70 ring-1 ring-brand-300/50'
+                            : 'border-transparent hover:border-line hover:bg-cream-50'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2 text-xs">
+                          <span className="truncate font-medium text-ink">{row.name}</span>
+                          <span className="shrink-0 text-2xs tabular-nums text-muted">
+                            <span className="font-semibold text-ink">{row.count}</span> event
+                            {row.count === 1 ? '' : 's'}
+                          </span>
+                        </div>
+                        <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-line-soft">
+                          <div
+                            className="h-full rounded-full bg-brand-500 transition-[width] duration-500 ease-premium"
+                            style={{ width: `${Math.round((row.count / max) * 100)}%` }}
+                          />
+                        </div>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </ChartContainer>
+
+            <ChartContainer
+              title="Activity by person"
+              subtitle="Across the full log · select a row to filter"
+            >
+              <ul className="space-y-1">
+                {actorBreakdown.map((row) => {
+                  const active = userFilter === row.name;
+                  const max = actorBreakdown[0]?.count ?? 1;
+                  return (
+                    <li key={row.name}>
+                      <button
+                        onClick={() => {
+                          setUserFilter(active ? 'All users' : row.name);
+                          setPage(1);
+                        }}
+                        aria-pressed={active}
+                        className={`w-full rounded-lg border px-2.5 py-1.5 text-left transition-colors ${
+                          active
+                            ? 'border-brand-400 bg-brand-50/70 ring-1 ring-brand-300/50'
+                            : 'border-transparent hover:border-line hover:bg-cream-50'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2 text-xs">
+                          <span className="truncate font-medium text-ink">{row.name}</span>
+                          <span className="shrink-0 text-2xs tabular-nums text-muted">
+                            <span className="font-semibold text-ink">{row.count}</span> event
+                            {row.count === 1 ? '' : 's'}
+                          </span>
+                        </div>
+                        <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-line-soft">
+                          <div
+                            className="h-full rounded-full bg-sage-500 transition-[width] duration-500 ease-premium"
+                            style={{ width: `${Math.round((row.count / max) * 100)}%` }}
+                          />
+                        </div>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </ChartContainer>
+          </div>
+        )}
 
         {/* Timeline */}
         <AnimatedCard className="p-4 sm:p-5">

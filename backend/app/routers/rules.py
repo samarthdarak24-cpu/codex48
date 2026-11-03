@@ -59,20 +59,35 @@ def create_rule(
     user: models.User = Depends(require_manager),
 ):
     code = body.code
+    ws = getattr(user, "workspace", "PureGlow")
+
+    def _taken(candidate: str) -> bool:
+        """Codes only collide inside the same workspace.
+
+        CL-03 is a house convention, not a global identifier: PureGlow and a QA
+        workspace both being able to own "CL-03" is the whole point of scoping.
+        """
+        return (
+            db.query(models.Rule)
+            .filter(models.Rule.code == candidate)
+            .filter(models.Rule.workspace == ws)
+            .first()
+            is not None
+        )
+
     if not code:
         base = re.sub(r"[^A-Z0-9]+", "-", (body.title or "RULE").upper()).strip("-")[:14] or "RULE"
         candidate = base
         n = 1
-        while db.query(models.Rule).filter(models.Rule.code == candidate).first():
+        while _taken(candidate):
             candidate = f"{base}-{n}"
             n += 1
         code = candidate
-    else:
-        existing = db.query(models.Rule).filter(models.Rule.code == code).first()
-        if existing:
-            raise HTTPException(status_code=409, detail=f"Rule code '{code}' already exists")
+    elif _taken(code):
+        raise HTTPException(
+            status_code=409, detail=f"Rule code '{code}' already exists in {ws}"
+        )
 
-    ws = getattr(user, "workspace", "PureGlow")
     r = models.Rule(
         id=new_id("rule"),
         workspace=ws,
@@ -291,9 +306,13 @@ def reject_rule(
 
 
 @router.get("/rules/conflicts")
-def rules_conflicts(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+def rules_conflicts(
+    include_ai: bool = False,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
     ws = getattr(current_user, "workspace", "PureGlow")
-    conflicts = svc.detect_conflicts(db, workspace=ws)
+    conflicts = svc.detect_conflicts(db, workspace=ws, include_ai=include_ai)
     # Attach the persisted review state so the UI shows a real, refresh-safe
     # status instead of a component-local toggle.
     reviews = {
@@ -312,10 +331,13 @@ def rules_conflicts(db: Session = Depends(get_db), current_user: models.User = D
         c["reviewNote"] = rev.note if rev else ""
     # Optional AI explanation, grounded in the deterministic conflicts. Never
     # creates or resolves conflicts; the deterministic checker is authoritative.
+    # Opt-in only: a live LLM takes ~1s per pair, and the manager workspace
+    # loads this endpoint on every mount, so calling it unconditionally blocked
+    # the whole UI behind a ~2.6s request for data no screen currently renders.
     try:
         from .. import ai
 
-        if ai.ai_available():
+        if include_ai and ai.ai_available():
             for c in conflicts[:3]:
                 if "ruleA" in c and "ruleB" in c:
                     note = ai.explain_conflict(c["ruleA"], c["ruleB"])

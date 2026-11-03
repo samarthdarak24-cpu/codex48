@@ -124,6 +124,7 @@ class Campaign(Base):
     end_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     status: Mapped[str] = mapped_column(String, default="active")  # active | paused | archived
     thumbnail_asset_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    is_demo: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
 
@@ -219,6 +220,14 @@ class Submission(Base):
     asset_url: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     asset_source: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     asset_attribution: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+
+    # Stored compliance score (spec Part 4). Computed by services/scoring.py and
+    # only displayed by the UI; `score_formula_version` lets a stale score be
+    # identified instead of silently mixed with a new formula.
+    compliance_score: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    score_formula_version: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    score_computed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    is_demo: Mapped[bool] = mapped_column(Boolean, default=False)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
@@ -492,7 +501,10 @@ class Rule(Base):
     id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
     workspace: Mapped[str] = mapped_column(String, default="PureGlow", index=True)
     workspace_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    code: Mapped[str] = mapped_column(String, unique=True, nullable=False, index=True)
+    # Codes are unique *within a workspace*, not globally: two brands may each
+    # run their own "CL-03" without colliding, which is what a multi-tenant
+    # rulebook requires.
+    code: Mapped[str] = mapped_column(String, nullable=False, index=True)
     title: Mapped[str] = mapped_column(String, nullable=False)
     name: Mapped[str] = mapped_column(String, default="")
     summary: Mapped[str] = mapped_column(Text, default="")
@@ -519,6 +531,10 @@ class Rule(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
 
     versions: Mapped[List["RuleVersion"]] = relationship("RuleVersion", backref="rule_parent", cascade="all, delete-orphan")
+
+    __table_args__ = (
+        UniqueConstraint("workspace", "code", name="uq_rule_workspace_code"),
+    )
 
 
 class RuleVersion(Base):

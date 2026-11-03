@@ -22,6 +22,7 @@ import io
 from datetime import datetime, timedelta, timezone
 
 import pytest
+from PIL import Image
 
 from app.db import SessionLocal
 from app import models
@@ -405,9 +406,11 @@ def test_image_upload_validation_and_attachment(client, creator_token):
     """Images validate MIME types, magic bytes, max size, and attach to submissions."""
     headers = auth_headers(creator_token)
 
-    # Valid PNG with correct magic bytes: \x89PNG\r\n\x1a\n
-    png_bytes = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15c4"
-    valid_file = io.BytesIO(png_bytes)
+    # Generate a complete image so validation tests the upload flow, not a
+    # truncated PNG header.
+    png_buffer = io.BytesIO()
+    Image.new("RGBA", (1, 1), (255, 255, 255, 255)).save(png_buffer, format="PNG")
+    valid_file = io.BytesIO(png_buffer.getvalue())
     resp = client.post(
         "/assets",
         files={"file": ("product.png", valid_file, "image/png")},

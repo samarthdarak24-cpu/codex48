@@ -12,7 +12,9 @@ import json
 import re
 from typing import Any
 
+from .. import ai
 from ..ai import ai_available, llm_complete
+from ..config import settings
 from .graph import SUBTYPE_CATEGORY, TRIGGERS, build_graph
 from .registry import TOOL_IDS, TOOL_SPECS, get_tool
 from .schemas import (
@@ -262,7 +264,11 @@ def generate_from_prompt(
             f"Preferred category: {category or 'auto'}\n\n"
             f"Allow-listed tools:\n{_tool_catalogue_text()}\n"
         )
-        raw = llm_complete(SYSTEM_PROMPT, user_prompt, max_tokens=1800, temperature=0.2)
+        # 1800 was too small: a reasoning model spends ~700-1600 tokens thinking
+        # before it emits the spec, so the reply was cut mid-object and every
+        # draft silently fell back to keyword routing. The spec itself needs
+        # ~1800 output tokens on top of that.
+        raw = llm_complete(SYSTEM_PROMPT, user_prompt, max_tokens=4096, temperature=0.2)
         data = _extract_json(raw) if raw else None
         if data:
             spec = _spec_from_llm(data, prompt, category)
@@ -270,14 +276,19 @@ def generate_from_prompt(
                 meta.update(
                     {
                         "generatedBy": "llm",
-                        "model": "configured-llm",
+                        "model": settings.llm_model,
                         "droppedTools": meta.get("droppedTools", []),
                     }
                 )
                 return spec, meta
             meta["notes"].append("The model returned a configuration that failed validation; used the deterministic router instead.")
         else:
-            meta["notes"].append("The model did not return valid JSON; used the deterministic router instead.")
+            reason = ai.last_error()
+            meta["notes"].append(
+                "The model did not return valid JSON"
+                + (f" ({reason})" if reason else "")
+                + "; used the deterministic router instead."
+            )
 
     # Deterministic fallback: pick the closest template, then keep its clear
     # product name (the prompt itself is preserved as the description).

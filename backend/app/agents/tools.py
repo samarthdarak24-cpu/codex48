@@ -499,10 +499,35 @@ def get_visual_analysis(ctx: ToolContext) -> dict:
     }
 
 
+def _as_finding_list(value) -> list[dict]:
+    """Coerce whatever a previous step produced into a list of finding dicts.
+
+    Upstream tools do not all return the same shape: `run_rules` returns a list,
+    some tools return `{"findings": [...], "count": n}`, and a summary step may
+    only forward the count. Passing an `int` here used to raise
+    `TypeError: 'int' object is not iterable` and 500 the whole run, so the
+    shape is normalised once, at the point of use.
+    """
+    if isinstance(value, list):
+        return [f for f in value if isinstance(f, dict)]
+    if isinstance(value, dict):
+        for key in ("findings", "items", "results", "rows"):
+            inner = value.get(key)
+            if isinstance(inner, list):
+                return [f for f in inner if isinstance(f, dict)]
+        # A single finding dict passed directly.
+        if any(k in value for k in ("ruleCode", "rule_code", "severity")):
+            return [value]
+        return []
+    # An int (a count) carries no detail; there is nothing to summarise.
+    return []
+
+
 def generate_summary(ctx: ToolContext) -> dict:
     text = str(ctx.input.get("text") or "")
-    findings = ctx.input.get("findings") or []
-    evidence = ctx.input.get("evidence") or []
+    findings = _as_finding_list(ctx.input.get("findings"))
+    evidence = [e for e in (ctx.input.get("evidence") or []) if isinstance(e, dict)] \
+        if isinstance(ctx.input.get("evidence"), list) else []
 
     if ai_available() and (text or findings):
         system = (
@@ -547,7 +572,7 @@ def create_review_draft(ctx: ToolContext) -> dict:
         "status": "draft",
         "submissionId": ctx.input.get("submission_id") or ctx.input.get("submissionId"),
         "summary": ctx.input.get("summary") or "",
-        "findings": ctx.input.get("findings") or [],
+        "findings": _as_finding_list(ctx.input.get("findings")),
         "evidence": ctx.input.get("evidence") or [],
         "recommendedAction": ctx.input.get("recommendedAction")
         or "Human review required. The agent cannot approve, reject or publish content.",

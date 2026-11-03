@@ -1,9 +1,12 @@
 """Brand / product image asset helpers: serialization, secure upload, research."""
+import hashlib
+import io
 import os
 import uuid
 from typing import Tuple
 
 from fastapi import HTTPException, UploadFile, status
+from PIL import Image, UnidentifiedImageError
 import httpx
 
 from .. import models
@@ -18,6 +21,7 @@ ALLOWED_MIME_TYPES = {
     "image/jpeg",
     "image/webp",
     "image/gif",
+    "application/octet-stream",  # browsers send this for unrecognized extensions (spaces, special chars); magic bytes validate the real type
 }
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 
@@ -34,6 +38,10 @@ def asset_to_dict(a: "models.BrandAsset") -> dict:
         "source": a.source,
         "sourceUrl": a.source_url,
         "status": a.status,
+        "filename": a.filename,
+        "mimeType": a.mime_type,
+        "size": a.size,
+        "checksum": a.checksum,
         "width": a.width,
         "height": a.height,
         "notes": a.notes,
@@ -43,10 +51,15 @@ def asset_to_dict(a: "models.BrandAsset") -> dict:
     }
 
 
-def validate_and_save_upload(file: UploadFile, uploads_dir: str) -> Tuple[str, str]:
-    """Validate file type, size, and magic bytes, then safely write to disk.
+def validate_and_save_upload(file: UploadFile, uploads_dir: str) -> dict:
+    """Validate file type, size, magic bytes and decodability, then save.
 
-    Returns (saved_path, ext).
+    A valid PNG/JPEG header is not proof of a valid image: a truncated or
+    corrupted payload can still start with the right magic bytes. The image is
+    fully decoded before anything is written, so a corrupt upload can never
+    leave an orphan file or an unopenable asset record behind.
+
+    Returns metadata about the stored file.
     """
     ext = os.path.splitext(file.filename or "")[1].lower()
     if ext not in ALLOWED_EXTENSIONS:
@@ -63,29 +76,47 @@ def validate_and_save_upload(file: UploadFile, uploads_dir: str) -> Tuple[str, s
         )
 
     content = file.file.read()
+    if not content:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Uploaded file is empty.",
+        )
     if len(content) > MAX_FILE_SIZE:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
             detail="File size exceeds the 10MB limit.",
         )
 
-    # Magic byte check
-    is_valid = False
+    # Magic byte check. SVG is deliberately absent: it can execute script on
+    # this origin, and the extension allow-list excludes it too.
+    mime_type = ""
     if content.startswith(b"\x89PNG\r\n\x1a\n"):
-        is_valid = True
+        mime_type = "image/png"
     elif content.startswith(b"\xff\xd8\xff"):
-        is_valid = True
+        mime_type = "image/jpeg"
     elif content.startswith(b"RIFF") and b"WEBP" in content[:16]:
-        is_valid = True
+        mime_type = "image/webp"
     elif content.startswith(b"GIF87a") or content.startswith(b"GIF89a"):
-        is_valid = True
-    elif b"<svg" in content[:512] or b"<?xml" in content[:128]:
-        is_valid = True
+        mime_type = "image/gif"
 
-    if not is_valid:
+    if not mime_type:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Uploaded file header does not match valid image format magic bytes.",
+        )
+
+    # Decode the whole payload so a truncated/corrupt image is rejected here,
+    # not later when a reviewer opens the preview.
+    try:
+        with Image.open(io.BytesIO(content)) as img:
+            width, height = img.size
+            img.verify()
+        with Image.open(io.BytesIO(content)) as img:
+            img.load()
+    except (UnidentifiedImageError, OSError, ValueError, SyntaxError):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="That file is not a readable image. Re-export it and try again.",
         )
 
     name = f"{uuid.uuid4().hex}{ext}"
@@ -94,7 +125,16 @@ def validate_and_save_upload(file: UploadFile, uploads_dir: str) -> Tuple[str, s
     with open(saved_path, "wb") as out:
         out.write(content)
 
-    return saved_path, ext
+    return {
+        "path": saved_path,
+        "filename": os.path.basename(file.filename or name),
+        "ext": ext,
+        "mime_type": mime_type,
+        "size": len(content),
+        "width": width,
+        "height": height,
+        "checksum": hashlib.sha256(content).hexdigest(),
+    }
 
 
 def research_external(query: str, brand: str) -> dict:

@@ -99,6 +99,7 @@ export const BrandGuidelinesView: React.FC = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
   const [notice, setNotice] = useState('');
+  const [statusBusy, setStatusBusy] = useState<string | null>(null);
 
   const activeCount = guidelines.filter((g) => g.status === 'Active').length;
   const draftCount = guidelines.filter((g) => g.status === 'Draft').length;
@@ -150,6 +151,27 @@ export const BrandGuidelinesView: React.FC = () => {
   const closeUpload = () => {
     setIsUploadOpen(false);
     setUploadError('');
+  };
+
+  /**
+   * Publishing state is a real decision: only `active` documents are cited by
+   * the rule engine, and a manager must be able to retire one without deleting
+   * its history. The endpoint existed but the UI had no control for it.
+   */
+  const changeStatus = async (status: 'active' | 'archived' | 'draft') => {
+    if (!activeGuide) return;
+    setStatusBusy(status);
+    try {
+      await api.setDocStatus(activeGuide.id, status);
+      const label = status === 'draft' ? 'Draft' : status === 'active' ? 'Active' : 'Archived';
+      setSelectedGuideline({ ...activeGuide, status: label as Guideline['status'] });
+      await refresh();
+      showToast(`"${activeGuide.title}" is now ${label}.`);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'The status could not be changed.', 'error');
+    } finally {
+      setStatusBusy(null);
+    }
   };
 
   const handleUploadSubmit = async (e: React.FormEvent) => {
@@ -477,12 +499,24 @@ export const BrandGuidelinesView: React.FC = () => {
       >
         {activeGuide && (
           <div className="space-y-5">
-            <PdfPreview
-              resetKey={activeGuide.id}
-              load={() => api.fetchGuidelineBlobUrl(activeGuide.id)}
-              height={380}
-              emptyLabel="This record has no stored PDF, so only its metadata is shown."
-            />
+            {activeGuide.format?.toUpperCase() === 'PDF' ? (
+              <PdfPreview
+                resetKey={activeGuide.id}
+                load={() => api.fetchGuidelineBlobUrl(activeGuide.id)}
+                height={380}
+                emptyLabel="This record has no stored PDF, so only its metadata is shown."
+              />
+            ) : (
+              <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-line bg-cream-50 px-4 py-12 text-center">
+                <FileText className="h-6 w-6 text-muted-light" />
+                <p className="mt-2 text-xs font-semibold text-ink-600">
+                  Preview unavailable for {activeGuide.format || 'this file type'}
+                </p>
+                <p className="mt-0.5 max-w-sm text-2xs leading-relaxed text-muted">
+                  Download the original document to view its contents.
+                </p>
+              </div>
+            )}
 
             <div>
               <div className="flex items-start justify-between gap-2">
@@ -515,6 +549,42 @@ export const BrandGuidelinesView: React.FC = () => {
                   </div>
                 ))}
               </dl>
+            </div>
+
+            <div className="rounded-xl border border-line bg-cream-50 p-3">
+              <p className="text-2xs font-semibold uppercase tracking-[0.08em] text-muted">
+                Publishing status
+              </p>
+              <p className="mt-1 text-2xs leading-relaxed text-muted">
+                Only <strong>Active</strong> documents are cited by the rule engine. Archiving keeps the
+                record and its audit history.
+              </p>
+              <div className="mt-2.5 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => void changeStatus('active')}
+                  disabled={activeGuide.status === 'Active' || statusBusy !== null}
+                  className="rounded-xl bg-brand-600 px-3 py-1.5 text-2xs font-semibold text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {statusBusy === 'active' ? 'Activating…' : 'Activate'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void changeStatus('draft')}
+                  disabled={activeGuide.status === 'Draft' || statusBusy !== null}
+                  className="rounded-xl border border-line bg-white px-3 py-1.5 text-2xs font-semibold text-ink-700 transition-colors hover:bg-cream-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {statusBusy === 'draft' ? 'Saving…' : 'Move to draft'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void changeStatus('archived')}
+                  disabled={activeGuide.status === 'Archived' || statusBusy !== null}
+                  className="rounded-xl border border-line bg-white px-3 py-1.5 text-2xs font-semibold text-ink-700 transition-colors hover:bg-cream-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {statusBusy === 'archived' ? 'Archiving…' : 'Archive'}
+                </button>
+              </div>
             </div>
 
             <div className="rounded-xl border border-line bg-cream-50 p-3">

@@ -6,6 +6,7 @@ import {
 import { motion, useReducedMotion } from 'motion/react';
 import { useApp } from '../../../context/AppContext';
 import { api } from '@/services/api';
+import type { BrandAsset } from '@/lib/types';
 import {
   AnimatedBadge, AnimatedCard, AnimatedCounter, EASE, HoverLiftCard, PageTransition,
   ProcessingSpinner, ScrollReveal, SectionHeader, SuccessCheck,
@@ -41,11 +42,21 @@ export const NewContentView: React.FC = () => {
   const [posterFile, setPosterFile] = useState<File | null>(null);
   const [posterPreviewUrl, setPosterPreviewUrl] = useState<string | null>(null);
   const [previewLoaded, setPreviewLoaded] = useState(false);
+  const [creative, setCreative] = useState<BrandAsset | null>(null);
+  const [isCreativeUploading, setIsCreativeUploading] = useState(false);
+  const [creativeError, setCreativeError] = useState<string | null>(null);
   const [findingsCount, setFindingsCount] = useState<number | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [check1, setCheck1] = useState(false);
   const [check2, setCheck2] = useState(false);
   const [check3, setCheck3] = useState(false);
+  // The submission this form created. Keeping the id means "Run brand check",
+  // "Save draft" and "Submit for review" all act on ONE record instead of
+  // creating a duplicate submission on every click.
+  const [savedId, setSavedId] = useState<string | null>(null);
+  const [savedText, setSavedText] = useState('');
+  const [attachedAssetId, setAttachedAssetId] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const objectUrlRef = useRef<string | null>(null);
   const reduce = useReducedMotion();
@@ -56,20 +67,52 @@ export const NewContentView: React.FC = () => {
     if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
   }, []);
 
-  const handleFileChange = useCallback((file: File) => {
-    if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
-      setFormError('That file type is not supported. Choose a JPG, PNG, WEBP or video file.');
+  /**
+   * Attach the creative for real: the image is stored through the same
+   * authenticated `/assets` endpoint the library uses, so a draft submission
+   * can reference a persisted asset rather than a browser-only preview.
+   * Choosing a second image replaces the primary creative; the first asset
+   * stays in the library and is never deleted.
+   */
+  const handleFileChange = useCallback(async (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      setFormError('That file type is not supported. Choose a PNG, JPG or WEBP image.');
       return;
     }
     setFormError(null);
+    setCreativeError(null);
     if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
     const url = URL.createObjectURL(file);
     objectUrlRef.current = url;
     setPosterFile(file);
     setPosterPreviewUrl(url);
     setPreviewLoaded(false);
-    setCheck2(true);
-  }, []);
+    setCreative(null);
+    setIsCreativeUploading(true);
+    try {
+      const created = await api.uploadAsset(
+        file,
+        file.name.replace(/\.[^.]+$/, ''),
+        'PureGlow',
+        'Marketing Image',
+        `Uploaded from New Content${campaignName.trim() ? ` (${campaignName.trim()})` : ''}`,
+      );
+      setCreative(created);
+      setCheck2(true);
+      addToast(`Creative stored: ${created.name} saved to the asset library.`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'The creative could not be uploaded.';
+      setCreativeError(message);
+      setFormError(message);
+      setPosterFile(null);
+      setPosterPreviewUrl(null);
+      setCheck2(false);
+      if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+      objectUrlRef.current = null;
+    } finally {
+      setIsCreativeUploading(false);
+    }
+  }, [addToast, campaignName]);
 
   const clearFile = useCallback(() => {
     if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
@@ -77,8 +120,46 @@ export const NewContentView: React.FC = () => {
     setPosterFile(null);
     setPosterPreviewUrl(null);
     setPreviewLoaded(false);
+    setCreative(null);
+    setCreativeError(null);
     setCheck2(false);
   }, []);
+
+  /**
+   * Resolve the campaign the creator actually chose. The free-text name wins
+   * over the preset dropdown; when neither is filled the submission stays
+   * unlinked instead of showing the channel as a fake campaign.
+   */
+  const resolvedCampaign = () => campaignName.trim() || campaignSelect.trim();
+
+  /**
+   * Create the submission once, then reuse it. Before this, "Run brand check"
+   * and "Save draft" each called POST /submissions, so clicking both created
+   * two records for one piece of content and only one of them was ever used.
+   */
+  const ensureSubmission = useCallback(async (status: 'Draft' | 'Pending') => {
+    if (savedId) {
+      if (copyText !== savedText) {
+        const updated = await api.addVersion(savedId, copyText, 'Edited in New Content');
+        setSavedText(copyText);
+        return updated;
+      }
+      return null;
+    }
+    const created = await api.createSubmission({
+      title: contentTitle || 'Untitled',
+      type: 'Text',
+      channel,
+      brand: 'PureGlow',
+      text: copyText,
+      assetId: creative?.id,
+      campaign: resolvedCampaign(),
+      status,
+    });
+    setSavedId(created.id);
+    setSavedText(copyText);
+    return created;
+  }, [campaignName, campaignSelect, channel, contentTitle, copyText, creative?.id, savedId, savedText]);
 
   const handleRunBrandCheck = async () => {
     if (!copyText.trim()) {
@@ -89,18 +170,29 @@ export const NewContentView: React.FC = () => {
     setFormError(null);
     setIsRunning(true);
     try {
-      const sub = await api.createSubmission({
-        title: contentTitle || 'Untitled',
-        type: 'Text',
-        channel,
-        brand: 'PureGlow',
-        text: copyText,
-      });
-      const review = await api.runSemanticReview(sub.id);
-      setFindingsCount(review.count ?? 0);
+      // A check on unsent content is a draft: it must not enter the manager's
+      // queue before the creator explicitly submits it.
+      const sub = await ensureSubmission('Draft');
+      const id = sub?.id ?? savedId;
+      if (!id) throw new Error('The submission could not be created.');
+      const review = await api.runSemanticReview(id);
+      // The semantic review only returns AI suggestions. The deterministic rule
+      // engine's findings are stored on the submission, so reading them back is
+      // what stops a draft with real violations from being reported as passed.
+      const stored = await api.submission(id);
+      const openFindings = (stored.findings ?? []).filter((f) => f.status === 'open');
+      setFindingsCount(openFindings.length);
       setHasRunCheck(true);
       setCheck3(true);
-      addToast(review.count === 0 ? 'Brand check passed — no issues found.' : `Brand check: ${review.count} finding(s) detected.`);
+      const aiCount = review.count ?? 0;
+      if (openFindings.length === 0 && aiCount === 0) {
+        addToast('Brand check passed — no issues found.');
+      } else {
+        addToast(
+          `Brand check: ${openFindings.length} deterministic finding(s)` +
+            (aiCount > 0 ? ` and ${aiCount} AI suggestion(s).` : '.'),
+        );
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Brand check failed.';
       setFormError(message);
@@ -116,17 +208,37 @@ export const NewContentView: React.FC = () => {
       addToast('Please enter a content title.', 'error');
       return;
     }
+    if (isCreativeUploading) {
+      setFormError('Wait for the creative to finish uploading.');
+      return;
+    }
     setFormError(null);
     setIsSaving(true);
     try {
-      await api.createSubmission({
-        title: contentTitle,
-        type: 'Text',
-        channel,
-        brand: 'PureGlow',
-        text: copyText,
-      });
-      addToast('Draft saved.');
+      const sub = await ensureSubmission('Draft');
+      const id = sub?.id ?? savedId;
+      if (!id) throw new Error('The submission could not be created.');
+
+      if (creative && attachedAssetId !== creative.id) {
+        // Link the stored asset to the submission and run the visual pipeline
+        // on it. No second copy is written: the backend reuses the asset file.
+        const started = await api.uploadPoster(null, {
+          assetId: creative.id,
+          submissionId: id,
+          title: contentTitle,
+          channel,
+          brand: 'PureGlow',
+        });
+        setAttachedAssetId(creative.id);
+        for (let i = 0; i < 25; i += 1) {
+          const a = await api.analysis(started.analysisId);
+          if (a.status === 'complete' || a.status === 'failed') break;
+          await new Promise((r) => setTimeout(r, 1200));
+        }
+        addToast('Draft saved — creative attached and visual analysis completed.');
+      } else {
+        addToast('Draft saved.');
+      }
       setCheck1(true);
       await refresh();
     } catch (err) {
@@ -135,6 +247,58 @@ export const NewContentView: React.FC = () => {
       addToast(message, 'error');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleSubmitForReview = async () => {
+    if (!contentTitle.trim()) {
+      setFormError('Please enter a content title.');
+      addToast('Please enter a content title.', 'error');
+      return;
+    }
+    if (!copyText.trim()) {
+      setFormError('Add your content copy before submitting.');
+      addToast('Please enter content copy before submitting.', 'error');
+      return;
+    }
+    if (isCreativeUploading) {
+      setFormError('Wait for the creative to finish uploading.');
+      return;
+    }
+    setFormError(null);
+    setIsSubmitting(true);
+    try {
+      const sub = await ensureSubmission('Pending');
+      const id = sub?.id ?? savedId;
+      if (!id) throw new Error('The submission could not be created.');
+
+      if (creative && attachedAssetId !== creative.id) {
+        await api.uploadPoster(null, {
+          assetId: creative.id,
+          submissionId: id,
+          title: contentTitle,
+          channel,
+          brand: 'PureGlow',
+        });
+        setAttachedAssetId(creative.id);
+      }
+
+      // A new record is already Pending; an existing draft needs the explicit
+      // hand-off that notifies the managers.
+      const submitted = sub && sub.status !== 'Draft' ? sub : await api.submitSubmission(id);
+      setSavedId(submitted.id);
+      setHasRunCheck(true);
+      setCheck1(true);
+      setCheck2(Boolean(creative) || check2);
+      setCheck3(true);
+      await refresh();
+      addToast(`Submitted ${submitted.code ?? contentTitle} for review.`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Submit failed.';
+      setFormError(message);
+      addToast(message, 'error');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -199,7 +363,7 @@ export const NewContentView: React.FC = () => {
           <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={handleSaveDraft}
-              disabled={isSaving || isRunning}
+              disabled={isSaving || isRunning || isSubmitting}
               className="inline-flex items-center gap-2 rounded-xl border border-line bg-white px-4 py-2.5 text-xs font-semibold text-ink-700 shadow-card transition-colors hover:bg-cream-50 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bookmark className="h-4 w-4" />}
@@ -207,11 +371,19 @@ export const NewContentView: React.FC = () => {
             </button>
             <button
               onClick={handleRunBrandCheck}
-              disabled={isRunning || isSaving}
-              className="btn-primary-glow inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={isRunning || isSaving || isSubmitting}
+              className="inline-flex items-center gap-2 rounded-xl border border-line bg-white px-4 py-2.5 text-xs font-semibold text-ink-700 shadow-card transition-colors hover:bg-cream-50 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isRunning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
               {isRunning ? 'Checking…' : 'Run brand check'}
+            </button>
+            <button
+              onClick={handleSubmitForReview}
+              disabled={isSubmitting || isSaving || isRunning}
+              className="btn-primary-glow inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              {isSubmitting ? 'Submitting…' : 'Submit for review'}
             </button>
           </div>
         </div>
@@ -410,17 +582,15 @@ export const NewContentView: React.FC = () => {
             <ScrollReveal className="rounded-2xl border border-line bg-white p-5 shadow-card" direction="up" delay={0.1}>
               <SectionHeader
                 title="Upload creative"
-                subtitle="The file is previewed locally in your browser and is not uploaded to the server."
+                subtitle="The image is stored in the asset library, then analysed when you save the draft."
               />
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
                 <FileDrop
                   onFile={handleFileChange}
-                  accept={{
-                    'image/*': ['.png', '.jpg', '.jpeg', '.webp'],
-                    'video/*': ['.mp4', '.webm'],
-                  }}
-                  maxSize={40 * 1024 * 1024}
-                  formats="JPG, PNG, WEBP or MP4 · up to 40 MB"
+                  accept={{ 'image/*': ['.png', '.jpg', '.jpeg', '.webp'] }}
+                  maxSize={10 * 1024 * 1024}
+                  disabled={isCreativeUploading || isSaving}
+                  formats="PNG, JPG or WEBP · up to 10 MB"
                 />
 
                 {posterPreviewUrl && posterFile ? (
@@ -467,8 +637,21 @@ export const NewContentView: React.FC = () => {
                     <div className="rounded-xl border border-line bg-cream-50 px-3 py-2">
                       <p className="truncate text-2xs font-semibold text-ink-700">{posterFile.name}</p>
                       <p className="mt-0.5 text-2xs text-muted">
-                        {formatBytes(posterFile.size)} · preview only, not uploaded
+                        {formatBytes(posterFile.size)}
+                        {isCreativeUploading
+                          ? ' · uploading…'
+                          : creative
+                            ? ` · stored in Asset Library${creative.width && creative.height ? ` · ${creative.width}×${creative.height}` : ''}`
+                            : ''}
                       </p>
+                      {creative && (
+                        <p className="mt-0.5 truncate text-2xs text-sage-700">
+                          Saved as {creative.id}. Removing it here does not delete the stored asset.
+                        </p>
+                      )}
+                      {creativeError && (
+                        <p role="alert" className="mt-1 text-2xs text-danger-700">{creativeError}</p>
+                      )}
                     </div>
                   </AnimatedCard>
                 ) : (

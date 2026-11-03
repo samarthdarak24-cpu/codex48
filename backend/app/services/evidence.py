@@ -764,10 +764,17 @@ def _call_llm(system: str, user: str) -> tuple[Optional[str], str, Optional[str]
     last_error: Optional[str] = None
     last_status = "error"
 
+    # LLM_BASE_URL is documented as a base (e.g. https://api.groq.com/openai/v1).
+    # Posting to the base verbatim 404s; the chat-completions path is required.
+    llm_url = (settings.llm_base_url or "").strip().rstrip("/")
+    if llm_url and not llm_url.endswith("/chat/completions"):
+        llm_url = llm_url + "/chat/completions"
+
     for attempt in range(2):
+        budget = 3000 if attempt == 0 else 6000
         try:
             response = httpx.post(
-                settings.llm_base_url,
+                llm_url,
                 headers={
                     "Authorization": f"Bearer {settings.llm_api_key}",
                     "Content-Type": "application/json",
@@ -779,25 +786,35 @@ def _call_llm(system: str, user: str) -> tuple[Optional[str], str, Optional[str]
                         {"role": "user", "content": user},
                     ],
                     "temperature": 0.0,
-                    "max_tokens": 1200,
+                    "max_tokens": budget,
                 },
                 timeout=timeout,
             )
             response.raise_for_status()
             data = response.json()
-            content = data["choices"][0]["message"]["content"]
+            choice = (data.get("choices") or [{}])[0]
+            content = (choice.get("message") or {}).get("content")
+            finish_reason = choice.get("finish_reason")
             usage = data.get("usage") or {}
             latency = int((time.monotonic() - started) * 1000)
-            if not isinstance(content, str) or not content.strip():
-                return None, "error", "empty_completion", latency, 0, 0
-            return (
-                content,
-                "success",
-                None,
-                latency,
-                int(usage.get("prompt_tokens") or 0),
-                int(usage.get("completion_tokens") or 0),
+            # Reasoning models (gpt-oss) spend `max_tokens` on hidden reasoning
+            # first. A truncated or empty answer is a budget failure, not a
+            # valid "no findings" result — retry with a larger budget instead
+            # of silently persisting zero AI findings.
+            if isinstance(content, str) and content.strip() and finish_reason != "length":
+                return (
+                    content,
+                    "success",
+                    None,
+                    latency,
+                    int(usage.get("prompt_tokens") or 0),
+                    int(usage.get("completion_tokens") or 0),
+                )
+            last_status = "error"
+            last_error = (
+                "truncated_completion" if finish_reason == "length" else "empty_completion"
             )
+            continue
         except httpx.TimeoutException:
             last_status = "timeout"
             last_error = "llm_timeout"

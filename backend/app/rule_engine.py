@@ -37,7 +37,25 @@ APPROVED_ASPECT_RATIOS = ["1:1", "4:5", "9:16", "16:9", "3:2", "2:3"]
 LOGO_MIN_CONFIDENCE = 0.40
 
 URGENCY = re.compile(r"\b(hurry|don'?t miss|limited time|order now|last chance|act now|today only)\b", re.I)
-SUPERLATIVE = re.compile(r"\b(100%\s*safe|guaranteed|no risk|perfect|best[- ]in[- ]class|miracle)\b", re.I)
+SUPERLATIVE = re.compile(
+    r"\b(100%\s*safe|guaranteed|no risk|perfect|best[- ]in[- ]class|miracle"
+    r"|no\.?\s*1|number\s*one|#1)\b",
+    re.I,
+)
+# Absolute efficacy/safety wording that must carry an on-asset substantiation
+# reference. Distinct from SUPERLATIVE: CL-04 judges the wording, CL-05 judges
+# whether the evidence behind it was supplied.
+ABSOLUTE_CLAIM = re.compile(
+    r"\b(100%\s*safe|100%\s*effective|guaranteed|no risk|side[- ]effect[- ]free"
+    r"|clinically proven|dermatologist[- ]recommended|no\.?\s*1|#1)\b",
+    re.I,
+)
+#: Phrases that count as supplying evidence on the same asset.
+SUBSTANTIATION = re.compile(
+    r"(based on|according to|study|studies|clinical(?:ly)?\s+trial|tested"
+    r"|substantiat|survey of|participants|ref(?:erence)?\s*[:#]|source\s*:)",
+    re.I,
+)
 # Non-capturing groups: a capturing group here would make findall() return the
 # inner fragment ("ity") instead of the matched phrase.
 HEALTH = re.compile(r"\b(?:immun(?:e|ity)|boosts?\s+immun|detox|cures?|heals?|treats?\s+\w+)\b", re.I)
@@ -229,89 +247,130 @@ def _matches(text: str, pattern: re.Pattern) -> list[str]:
     return list(dict.fromkeys(out))
 
 
-def evaluate_text_rule(rule: Any, text: str, channel: str) -> Optional[EngineFinding]:
-    """Port of evaluateRule() from the client engine. Returns a finding or None."""
+def evaluate_text_rule(rule: Any, text: str, channel: str) -> list[EngineFinding]:
+    """Evaluate one text rule, returning a finding per distinct offending phrase.
+
+    One finding per rule hid real problems: a poster carrying both "No. 1" and
+    "100% safe" reported only the first hit, so fixing it appeared to clear the
+    rule while the second claim was still on the asset. Every distinct match is
+    now its own finding.
+    """
     code = rule.code
 
     if code == "CL-04":
         hits = _matches(text, SUPERLATIVE)
-        if not hits:
-            return None
-        return EngineFinding(
-            rule_code=code, severity="High", type="Claims",
-            explanation=(f'Unsubstantiated absolute claim detected: "{hits[0]}". '
-                         "Absolute terms require a substantiation reference on the same asset, or must be removed."),
-            suggested_fix={"original": hits[0], "proposed": "Gentle care for sensitive skin",
-                           "rationale": "Replaces the absolute claim with an approved claim covering the same benefit."},
-        )
+        return [
+            EngineFinding(
+                rule_code=code, severity="High", type="Claims",
+                explanation=(f'Unsubstantiated absolute claim detected: "{hit}". '
+                             "Absolute terms require a substantiation reference on the same asset, or must be removed."),
+                suggested_fix={"original": hit, "proposed": "Gentle care for sensitive skin",
+                               "rationale": "Replaces the absolute claim with an approved claim covering the same benefit."},
+            )
+            for hit in hits
+        ]
 
     if code == "CL-06":
-        hits = _matches(text, HEALTH)
-        if not hits:
-            return None
-        return EngineFinding(
-            rule_code=code, severity="High", type="Claims",
-            explanation=(f'Regulated health language detected: "{hits[0]}". '
-                         "Copy may not state or imply immunity, treatment or cure benefits."),
-            suggested_fix={"original": hits[0], "proposed": "feel good, naturally",
-                           "rationale": "Swaps the regulated claim for an approved lifestyle phrasing."},
-        )
+        return [
+            EngineFinding(
+                rule_code=code, severity="High", type="Claims",
+                explanation=(f'Regulated health language detected: "{hit}". '
+                             "Copy may not state or imply immunity, treatment or cure benefits."),
+                suggested_fix={"original": hit, "proposed": "feel good, naturally",
+                               "rationale": "Swaps the regulated claim for an approved lifestyle phrasing."},
+            )
+            for hit in _matches(text, HEALTH)
+        ]
 
     if code == "MK-02":
         hits = _matches(text, DISCOUNT)
         if not hits:
-            return None
+            return []
         has_window = re.search(r"\b(until|ends|before)\b", text, re.I) or re.search(rf"\b\d{{1,2}}\s+{MONTHS}", text, re.I)
         if has_window:
-            return None
-        return EngineFinding(
-            rule_code=code, severity="Medium", type="Claims",
-            explanation=(f'Discount claim "{hits[0]}" has no campaign window or reference price attached, '
-                         "so it cannot be verified."),
-            suggested_fix={"original": hits[0], "proposed": f"{hits[0]} — offer ends 31 July",
-                           "rationale": "Adds the dated campaign window required by MK-02 without changing the offer value."},
-        )
+            return []
+        return [
+            EngineFinding(
+                rule_code=code, severity="Medium", type="Claims",
+                explanation=(f'Discount claim "{hit}" has no campaign window or reference price attached, '
+                             "so it cannot be verified."),
+                suggested_fix={"original": hit, "proposed": f"{hit} — offer ends 31 July",
+                               "rationale": "Adds the dated campaign window required by MK-02 without changing the offer value."},
+            )
+            for hit in hits
+        ]
 
     if code == "TV-02":
         urgency = _matches(text, URGENCY)
         exclamations = text.count("!")
         if len(urgency) < 2 and exclamations <= 1:
-            return None
+            return []
         explanation = (
-            f"Multiple urgency constructions detected ({', '.join(f'"{u}"' for u in urgency)}). We never pressure readers."
+            f"Multiple urgency constructions detected ({', '.join(f'\"{u}\"' for u in urgency)}). We never pressure readers."
             if len(urgency) >= 2
             else f"Copy uses {exclamations} exclamation marks. The tone guide limits this to one per asset."
         )
-        return EngineFinding(
-            rule_code=code, severity="Low", type="Tone of voice",
-            explanation=explanation, suggested_fix=None,
-        )
+        return [
+            EngineFinding(
+                rule_code=code, severity="Low", type="Tone of voice",
+                explanation=explanation, suggested_fix=None,
+            )
+        ]
 
     if code == "CL-03":
+        out: list[EngineFinding] = []
         for pattern, approved in UNAPPROVED_CLAIMS:
-            m = pattern.search(text)
-            if m:
-                return EngineFinding(
-                    rule_code=code, severity="Medium", type="Claims",
-                    explanation=f'"{m.group(0)}" is not in the Approved Claims List. The approved wording is "{approved}".',
-                    suggested_fix={"original": m.group(0), "proposed": approved,
-                                   "rationale": "Uses the exact approved wording instead of a paraphrase."},
+            for m in pattern.finditer(text):
+                out.append(
+                    EngineFinding(
+                        rule_code=code, severity="Medium", type="Claims",
+                        explanation=f'"{m.group(0)}" is not in the Approved Claims List. The approved wording is "{approved}".',
+                        suggested_fix={"original": m.group(0), "proposed": approved,
+                                       "rationale": "Uses the exact approved wording instead of a paraphrase."},
+                    )
                 )
-        return None
+        return out
+
+    if code == "CL-05":
+        # CL-05 was declared in the rulebook but had no evaluator, so a
+        # "Substantiation Required" rule could be activated and never fire.
+        hits = _matches(text, ABSOLUTE_CLAIM)
+        if not hits:
+            return []
+        if SUBSTANTIATION.search(text):
+            return []
+        return [
+            EngineFinding(
+                rule_code=code, severity="High", type="Claims",
+                explanation=(
+                    f'Absolute claim "{hit}" is made without a substantiation '
+                    "reference on the same asset. Cite the study, trial or approved "
+                    "claim ID behind it, or remove the absolute wording."
+                ),
+                suggested_fix={
+                    "original": hit,
+                    "proposed": "Dermatologically tested — see study reference on pack",
+                    "rationale": "Keeps the benefit but attaches the evidence CL-05 requires.",
+                },
+            )
+            for hit in hits
+        ]
 
     if code == "PA-05":
         if not (re.search(r"influencer|paid", channel, re.I) or re.search(r"influencer|partner", text, re.I)):
-            return None
+            return []
         if DISCLOSURE.search(text):
-            return None
-        return EngineFinding(
-            rule_code=code, severity="High", type="Disclosure",
-            explanation="Paid partnership asset has no disclosure line. PA-05 requires it in the first two caption lines.",
-            suggested_fix={"original": "(no disclosure)", "proposed": "Paid partnership with @brand — [caption]",
-                           "rationale": "Prepends the approved disclosure wording."},
-        )
+            return []
+        return [
+            EngineFinding(
+                rule_code=code, severity="High", type="Disclosure",
+                explanation="Paid partnership asset has no disclosure line. PA-05 requires it in the first two caption lines.",
+                suggested_fix={"original": "(no disclosure)", "proposed": "Paid partnership with @brand — [caption]",
+                               "rationale": "Prepends the approved disclosure wording."},
+            )
+        ]
 
-    return None
+    return []
 
 
 def evaluate_visual_rule(rule: Any, asset: Any) -> Optional[EngineFinding]:
@@ -406,9 +465,10 @@ def run_rules(rules: list[Any], text: str, channel: str, asset: Any = None) -> l
         if rule.code in VISUAL_ONLY_RULES:
             if asset is None:
                 continue
-            f = evaluate_visual_rule(rule, asset)
+            produced = [evaluate_visual_rule(rule, asset)]
         else:
-            f = evaluate_text_rule(rule, text, channel)
-        if f:
-            findings.append(_attach_source(f, rule))
+            produced = evaluate_text_rule(rule, text, channel)
+        for f in produced:
+            if f:
+                findings.append(_attach_source(f, rule))
     return findings

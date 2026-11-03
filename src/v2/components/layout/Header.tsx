@@ -1,10 +1,14 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Bell, HelpCircle, X, ChevronDown, LogOut, UserRound, Shield, Sparkles, Menu } from 'lucide-react';
+import { Search, Bell, HelpCircle, X, ChevronDown, LogOut, UserRound, Shield, Sparkles, Menu, Moon, Sun } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '@/context/AuthContext';
 
-export const Header: React.FC<{ onOpenNav?: () => void }> = ({ onOpenNav }) => {
+export const Header: React.FC<{
+  onOpenNav?: () => void;
+  theme: 'night' | 'day';
+  onThemeChange: () => void;
+}> = ({ onOpenNav, theme, onThemeChange }) => {
   const { searchQuery, setSearchQuery, notifications, role, currentUser, setActivePage } = useApp();
   const { logout } = useAuth();
   const navigate = useNavigate();
@@ -123,6 +127,18 @@ export const Header: React.FC<{ onOpenNav?: () => void }> = ({ onOpenNav }) => {
           {/* Help */}
           <button onClick={() => setShowHelp(true)} className="p-2 text-muted-light hover:text-ink hover:bg-[#F1ECE0] rounded-xl transition-all cursor-pointer" title="Help & Guide">
             <HelpCircle className="w-4.5 h-4.5" />
+          </button>
+
+          {/* Day/night appearance */}
+          <button
+            type="button"
+            onClick={onThemeChange}
+            className="theme-toggle inline-flex items-center gap-1.5 rounded-xl border border-line px-2.5 py-2 text-[11px] font-semibold text-muted transition-all hover:border-brand-300 hover:text-brand-700"
+            aria-label={`Switch to ${theme === 'night' ? 'day' : 'night'} mode`}
+            title={`Switch to ${theme === 'night' ? 'day' : 'night'} mode`}
+          >
+            {theme === 'night' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            <span className="hidden md:inline">{theme === 'night' ? 'Day' : 'Night'}</span>
           </button>
 
           {/* Divider */}

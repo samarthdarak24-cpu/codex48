@@ -49,6 +49,24 @@ export function fmtShort(value: string): string {
   return `${MONTHS[d.getMonth()]} ${d.getDate()}`
 }
 
+/**
+ * Parse a timestamp that may already be display-formatted.
+ *
+ * `fmtDateTime()` renders `"Nov 02, 2026 · 6:52 AM"`, and the middle dot makes
+ * `new Date()` return Invalid Date. Any view that sorted or range-filtered on
+ * that string was silently working with NaN — which zeroed sort order and, in
+ * Audit History, dropped every row from the "Last 30 days" filter. Strip the
+ * separator (and normalise whitespace) before giving up.
+ */
+export function parseStoredDateTime(value?: string | null): number {
+  if (!value) return Number.NaN
+  const direct = new Date(value).getTime()
+  if (!Number.isNaN(direct)) return direct
+  const cleaned = value.replace(/·/g, ' ').replace(/\s+/g, ' ').trim()
+  if (!cleaned) return Number.NaN
+  return new Date(cleaned).getTime()
+}
+
 export function relative(value: string): string {
   const diff = NOW.getTime() - new Date(value).getTime()
   const mins = Math.round(diff / 60000)

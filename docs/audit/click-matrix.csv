@@ -1,0 +1,112 @@
+﻿screen,control,expected_effect,network_call,db_effect,persists_after_refresh,role_enforced_server_side,status,notes
+SHELL,Logo,go to role home,none,none,n/a,n/a,PASS,client route
+SHELL,Workspace switch pill,switch membership and re-issue token,none,no membership write,n/a,n/a,PARTIAL,routes between role homes; no POST /auth/switch-workspace
+SHELL,Nav items,route change + active highlight,none,none,n/a,n/a,PASS,role guard on every route
+SHELL,Sidebar badges,show real counts,none,none,yes (recomputed on load),n/a,PASS,computed in Sidebar.tsx from context arrays; no /nav/counts endpoint
+SHELL,Manager promo card → View Analytics,navigate to /manager/analytics,none,none,n/a,n/a,PASS,
+SHELL,Creator promo card → New Brand Check,navigate to /creator/new-content,none,none,n/a,n/a,PASS,
+SHELL,Bottom user card → logout,clear token and redirect to login,POST /auth/logout,refresh token revoked,yes,yes,PASS,
+SHELL,Global search,debounced grouped results,none,none,n/a,n/a,NOT_IMPLEMENTED,static input; no GET /search
+SHELL,Governance Portal / Creator Studio pill,go to role home,none,none,n/a,n/a,PASS,
+SHELL,Bell → dropdown + View all,5 latest unread then notifications page,GET /notifications?unread=1,none,yes,yes,PASS,badge count matches DB
+SHELL,Bell → mark all read,clear unread,POST /notifications/read-all,read_at set,yes,yes,PASS,
+SHELL,Help (?),open help drawer,none,none,n/a,n/a,PARTIAL,drawer content static (allowed by spec)
+SHELL,Profile menu → Sign out,logout,POST /auth/logout,token revoked,yes,yes,PASS,
+SHELL,Floating chatbot launcher,open assistant drawer,none,none,n/a,n/a,PARTIAL,opens Agent Studio runner not the Part 9 Assistant
+BOT,Assistant answer,cited answer from retrieval,POST /assistant/conversations/{id}/messages,none,n/a,n/a,NOT_IMPLEMENTED,no assistant backend or tables
+BOT,Citation chip,open exact passage page,none,none,n/a,n/a,NOT_IMPLEMENTED,no citations exist
+C01,Stat card click,navigate to filtered My Submissions,none,none,n/a,n/a,PASS,
+C01,Recent submission row,open submission drawer,GET /submissions/{id},none,yes,yes,PASS,
+C01,New Content CTA,navigate,none,none,n/a,n/a,PASS,
+C02,Campaign dropdown,prefill channel/product/audience,GET /campaigns,read,yes,yes,PARTIAL,campaigns table empty so nothing to prefill
+C02,Upload dropzone,upload asset with progress,POST /analysis/upload,asset_analysis row inserted,yes,yes,PASS,
+C02,Save draft,create/update draft,POST /submissions,PATCH,submissions row written,yes,yes,PASS,
+C02,Run brand check,run rule engine + visual analysis,POST /analysis/upload then rerun,none,n/a,n/a,PARTIAL,not wired from the panel; button state only
+C02,Finding row expand,show rule + passage + region,GET /analysis/submission/{id},none,yes,yes,PASS,
+C02,Apply suggested fix,insert minimal edit (no autosave),none,none,n/a,n/a,PASS,
+C02,Submit for review,snapshot version and set in_review,POST /submissions/{id}/submit,status + version,yes,yes,PARTIAL,submission_versions stays empty so no immutable snapshot
+C02,Discard draft,delete draft,none,none,n/a,n/a,NOT_IMPLEMENTED,no handler
+C03,Status tabs / search / sort,filter list,GET /submissions/my,read,URL state,yes,PARTIAL,filtering is client-side over the fetched page
+C03,Row click,open detail drawer,GET /submissions/{id},none,yes,yes,PASS,
+C03,Revise (needs_changes),create new version,none,none,n/a,n/a,NOT_IMPLEMENTED,no POST /submissions/{id}/versions
+C03,Withdraw (in_review),status back to draft,none,none,n/a,n/a,NOT_IMPLEMENTED,no withdraw endpoint
+C03,Export CSV,download own submissions,GET /submissions/my/export,none,n/a,yes,PASS,
+C04,Select submission,load findings,GET /submissions/{id},none,yes,yes,PASS,
+C04,Run AI review,start analysis job,none,none,n/a,n/a,NOT_IMPLEMENTED,no POST /submissions/{id}/ai-review
+C04,Finding click,highlight region + passage,GET /analysis/submission/{id},none,yes,yes,PASS,
+C04,Suggest fix,minimal edit proposal,POST /findings/{id}/suggest-fixes,none,n/a,yes,PARTIAL,deterministic template only; no LLM configured
+C04,Thumbs up/down on AI finding,save feedback,POST /feedback,none,yes,yes,PASS,
+C05,Search guidelines,keyword search,GET /guideline-passages/search,read,yes,yes,PASS,
+C05,Open document,in-app viewer,GET /guidelines/{id}/passages,read,yes,yes,PASS,
+C05,Download,download version,GET /guidelines/{id}/versions/{v}/download,read,n/a,yes,PASS,
+C05,Upload / edit guideline,blocked for creator,none,none,n/a,yes,PASS,403 server-side
+C06,New request,create pending request,POST /exception-requests,row inserted,yes,yes,PASS,
+C06,Edit pending request,update,PATCH /exception-requests/{id},row updated,yes,yes,PASS,
+C06,Cancel,withdraw request,POST /exception-requests/{id}/cancel,status change,yes,yes,PASS,
+C07,Open task,before/after diff,GET /sentinel/tasks,read,yes,yes,PASS,
+C07,Revise content,new version linked to task,none,none,n/a,n/a,PARTIAL,navigates to New Content; no task link persisted
+C07,Mark still compliant,resolve with note,POST /sentinel/tasks/{id}/resolve,status + audit,yes,yes,PASS,
+C08,Click notification,mark read + navigate,PATCH /notifications/{id}/read,read_at set,yes,yes,PASS,
+C08,Mark all read,clear all,POST /notifications/read-all,read_at set,yes,yes,PASS,
+C09,View snapshot,read-only approved record,GET /submissions/{id},none,n/a,yes,PASS,
+C09,Mark as published,create publication,POST /publications,none,n/a,yes,NOT_IMPLEMENTED,no handler in UI
+C09,Download approved asset,download,GET /assets/{id}/download,none,n/a,yes,PASS,
+C10,Save profile,update profile,PATCH /users/me,row updated,yes,yes,PASS,
+C10,Change password,update credentials,POST /auth/change-password,none,n/a,yes,NOT_IMPLEMENTED,no endpoint
+C10,Notification prefs,save prefs,PATCH /users/me/preferences,user_preferences row,yes,yes,PASS,
+M01,KPI card,navigate to filtered page,none,none,n/a,n/a,PASS,
+M01,Review next,open oldest pending,none,none,n/a,n/a,PASS,
+M01,Alert strip item,open conflict/exception/alert,none,none,n/a,n/a,PASS,
+M01,Date range selector,re-query widgets,GET /analytics/overview,read,n/a,yes,PASS,
+M02,Card click,load review detail,GET /submissions/{id}/review-detail,read,yes,yes,PASS,
+M02,Approve version,decision on exact version,POST /submissions/{id}/decisions,review_decisions + status + audit + notification,yes,yes,PARTIAL,no version_id equality check so stale decisions return 200 not 409
+M02,Request changes,decision + comment required,POST /submissions/{id}/decisions,status needs_changes + notify,yes,yes,PASS,
+M02,Reject,decision + reason required,POST /submissions/{id}/decisions,status rejected + notify,yes,yes,PASS,
+M02,Add comment,persist comment,POST /submissions/{id}/comments,comments row,yes,yes,PASS,
+M02,AI Compare,advisory diff,none,none,n/a,n/a,NOT_IMPLEMENTED,no compare endpoint
+M03,Tabs / type filter / search,filter table,none,read,URL state,yes,PARTIAL,client-side over fetched rows
+M03,Column sort,sort rows,none,read,n/a,n/a,PASS,client-side sort; server-side sort absent
+M03,Header/row checkbox,bulk select,none,none,n/a,n/a,PARTIAL,selection works; no bulk actions
+M03,Columns button,toggle column visibility,none,user_preferences,partial,yes,PARTIAL,not persisted per user
+M03,Row click / arrow,open review queue detail,none,none,n/a,n/a,PASS,
+M03,Export CSV,download register,GET /submissions/export,none,n/a,yes,PASS,
+M03,Score ring click,show score breakdown,GET /submissions (scoreBreakdown),none,n/a,yes,PASS,stored server-side by services/scoring.py; modal shows severity split + formula
+M03,Campaign column,show campaign.name,GET /submissions,read,n/a,yes,PASS,joined campaigns.name; channel shown as secondary text (O2 fixed)
+M04,Upload guideline,store + extract,POST /guidelines,guideline_docs + versions,yes,yes,PASS,
+M04,Upload new version,append version,POST /guidelines/{id}/versions,new version row,yes,yes,PASS,
+M04,Activate / retire version,set effective version,POST /guidelines/{id}/versions/{v}/activate,status + audit,yes,yes,PASS,
+M04,Create rule from passage,prefill rule form,none,none,n/a,n/a,PASS,
+M04,Suggest rules from guideline,drafts only,POST /guidelines/{id}/suggest-rules,none,n/a,yes,NOT_IMPLEMENTED,no endpoint
+M05,New rule,create draft rule,POST /rules,rules row,yes,yes,PASS,
+M05,Edit rule,new rule version,PATCH /rules/{id},rule_versions row,yes,yes,PASS,
+M05,Activate rule,activate + sentinel scan,POST /rules/{id}/activate,status + audit + scan job,yes,yes,PASS,
+M05,Resolve conflict,record resolution,POST /rule-conflicts/{id}/resolve,row updated + audit,yes,yes,PASS,
+M05,Retire rule,retire rule,none,none,n/a,n/a,NOT_IMPLEMENTED,no endpoint
+M06,Approve exception,create exception + notify,POST /exception-requests/{id}/decision,exceptions row + audit,yes,yes,PASS,
+M06,Deny exception,decision + reason,POST /exception-requests/{id}/decision,status + audit,yes,yes,PASS,
+M06,Revoke active exception,revoke,POST /exceptions/{id}/revoke,revoked_at + audit,yes,yes,PASS,
+M07,Pick rule / draft change,populate candidate params,none,none,n/a,n/a,PASS,
+M07,Run simulation,create simulation job,POST /simulations,simulations + items,yes,yes,PASS,
+M07,Proceed to activate,link simulation to activation,none,none,n/a,n/a,PARTIAL,simulation_id not carried into activation
+M08,Run scan now,idempotent scan,POST /sentinel/scan,reassessment_tasks (unique key),yes,yes,PASS,
+M08,Alert click,affected content list,GET /sentinel/alerts,read,yes,yes,PASS,
+M08,Resolve task,resolve with note,POST /sentinel/tasks/{id}/resolve,status + audit,yes,yes,PASS,
+M08,Schedule settings,cron enable/disable,none,none,n/a,n/a,NOT_IMPLEMENTED,no endpoint
+M09,Upload asset,validate + analyse,POST /assets,assets + asset_analysis,yes,yes,PASS,
+M09,Mark approved / deprecated,status change,PATCH /assets/{id}/status,status + audit,yes,yes,PASS,
+M09,Detail view,preview + OCR + where used,GET /assets/{id},read,yes,yes,PASS,
+M09,Set as reference logo,feeds visual matching,none,none,n/a,n/a,PARTIAL,flag stored; no worker consumes it
+M10,Date / campaign / channel filters,re-query,GET /analytics/*,read,yes,yes,PASS,
+M10,Chart click,drill to submissions,none,none,n/a,n/a,PASS,
+M10,Export CSV,download analytics,GET /analytics/export,none,n/a,yes,PASS,
+M11,Filters / search,server-side filter,GET /audit-events,read,yes,yes,PASS,
+M11,Row expand,before/after + request id,none,read,n/a,n/a,PASS,
+M11,Export log,download,GET /audit-events/export,none,n/a,yes,PASS,
+AGT,Create from prompt,draft agent spec,POST /agents/draft-from-prompt,studio_agents row,yes,yes,PASS,
+AGT,Validate spec,errors/warnings per node,POST /agents/{id}/validate,none,n/a,yes,PASS,
+AGT,Save workflow,persist graph,PUT /agents/{id}/workflow,studio_agent_workflows,yes,yes,PASS,
+AGT,Test run,real trace,POST /agents/{id}/test,run + steps,yes,yes,PASS,
+AGT,Publish,publish immutable version,POST /agents/{id}/publish,version row + audit,yes,yes,PASS,
+AGT,Execute run,run with steps,POST /agents/{id}/execute,studio_agent_runs + steps,yes,yes,PASS,
+AGT,Approve paused run,human approval gate,POST /agent-runs/{id}/approve,approval row + resume,yes,yes,PASS,
+AGT,Archive agent,archive,none,none,n/a,n/a,NOT_IMPLEMENTED,no endpoint

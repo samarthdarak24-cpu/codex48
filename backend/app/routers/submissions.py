@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from .. import models
+from .. import ai
 from ..db import get_db
 from ..deps import get_current_user, require_manager, require_workspace
 from ..services import submissions as svc
@@ -25,6 +26,9 @@ class SubmissionIn(BaseModel):
     asset: dict | None = None
     thumb: dict | None = None
     assetId: str | None = None
+    campaign: str | None = None
+    # A creator may save a private draft or submit straight to review.
+    status: str = "Pending"
 
 
 class VersionIn(BaseModel):
@@ -51,6 +55,11 @@ def _is_owner_or_manager(sub: models.Submission, user: models.User) -> bool:
 
 @router.get("")
 def list_submissions(
+    status: str | None = Query(default=None, description="Comma-separated statuses"),
+    search: str | None = Query(default=None, description="Title / code / brand contains"),
+    brand: str | None = None,
+    channel: str | None = None,
+    limit: int | None = Query(default=None, ge=1, le=500),
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
@@ -62,7 +71,34 @@ def list_submissions(
         )
     if current_user.role == "creator":
         query = query.filter(models.Submission.creator_id == current_user.id)
-    subs = query.order_by(models.Submission.updated_at.desc()).all()
+    else:
+        # Drafts are private to their creator. The manager queue, register and
+        # analytics must never surface unsent work.
+        query = query.filter(models.Submission.status != "Draft")
+
+    # Filters are applied in SQL. Without this the register, the review queue and
+    # approved content all downloaded every row and filtered in the browser,
+    # which meant `?status=Approved` silently returned everything.
+    if status:
+        wanted = [s.strip() for s in status.split(",") if s.strip()]
+        if wanted:
+            query = query.filter(models.Submission.status.in_(wanted))
+    if brand:
+        query = query.filter(models.Submission.brand == brand)
+    if channel:
+        query = query.filter(models.Submission.channel == channel)
+    if search:
+        like = f"%{search.strip()}%"
+        query = query.filter(
+            models.Submission.title.ilike(like)
+            | models.Submission.code.ilike(like)
+            | models.Submission.brand.ilike(like)
+        )
+
+    query = query.order_by(models.Submission.updated_at.desc())
+    if limit:
+        query = query.limit(limit)
+    subs = query.all()
     return [svc.submission_to_dict(s) for s in subs]
 
 
@@ -207,6 +243,8 @@ def create_submission(
         creator_id=current_user.id,
         asset_id=body.assetId,
         workspace=current_user.workspace,
+        campaign=body.campaign,
+        status=body.status if current_user.role == "creator" else "Pending",
     )
     return svc.submission_to_dict(sub)
 
@@ -223,6 +261,22 @@ def add_version(
     if not _is_owner_or_manager(sub, current_user):
         raise HTTPException(status_code=http_status.HTTP_403_FORBIDDEN, detail="Not allowed")
     result = svc.add_version(db, sub_id, body.text, body.note, current_user.id)
+    return svc.submission_to_dict(result)
+
+
+@router.post("/{sub_id}/submit")
+def submit_for_review(
+    sub_id: str,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    sub = db.get(models.Submission, sub_id)
+    require_workspace(sub, current_user, detail="Submission not found")
+    if not _is_owner_or_manager(sub, current_user):
+        raise HTTPException(status_code=http_status.HTTP_403_FORBIDDEN, detail="Not allowed")
+    result = svc.submit_for_review(db, sub_id, current_user.id)
+    if not result:
+        raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail="Submission not found")
     return svc.submission_to_dict(result)
 
 
@@ -250,6 +304,13 @@ def decide(
 ):
     sub = db.get(models.Submission, sub_id)
     require_workspace(sub, current_user, detail="Submission not found")
+    # A draft is private to its creator and has never entered the queue, so it
+    # cannot be approved or rejected.
+    if sub.status == "Draft":
+        raise HTTPException(
+            status_code=http_status.HTTP_409_CONFLICT,
+            detail="This submission is still a draft; the creator must submit it for review first.",
+        )
     if body.version is not None and body.version != sub.version:
         raise HTTPException(
             status_code=http_status.HTTP_409_CONFLICT,
@@ -410,10 +471,23 @@ def semantic_review_endpoint(
         workspace=ws,
         created_by_id=current_user.id,
     )
+    # Report the real AI state. Without this the frontend treated an undefined
+    # `llmConfigured` as false and told the user no model was configured even
+    # when the provider had failed (timeout, malformed JSON, empty completion).
+    last_ai_call = (
+        db.query(models.AiCallLog)
+        .filter(models.AiCallLog.workspace == ws)
+        .filter(models.AiCallLog.purpose == "semantic_review")
+        .order_by(models.AiCallLog.created_at.desc())
+        .first()
+    )
     return {
         "submissionId": sub.id,
         "count": len(rows),
         "findings": [ev_svc.to_dict(r) for r in rows],
+        "llmConfigured": ai.ai_available(),
+        "aiStatus": last_ai_call.status if last_ai_call else "unknown",
+        "aiError": last_ai_call.error if last_ai_call else None,
     }
 
 

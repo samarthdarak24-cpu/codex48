@@ -43,6 +43,17 @@ export function PosterCanvas({ imageUrl, boxes, onBoxClick, className }: PosterC
   const [failed, setFailed] = useState(false)
   const [focused, setFocused] = useState<number | null>(null)
 
+  // A box with a missing or non-finite dimension cannot be drawn: `Math.max` of
+  // NaN is NaN, and React refuses to set an SVG attribute to NaN. Drop those
+  // instead of rendering a rect that breaks the whole overlay.
+  const drawable = boxes
+    .map((item, index) => ({ item, index }))
+    .filter(({ item }) =>
+      [item.box?.x, item.box?.y, item.box?.w, item.box?.h].every(
+        (v) => typeof v === 'number' && Number.isFinite(v),
+      ),
+    )
+
   useEffect(() => {
     setSize(null)
     setFailed(false)
@@ -99,7 +110,7 @@ export function PosterCanvas({ imageUrl, boxes, onBoxClick, className }: PosterC
           role="group"
           aria-label="Detected poster regions"
         >
-          {boxes.map((item, i) => {
+          {drawable.map(({ item, index: i }) => {
             const { box, tone, label, active } = item
             const isFocused = focused === i
             const strokeWidth = active ? 3.2 : isFocused ? 2.6 : 1.6

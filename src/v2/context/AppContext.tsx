@@ -135,7 +135,13 @@ interface AppContextType {
   /* --- Real mutations used by the repaired pages --- */
   addComment: (submissionId: string, body: string) => Promise<void>
   markAllNotificationsRead: () => Promise<void>
-  runSemanticReview: (submissionId: string) => Promise<{ count: number; llmConfigured: boolean }>
+  runSemanticReview: (submissionId: string) => Promise<{
+    count: number
+    llmConfigured: boolean
+    aiStatus?: string
+    aiError?: string | null
+    failed?: boolean
+  }>
   fetchAiFindings: (submissionId: string) => Promise<unknown[]>
   runRuleSimulation: (ruleId: string, changeType: string, newValue: string) => Promise<unknown>
   activateSimulation: (id: string) => Promise<void>
@@ -254,6 +260,8 @@ function mapStatus(status: string): Submission['status'] {
   switch (status) {
     case 'Approved':
       return 'Approved'
+    case 'Draft':
+      return 'Draft'
     case 'Declined':
       return 'Rejected'
     case 'Changes Requested':
@@ -266,13 +274,11 @@ function mapStatus(status: string): Submission['status'] {
   }
 }
 
-function complianceScore(findings: Finding[]): number {
-  const open = findings.filter((f) => f.status === 'open')
-  const high = open.filter((f) => f.severity === 'High').length
-  const medium = open.filter((f) => f.severity === 'Medium').length
-  const low = open.filter((f) => f.severity === 'Low').length
-  return Math.max(0, Math.min(100, 100 - high * 15 - medium * 8 - low * 3))
-}
+/**
+ * The score used to be computed here (`100 − high×15 − medium×8 − low×3`).
+ * That moved to `backend/app/services/scoring.py` so there is exactly one
+ * formula, it is persisted, and the browser only displays it.
+ */
 
 function mapFindingType(f: Finding): 'error' | 'warning' | 'success' | 'passed' {
   if (f.status === 'resolved') return 'success'
@@ -512,14 +518,22 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
       const byId = new Map<string, ApiUser>(team.map((u) => [u.id, u]))
 
-      const mappedSubmissions: Submission[] = subs.map((s) => {
+      // Drafts are private to their creator: a manager must never see unsent
+      // work in the review queue or the all-submissions register.
+      const visibleSubs = isManager ? subs.filter((s) => s.status !== 'Draft') : subs
+
+      const mappedSubmissions: Submission[] = visibleSubs.map((s) => {
         const creator = s.creatorId ? byId.get(s.creatorId) : undefined
         const creatorName = creator?.name ?? 'Workspace member'
         const latest = s.versions[s.versions.length - 1]
         return {
           id: s.id,
           title: s.title,
-          campaign: s.channel || s.brand,
+          // The campaign name now comes from the joined `campaigns` row. It is
+          // deliberately NOT `s.channel` — showing the channel as the campaign
+          // was the O2 defect. Unlinked rows say so instead of inventing one.
+          campaign: s.campaign || 'No campaign assigned',
+          channel: s.channel,
           creator: {
             name: creatorName,
             avatar: avatarDataUrl(creatorName, creator?.id ?? s.id),
@@ -527,9 +541,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             role: creator?.title,
           },
           thumbnail: imageForTitle(s.title, s.id),
+          assetId: s.assetId ?? undefined,
           version: `v${s.version}.0`,
           status: mapStatus(s.status),
-          complianceScore: complianceScore(s.findings),
+          // Server-computed and persisted (services/scoring.py); never derived here.
+          complianceScore: s.complianceScore ?? 0,
+          scoreBreakdown: s.scoreBreakdown,
           submittedAt: safeDate(s.createdAt, fmtDateTime),
           submittedDate: safeDate(s.createdAt, fmtDate),
           relativeTime: safeDate(s.createdAt, relative),
@@ -703,8 +720,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           id: a.id,
           name: a.name,
           type: a.category?.toLowerCase().includes('image') || a.category?.toLowerCase().includes('logo') ? 'image' : 'document',
-          format: ext ?? 'IMG',
-          size: '—',
+          format: a.mimeType?.split('/')[1]?.toUpperCase() ?? ext ?? 'IMG',
+          size: a.size ? (a.size < 1024 * 1024 ? `${Math.max(1, Math.round(a.size / 1024))} KB` : `${(a.size / 1024 / 1024).toFixed(1)} MB`) : '—',
           dimensions: a.width && a.height ? `${a.width} × ${a.height}` : undefined,
           status: a.status === 'approved' ? 'Approved' : a.status === 'rejected' ? 'Flagged' : 'In Review',
           campaign: a.brand,
@@ -1040,10 +1057,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         } else {
           showToast(`Semantic review complete: ${res.count ?? 0} finding(s).`)
         }
-        return { count: res.count ?? 0, llmConfigured: Boolean(res.llmConfigured) }
+        return { count: res.count ?? 0, llmConfigured: Boolean(res.llmConfigured), aiStatus: res.aiStatus, aiError: res.aiError }
       } catch (err) {
         showToast(err instanceof Error ? err.message : 'Semantic review failed.', 'error')
-        return { count: 0, llmConfigured: false }
+        // The request itself failed (network/timeout). This is NOT the same as
+        // "no model configured", so keep llmConfigured unknown/true and flag the
+        // failure; the caller must not tell the user AI is switched off.
+        return { count: 0, llmConfigured: true, failed: true }
       }
     },
     [refresh, showToast],

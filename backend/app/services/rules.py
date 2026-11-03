@@ -58,7 +58,7 @@ def _shared_keywords(a: str, b: str) -> list[str]:
     return sorted(words_a & words_b)
 
 
-def detect_conflicts(db: Session, workspace: str = "PureGlow") -> list[dict]:
+def detect_conflicts(db: Session, workspace: str = "PureGlow", include_ai: bool = False) -> list[dict]:
     """Find deterministic conflicts across rules, exceptions, and proposals.
 
     Detects:
@@ -217,7 +217,7 @@ def detect_conflicts(db: Session, workspace: str = "PureGlow") -> list[dict]:
     # Check 6: Potential semantic conflicts (AI assisted, explicitly labeled 'potential')
     try:
         from .. import ai
-        if ai.ai_available() and len(rules) >= 2:
+        if include_ai and ai.ai_available() and len(rules) >= 2:
             ai_cases = ai.semantic_conflicts(
                 [{"code": r.code, "title": r.title, "condition": r.condition, "action": r.action} for r in rules[:8]]
             ) or []

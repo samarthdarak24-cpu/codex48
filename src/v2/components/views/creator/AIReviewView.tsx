@@ -47,23 +47,31 @@ export const AIReviewView: React.FC = () => {
 
     setAnalysisState('loading');
     (async () => {
+      let hasPoster = false;
       try {
         const a = await api.analysisForSubmission(current.id);
         if (cancelled) return;
         setAnalysis(a);
         setAnalysisState('idle');
+        hasPoster = a.hasFile !== false;
       } catch {
         if (cancelled) return;
         setAnalysisState('missing');
       }
+
       try {
         const findings = await api.aiFindings(current.id);
         if (!cancelled) setAiFindings(findings);
       } catch {
         if (!cancelled) setAiFindings([]);
       }
-      const url = await api.fetchPosterBlobUrl(current.id);
-      if (!cancelled && url) setPosterUrl(url);
+      // Only ask for the image when the server says one is stored: requesting a
+      // missing poster logs a 404 in the console and leaves the canvas blank
+      // with no explanation.
+      if (hasPoster) {
+        const url = await api.fetchPosterBlobUrl(current.id);
+        if (!cancelled && url) setPosterUrl(url);
+      }
     })();
 
     return () => { cancelled = true; };
@@ -174,9 +182,16 @@ export const AIReviewView: React.FC = () => {
     setScanning(true);
     try {
       const res = await runSemanticReview(current.id);
-      if (!res.llmConfigured) {
+      if (res.failed) {
+        addToast('The review request failed before the server could answer. Deterministic findings are unchanged.', 'error');
+      } else if (!res.llmConfigured) {
         addToast(
           `Review complete: ${res.count} deterministic finding(s). No language model is configured, so no AI suggestions were generated.`,
+          'info',
+        );
+      } else if (res.aiStatus && res.aiStatus !== 'success') {
+        addToast(
+          `Review complete: ${res.count} AI suggestion(s). The AI provider did not return usable output this run (${res.aiError || res.aiStatus}); deterministic findings are the verdict.`,
           'info',
         );
       } else {

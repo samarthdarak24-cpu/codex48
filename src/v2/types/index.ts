@@ -35,7 +35,22 @@ export type CreatorPage =
 
 export type PageId = ManagerPage | CreatorPage;
 
-export type SubmissionStatus = 'In Review' | 'Needs Changes' | 'Approved' | 'Rejected' | 'Pending';
+export type SubmissionStatus = 'Draft' | 'In Review' | 'Needs Changes' | 'Approved' | 'Rejected' | 'Pending';
+
+/** Mirrors `ScoreBreakdown.as_dict()` in backend/app/services/scoring.py. */
+export interface ScoreBreakdown {
+  high: number;
+  medium: number;
+  low: number;
+  unknown: number;
+  passed: number;
+  penalty: number;
+  score: number;
+  applicable: number;
+  counted: number;
+  formulaVersion: string;
+  computedAt: string | null;
+}
 
 export interface Submission {
   id: string;
@@ -50,9 +65,16 @@ export interface Submission {
     role?: string;
   };
   thumbnail: string;
+  /** Stored brand asset attached to this submission, when one exists. */
+  assetId?: string;
   version?: string;
   status: SubmissionStatus;
+  /** Stored on the server by `services/scoring.py`; the UI never computes it. */
   complianceScore: number;
+  /** Explanation of the stored score, returned with it by the API. */
+  scoreBreakdown?: ScoreBreakdown;
+  /** Delivery channel (Instagram, Email, Website…) — distinct from the campaign. */
+  channel?: string;
   submittedAt?: string;
   submittedDate?: string;
   relativeTime?: string;

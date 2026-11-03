@@ -5,7 +5,7 @@
  * `useApp()`. There are no sample comments and no placeholder evidence: a tab
  * with nothing stored says so.
  */
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle, ArrowRight, Calendar, CheckCircle2, ChevronDown, CircleAlert, ClipboardCheck,
   Clock, Download, Eye, FileText, Gavel, GitCompare, Lock, MessageSquare, Search, Send, Sparkles,
@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../../context/AppContext';
 import { api } from '@/services/api';
+import { parseStoredDateTime } from '@/lib/utils';
 import type { Submission, SubmissionStatus } from '../../../types';
 import { motion, useReducedMotion } from 'motion/react';
 import {
@@ -30,6 +31,7 @@ import {
 /* ------------------------------------------------------------------ */
 
 const STATUS_TONE: Record<string, Tone> = {
+  Draft: 'olive',
   Approved: 'sage',
   'In Review': 'brand',
   Pending: 'amber',
@@ -48,6 +50,10 @@ const PRIORITY_RANK: Record<string, number> = { Critical: 0, High: 1, Medium: 2,
 
 /** One sentence per state answering "why is this in front of me?" */
 const OVERVIEW: Record<SubmissionStatus, { title: string; body: string }> = {
+  Draft: {
+    title: 'Private draft',
+    body: 'This submission has not been sent for review. Drafts are visible only to their creator and are excluded from the manager queue.',
+  },
   'In Review': {
     title: 'Waiting on a reviewer decision',
     body: 'AI review has finished and the findings are stored against this version. Nothing about the submission changes until a manager records a decision.',
@@ -110,9 +116,7 @@ const FILTERS: { id: 'All' | SubmissionStatus; label: string }[] = [
 type SortKey = 'newest' | 'priority' | 'score';
 
 const timestampOf = (s: Submission): number => {
-  const raw = s.submittedAt ?? s.submittedDate;
-  if (!raw) return 0;
-  const t = new Date(raw).getTime();
+  const t = parseStoredDateTime(s.submittedAt ?? s.submittedDate);
   return Number.isNaN(t) ? 0 : t;
 };
 
@@ -133,7 +137,7 @@ export const ReviewQueueView: React.FC = () => {
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'Findings' | 'Evidence' | 'Comments'>('Findings');
   const [feedTab, setFeedTab] = useState<'Comments' | 'Activity'>('Comments');
-  const [decisionChoice, setDecisionChoice] = useState('Request Changes');
+  const [decisionChoice, setDecisionChoice] = useState('');
   const [managerNote, setManagerNote] = useState('');
   const [lastDecision, setLastDecision] = useState<string | null>(null);
   const reduce = useReducedMotion();
@@ -211,6 +215,10 @@ export const ReviewQueueView: React.FC = () => {
 
   const handleDecision = (choice: string = decisionChoice) => {
     if (!activeSub) return;
+    if (!choice) {
+      addToast('Choose Approve Version, Request Changes or Reject before recording a decision.', 'error');
+      return;
+    }
     const statusMap: Record<string, SubmissionStatus> = {
       'Approve Version': 'Approved',
       'Request Changes': 'Needs Changes',
@@ -219,6 +227,7 @@ export const ReviewQueueView: React.FC = () => {
     const mapped = statusMap[choice] ?? 'Needs Changes';
     updateSubmissionStatus(activeSub.id, mapped, managerNote);
     setManagerNote('');
+    setDecisionChoice('');
     setLastDecision(`${choice} · ${activeSub.title}`);
   };
 
@@ -253,7 +262,32 @@ export const ReviewQueueView: React.FC = () => {
   const findingsTone: DetailTone =
     severity.errors > 0 ? 'danger' : severity.warnings > 0 ? 'amber' : 'sage';
 
-  const overview = OVERVIEW[activeSub?.status ?? 'Pending'];
+  const activeFindings = activeSub?.findingsCount ?? activeSub?.findings?.length ?? 0;
+  const overview =
+    activeSub && activeFindings > 0 && activeSub.status !== 'Approved' && activeSub.status !== 'Rejected'
+      ? {
+          title: 'AI review complete — decision required',
+          body: `${activeFindings} finding(s) are stored against ${activeSub.version ?? 'this version'}. A manager still has to record the decision.`,
+        }
+      : OVERVIEW[activeSub?.status ?? 'Pending'];
+
+  /* Generated card art is not the submitted file; the real asset is fetched
+     through the token-protected endpoint. */
+  const [activeImage, setActiveImage] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    let url: string | null = null;
+    setActiveImage(null);
+    if (!activeSub?.assetId) return;
+    api.fetchAssetBlobUrl(activeSub.assetId).then((next) => {
+      url = next;
+      if (!cancelled) setActiveImage(next);
+    });
+    return () => {
+      cancelled = true;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [activeSub?.id, activeSub?.assetId]);
 
   /** What the platform does next, stated only from the stored status. */
   const nextStep = !activeSub
@@ -665,6 +699,7 @@ export const ReviewQueueView: React.FC = () => {
                   aria-label="Decision"
                   className="min-w-0 flex-1 rounded-xl border border-line bg-white px-2.5 py-2.5 text-xs text-ink focus:outline-none focus:ring-2 focus:ring-brand-300/40"
                 >
+                  <option value="">Select a decision…</option>
                   <option>Request Changes</option>
                   <option>Approve Version</option>
                   <option>Reject</option>
@@ -672,6 +707,7 @@ export const ReviewQueueView: React.FC = () => {
                 <FooterButton
                   variant="primary"
                   onClick={() => handleDecision()}
+                  disabled={!decisionChoice}
                   icon={<Send className="h-3.5 w-3.5" />}
                   className="w-auto shrink-0 px-4"
                 >
@@ -795,10 +831,20 @@ export const ReviewQueueView: React.FC = () => {
             <div>
               <SectionHeader title="Submitted asset" subtitle="The file this review was run against." />
               <div className="mt-2 overflow-hidden rounded-xl border border-line bg-cream-50">
-                {activeSub.thumbnail ? (
+                {activeImage ? (
+                  <img
+                    src={activeImage}
+                    alt={`Submitted file for ${activeSub.title}`}
+                    className="h-40 w-full object-contain bg-white"
+                  />
+                ) : activeSub.assetId ? (
+                  <p className="px-4 py-8 text-center text-2xs text-muted">
+                    Loading the stored file…
+                  </p>
+                ) : activeSub.thumbnail ? (
                   <img
                     src={activeSub.thumbnail}
-                    alt={`Preview of ${activeSub.title}`}
+                    alt={`Placeholder image for ${activeSub.title}`}
                     className="h-40 w-full object-cover"
                   />
                 ) : (
@@ -824,7 +870,7 @@ export const ReviewQueueView: React.FC = () => {
                   {
                     icon: <Eye className="h-3.5 w-3.5" />,
                     label: 'Preview',
-                    fn: () => activeSub.thumbnail && window.open(activeSub.thumbnail, '_blank'),
+                    fn: () => (activeImage || activeSub.thumbnail) && window.open(activeImage || activeSub.thumbnail, '_blank'),
                   },
                   {
                     icon: <GitCompare className="h-3.5 w-3.5" />,

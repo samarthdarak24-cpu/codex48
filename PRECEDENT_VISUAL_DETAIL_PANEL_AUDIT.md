@@ -149,8 +149,44 @@ Verified visually: full flow, source card and sticky footer render without clipp
 | Added the 5-step simulation flow (current → proposed → impact → affected → result) | `src/v2/components/views/manager/RuleImpactSandboxView.tsx` |
 | Added the submission lifecycle strip + recent-activity `Timeline` | `src/v2/components/views/creator/CreatorDashboardView.tsx` |
 | Added a real drill-down `DetailDrawer` for findings-by-category (severity split + stored record) | `src/v2/components/views/manager/AnalyticsHealthView.tsx` |
+| Filled the empty lower viewport on All Submissions with a five-card "Register insights" block, and fixed the broken date parser behind column sorting | `src/v2/components/views/manager/AllSubmissionsView.tsx` |
+| Added an "Approval record" block (findings stored at approval + category coverage) to fill the sparse gallery | `src/v2/components/views/creator/ApprovedContentView.tsx` |
+| Added "Activity by module / by person" breakdowns; repaired the date-range filter that was hiding every event | `src/v2/components/views/manager/AuditHistoryView.tsx` |
+| Extracted `parseStoredDateTime()` so every view parses the display-formatted timestamps correctly | `src/lib/utils.ts`, `ReviewQueueView.tsx` |
 
 All additions are **additive** — no routes, backend calls, role permissions, or existing buttons were changed. Every value displayed is read from the existing API/context; no evidence, counts or statuses are invented.
+
+### 6.1 All Submissions — filling the dead viewport
+
+The page previously ended after the single "Submissions by campaign" chart, leaving roughly 400px of empty canvas on a 900px-tall viewport. It now continues with a "Register insights" section built entirely from the rows already in `submissions`:
+
+| Card | Content | Real action |
+| --- | --- | --- |
+| Status mix | `StatusDonut` of the stored statuses + legend with counts and share | Clicking a legend row applies that status filter and scrolls the register into view |
+| Score distribution | Five score buckets (80–100 → 0–19) with counts, share and bars | Clicking a bucket applies a `scoreFilter` (with a removable chip beside the type filter) |
+| Needs a decision first | Oldest item still unreviewed (real elapsed days) and the lowest score not yet cleared | Each opens that submission's detail drawer; footer filters to waiting items |
+| Content type mix | Stacked share bar + per-type counts | Clicking a type applies the existing `typeFilter` |
+| Most active creators | Per-creator totals and approval ratio | Clicking a creator writes their name into the search box |
+
+Two defects were found and fixed while building it:
+
+1. **`timestampOf` always returned `0`.** `submittedAt` is pre-formatted as `"Nov 1, 2026 · 6:52 AM"`; the middle dot makes `new Date()` produce `Invalid Date`, so the "Submitted" column sort was a silent no-op and every row looked undated. The parser now strips `·` before falling back. The register sorts newest-first correctly (Nov 1 → Oct 20) and "longest wait" reports real days (e.g. *29 days waiting*).
+2. **The score spread was initially modelled as three pass/fail bands.** The stored scores are derived from open findings (100 − weighted severity) and in this workspace all 15 sit between 0 and 52, so three bands collapsed into a single full bar. Five narrower buckets show the actual distribution (0–19: 5, 20–39: 8, 40–59: 2) and each one is a meaningful filter.
+
+### 6.2 Creator — Approved Content, and Manager — Audit History
+
+A viewport-fill sweep of all 22 screens measured `scrollHeight / clientHeight` inside the app's scroll container. Two screens ended at exactly one viewport, i.e. content stopped early and the rest was empty canvas.
+
+**Creator · Approved Content** (`ratio 1.00 → 1.51`). The gallery held a single approved card in a three-column grid, leaving two empty columns and ~150px of dead canvas. An "Approval record" section now follows it:
+
+| Card | Content | Real action |
+| --- | --- | --- |
+| Findings stored at approval | High/Medium/Low counts and share, then the stored findings themselves (rule title + guideline reference) | Selecting a finding opens the item it was recorded on |
+| Where approved content sits | Category counts with bars, plus average score and last approval in a pinned footer | Selecting a category filters the gallery and scrolls back to it |
+
+**Manager · Audit History** (`ratio 1.00 → 1.79`). This one was not really a design gap — it was a bug. The default "Last 30 days" filter reported **0 of 213 events match** because `timestampOf` called `new Date()` on `"Nov 2, 2026 · 6:52 AM"`; the middle dot yields `Invalid Date`, and the filter treats unparseable rows as out of range. The page therefore rendered its empty state with a large blank area beneath it. With the parser fixed, all events match and the timeline fills the page. "Activity by module" and "Activity by person" cards were then added above the timeline, each row applying the existing module/user filter.
+
+The same defect was present in `ReviewQueueView.timestampOf`, which silently disabled the newest/oldest sort there. All three views now share `parseStoredDateTime()` in `src/lib/utils.ts`.
 
 ---
 
@@ -203,6 +239,11 @@ All additions are **additive** — no routes, backend calls, role permissions, o
 | Creator Dashboard | Lifecycle + activity timeline | PASS |
 | Analytics & Health | Drill-down drawer | PASS |
 | Asset Library | Image grid + detail modal | PASS |
+| All Submissions | Insights block fills the page; 5 cards, 4 filters wired | PASS — 18/18 checks (`scripts/qa_all_submissions_insights.mjs`) |
+| Creator · Approved Content | Approval record fills the page; category + finding rows wired | PASS — 8/8 checks (`scripts/qa_creator_brand_fill.mjs`) |
+| Manager · Audit History | Range filter repaired (0 → 226 events), breakdown cards wired | PASS — 8/8 checks (same script) |
+
+The All Submissions run additionally asserts: content scrolls 2067px inside an 836px viewport (no dead space), a score bucket narrows the register from 15 to 8 rows, the chip clears back to 15, a creator row writes into the search box, and 0 console errors.
 
 ---
 
@@ -218,6 +259,14 @@ All additions are **additive** — no routes, backend calls, role permissions, o
 | Analytics category row | Opens the drill-down drawer for that stored category |
 | Dashboard activity item | Card opens the related submission review |
 | Sidebar items | Route navigation to the matching feature |
+| All Submissions — status legend row | Applies that status filter, scrolls the register into view |
+| All Submissions — score bucket | Applies a score filter (chip appears next to the type filter) |
+| All Submissions — type chip / creator row | Applies the type filter / writes the name into search |
+| All Submissions — "Open record" | Opens that submission's detail drawer |
+| All Submissions — "Filter to waiting" | Applies the pending status filter |
+| Approved Content — category row | Filters the gallery, scrolls back to it |
+| Approved Content — finding row | Opens the item that finding was recorded on |
+| Audit History — module / person row | Applies the module / user filter |
 
 Every interactive element performs a real action; no decorative arrows or dead controls were added.
 
@@ -239,6 +288,9 @@ Every interactive element performs a real action; no decorative arrows or dead c
 2. **Unused legacy files** — `src/v2/components/ui/StatCard.tsx` and `SharedComponents.tsx` still contain blue/purple tokens but are **not imported by any live view**. The rendered UI is entirely on the warm palette. They can be deleted in a cleanup pass.
 3. **Asset Library** uses a modal rather than the side drawer for image detail (different shell, same tokens). This is intentional; the content is image-led rather than record-led.
 4. **Analytics drill-down** covers findings-by-category (the densest stored breakdown). Other series remain chart-only until the API exposes per-point detail.
+5. **Compliance score is derived, not stored.** `AppContext.complianceScore()` computes `100 − high×15 − medium×8 − low×3` from open findings. It is the same number the Score column already showed; the distribution card just groups it. An approved submission can therefore still show a low score if it carries open findings.
+6. **Undated rows** — if a submission has no parseable timestamp it sorts last in "longest wait" and shows "no date stored" rather than a fabricated age.
+7. **Remaining short pages** — a viewport sweep still finds creator Guidelines, creator Exceptions, creator Notifications, manager Brand Guidelines, manager Notifications and creator Profile at or near one viewport of content. They are legitimately sparse (one or two stored rows), so they were left alone rather than padded with invented panels.
 
 ---
 

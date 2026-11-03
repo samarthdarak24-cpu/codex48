@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   AlertCircle, ArrowRight, Calendar, CheckCircle2, ChevronRight, Clock, Download, FileText,
   Loader2, Plus, Search, Send, SlidersHorizontal, Sparkles, Tag, Wand2,
@@ -16,9 +16,9 @@ import {
   StatusBadge, VisualFlow, type DetailTone,
 } from '../../detail';
 
-type Filter = 'All' | 'Approved' | 'In Review' | 'Needs Changes' | 'Rejected';
+type Filter = 'All' | 'Draft' | 'Approved' | 'In Review' | 'Needs Changes' | 'Rejected';
 
-const FILTERS: Filter[] = ['All', 'Approved', 'In Review', 'Needs Changes', 'Rejected'];
+const FILTERS: Filter[] = ['All', 'Draft', 'Approved', 'In Review', 'Needs Changes', 'Rejected'];
 
 /**
  * The submission status enum has five states, so this maps each one to its own
@@ -26,6 +26,7 @@ const FILTERS: Filter[] = ['All', 'Approved', 'In Review', 'Needs Changes', 'Rej
  * "Needs Changes" must never be displayed as "Pending" in a governance tool.
  */
 const STATUS_TONE: Record<string, Tone> = {
+  Draft: 'olive',
   Approved: 'sage',
   Rejected: 'danger',
   'Needs Changes': 'terracotta',
@@ -65,17 +66,20 @@ export const MySubmissionsView: React.FC = () => {
   const [sortBy, setSortBy] = useState('Newest First');
   const [detailId, setDetailId] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
+  const [fullCopy, setFullCopy] = useState('');
+  const [revisionText, setRevisionText] = useState('');
+  const [revisionNote, setRevisionNote] = useState('');
+  const [isRevising, setIsRevising] = useState(false);
+  const [isSubmittingDraft, setIsSubmittingDraft] = useState(false);
 
   const approvedCount = submissions.filter((s) => s.status === 'Approved').length;
+  const draftCount = submissions.filter((s) => s.status === 'Draft').length;
   const pendingCount = submissions.filter((s) => s.status === 'In Review' || s.status === 'Pending').length;
   const needsChangesCount = submissions.filter((s) => s.status === 'Needs Changes').length;
   const rejectedCount = submissions.filter((s) => s.status === 'Rejected').length;
 
   const filtered = submissions.filter((item) => {
-    if (activeFilter === 'Approved' && item.status !== 'Approved') return false;
-    if (activeFilter === 'In Review' && item.status !== 'In Review') return false;
-    if (activeFilter === 'Needs Changes' && item.status !== 'Needs Changes') return false;
-    if (activeFilter === 'Rejected' && item.status !== 'Rejected') return false;
+    if (activeFilter !== 'All' && item.status !== activeFilter) return false;
     const q = searchQuery.trim().toLowerCase();
     if (q && !item.title.toLowerCase().includes(q) && !item.campaign.toLowerCase().includes(q)) return false;
     return true;
@@ -91,8 +95,71 @@ export const MySubmissionsView: React.FC = () => {
 
   const detail = submissions.find((s) => s.id === detailId) ?? null;
 
+  /**
+   * The list payload carries only a truncated excerpt, so the revision editor
+   * loads the full stored copy for the version it is about to replace. Editing
+   * a truncated excerpt would silently drop the rest of the creator's text.
+   */
+  useEffect(() => {
+    if (!detailId) {
+      setFullCopy('');
+      setRevisionText('');
+      setRevisionNote('');
+      return;
+    }
+    let cancelled = false;
+    setFullCopy('');
+    api.submission(detailId)
+      .then((full) => {
+        if (cancelled) return;
+        const latest = [...(full.versions ?? [])].sort((a, b) => b.version - a.version)[0];
+        const text = latest?.text ?? full.excerpt ?? '';
+        setFullCopy(text);
+        setRevisionText(text);
+      })
+      .catch(() => {
+        if (!cancelled) setFullCopy('');
+      });
+    return () => { cancelled = true; };
+  }, [detailId]);
+
+  const submitDraft = async () => {
+    if (!detail) return;
+    setIsSubmittingDraft(true);
+    try {
+      await api.submitSubmission(detail.id);
+      await refresh();
+      addToast('Draft submitted for review.');
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : 'Submit failed.', 'error');
+    } finally {
+      setIsSubmittingDraft(false);
+    }
+  };
+
+  const submitRevision = async () => {
+    if (!detail) return;
+    if (!revisionText.trim()) {
+      addToast('Add the revised copy before submitting.', 'error');
+      return;
+    }
+    setIsRevising(true);
+    try {
+      await api.addVersion(detail.id, revisionText, revisionNote || 'Revised after review');
+      await refresh();
+      setRevisionText('');
+      setRevisionNote('');
+      addToast('New version submitted for review.');
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : 'Revision failed.', 'error');
+    } finally {
+      setIsRevising(false);
+    }
+  };
+
   const counts: Record<Filter, number> = {
     All: submissions.length,
+    Draft: draftCount,
     Approved: approvedCount,
     'In Review': pendingCount,
     'Needs Changes': needsChangesCount,
@@ -156,9 +223,11 @@ export const MySubmissionsView: React.FC = () => {
         ? 'danger'
         : detail.status === 'Needs Changes'
           ? 'terracotta'
-          : detail.status === 'Pending'
-            ? 'amber'
-            : 'brand'
+          : detail.status === 'Draft'
+            ? 'neutral'
+            : detail.status === 'Pending'
+              ? 'amber'
+              : 'brand'
     : 'brand';
 
   /** Creator-facing answer to "what do I do now?", derived from the status only. */
@@ -167,12 +236,14 @@ export const MySubmissionsView: React.FC = () => {
     : detail.status === 'Approved'
       ? 'Nothing. This version is approved — publish it, and submit a new version if you need to change it.'
       : detail.status === 'Rejected'
-        ? 'This version is closed. Read the findings below, then submit a corrected version from New Content.'
+        ? 'This version is closed. Read the findings below, then submit a corrected version.'
         : detail.status === 'Needs Changes'
           ? 'Fix the violations listed below and resubmit. The new version is scored from scratch.'
           : detail.status === 'In Review'
             ? 'Wait for the brand manager to record a decision. You can still read the findings while it is queued.'
-            : 'The submission is queued and has not been analysed yet.';
+            : detail.status === 'Draft'
+              ? 'This is a private draft. It is not in the review queue yet — submit it when you are ready.'
+              : 'The submission is queued and has not been analysed yet.';
 
   return (
     <PageTransition className="p-4 sm:p-6">
@@ -527,11 +598,19 @@ export const MySubmissionsView: React.FC = () => {
                   tone={detailTone}
                   icon={<CheckCircle2 className="h-3.5 w-3.5" />}
                   label="Step 3 · Brand manager decision"
-                  title={detail.status === 'In Review' || detail.status === 'Pending' ? 'Not decided yet' : detail.status}
+                  title={
+                    detail.status === 'Draft'
+                      ? 'Not submitted yet'
+                      : detail.status === 'In Review' || detail.status === 'Pending'
+                        ? 'Not decided yet'
+                        : detail.status
+                  }
                 >
-                  {detail.status === 'In Review' || detail.status === 'Pending'
-                    ? 'A manager still has to record a decision on this version.'
-                    : `The decision recorded against this version is “${detail.status}”.`}
+                  {detail.status === 'Draft'
+                    ? 'Draft saved privately. It does not enter the review queue until you submit it.'
+                    : detail.status === 'In Review' || detail.status === 'Pending'
+                      ? 'A manager still has to record a decision on this version.'
+                      : `The decision recorded against this version is “${detail.status}”.`}
                 </FlowStep>
 
                 <FlowStep
@@ -638,6 +717,79 @@ export const MySubmissionsView: React.FC = () => {
                     ))}
                   </div>
                 </>
+              )}
+            </div>
+
+            {/* Resubmission — the step that was missing from the creator flow */}
+            <div>
+              <SectionHeader
+                title="Next version"
+                subtitle="Revisions are new, separately reviewed versions — nothing is overwritten."
+              />
+
+              {detail.status === 'Draft' && (
+                <div className="mt-2 rounded-xl border border-olive-200 bg-olive-50/70 p-3">
+                  <p className="text-xs text-olive-800">
+                    This draft is private. Submitting it moves it into the brand manager&apos;s review queue.
+                  </p>
+                  <button
+                    onClick={() => void submitDraft()}
+                    disabled={isSubmittingDraft}
+                    className="mt-3 inline-flex items-center gap-2 rounded-xl bg-brand-600 px-3.5 py-2 text-xs font-semibold text-white transition-colors hover:bg-brand-700 disabled:opacity-60"
+                  >
+                    {isSubmittingDraft ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                    {isSubmittingDraft ? 'Submitting…' : 'Submit for review'}
+                  </button>
+                </div>
+              )}
+
+              {(detail.status === 'In Review' || detail.status === 'Pending') && (
+                <div className="mt-2 rounded-xl border border-line bg-cream-50 px-3 py-3 text-xs text-muted">
+                  This version is already with the brand manager. You can revise it after a decision is recorded.
+                </div>
+              )}
+
+              {(detail.status === 'Needs Changes' || detail.status === 'Rejected' || detail.status === 'Approved') && (
+                <div className="mt-2 space-y-2 rounded-xl border border-line bg-white p-3">
+                  <label htmlFor="revision-copy" className="block text-xs font-semibold text-ink-700">
+                    Revised copy
+                  </label>
+                  <textarea
+                    id="revision-copy"
+                    value={revisionText}
+                    onChange={(e) => setRevisionText(e.target.value)}
+                    rows={5}
+                    placeholder="Load the current copy and make the corrections…"
+                    className="w-full resize-y rounded-xl border border-line bg-white px-3 py-2 text-xs leading-relaxed text-ink placeholder:text-muted-light focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+                  />
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-2xs text-muted">
+                      {fullCopy ? `Current stored copy loaded (${fullCopy.length} characters).` : 'Loading stored copy…'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setRevisionText(fullCopy)}
+                      disabled={!fullCopy}
+                      className="text-2xs font-semibold text-brand-700 hover:underline disabled:opacity-50"
+                    >
+                      Reset to current copy
+                    </button>
+                  </div>
+                  <input
+                    value={revisionNote}
+                    onChange={(e) => setRevisionNote(e.target.value)}
+                    placeholder="Note for the reviewer (optional)"
+                    className="w-full rounded-xl border border-line bg-white px-3 py-2 text-xs text-ink placeholder:text-muted-light focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+                  />
+                  <button
+                    onClick={() => void submitRevision()}
+                    disabled={isRevising || !revisionText.trim()}
+                    className="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-3.5 py-2 text-xs font-semibold text-white transition-colors hover:bg-brand-700 disabled:opacity-60"
+                  >
+                    {isRevising ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                    {isRevising ? 'Submitting…' : 'Submit new version'}
+                  </button>
+                </div>
               )}
             </div>
 

@@ -101,6 +101,7 @@ export interface ApprovedClaim {
 export type ContentType = 'Text' | 'Image' | 'Document' | 'URL'
 
 export type SubmissionStatus =
+  | 'Draft'
   | 'Pending'
   | 'In Review'
   | 'Changes Requested'
@@ -215,6 +216,8 @@ export interface AssetAnalysis {
   error: string | null
   width: number
   height: number
+  /** False when the stored poster file is gone — the UI must not request it. */
+  hasFile?: boolean
   ocrText: string
   ocrConfidence: number
   textBlocks: TextBlock[]
@@ -408,8 +411,14 @@ export interface Submission {
   excerpt: string
   type: ContentType
   channel: string
+  /** Joined `campaigns.name`; null when the submission is not linked. */
+  campaignId?: string | null
+  campaign?: string | null
   brand: Brand
   status: SubmissionStatus
+  /** Stored, server-computed compliance score (services/scoring.py). */
+  complianceScore?: number
+  scoreBreakdown?: ScoreBreakdown
   createdAt: string
   updatedAt: string
   creatorId: string
@@ -418,11 +427,29 @@ export interface Submission {
   priority: Priority
   thumb: ThumbSpec
   asset?: AssetFacts
+  assetId?: string | null
+  assetName?: string | null
+  assetUrl?: string | null
   assetRef?: AssetRef | null
   versions: ContentVersion[]
   findings: Finding[]
   comments: Comment[]
   decisions: ReviewDecision[]
+}
+
+/** Mirrors `ScoreBreakdown.as_dict()` in backend/app/services/scoring.py. */
+export interface ScoreBreakdown {
+  high: number
+  medium: number
+  low: number
+  unknown: number
+  passed: number
+  penalty: number
+  score: number
+  applicable: number
+  counted: number
+  formulaVersion: string
+  computedAt: string | null
 }
 
 /** Deterministic, dependency-free thumbnail descriptor (no external images). */
@@ -466,6 +493,10 @@ export interface BrandAsset {
   source: string
   sourceUrl?: string | null
   status: string
+  filename?: string
+  mimeType?: string
+  size?: number
+  checksum?: string
   width?: number | null
   height?: number | null
   notes: string

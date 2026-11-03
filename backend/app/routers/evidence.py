@@ -100,6 +100,14 @@ def run_review(
         created_by_id=current_user.id,
     )
 
+    last_ai_call = (
+        db.query(models.AiCallLog)
+        .filter(models.AiCallLog.workspace == _ws(current_user))
+        .filter(models.AiCallLog.purpose == "semantic_review")
+        .order_by(models.AiCallLog.created_at.desc())
+        .first()
+    )
+
     record(
         db,
         action="Revised",
@@ -119,6 +127,8 @@ def run_review(
         "count": len(rows),
         "findings": [svc.to_dict(r) for r in rows],
         "llmConfigured": ai_available(),
+        "aiStatus": last_ai_call.status if last_ai_call else "unknown",
+        "aiError": last_ai_call.error if last_ai_call else None,
     }
 
 

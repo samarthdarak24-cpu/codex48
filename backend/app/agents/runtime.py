@@ -488,9 +488,24 @@ def run_agent(
                 try:
                     result = spec_tool.executor(ctx)
                 except ToolError as exc:
+                    step.finished_at = utcnow()
+                    # A tool that is simply missing an identifier is not a
+                    # failure of the run: the agent has nothing to look up yet.
+                    # Record what it needs and let the workflow continue so the
+                    # user gets "tell me the exception id" instead of a red run.
+                    if getattr(exc, "code", None) == "missing_input":
+                        step.status = "skipped"
+                        step.error = exc.message
+                        step.output = {
+                            "needsInput": True,
+                            "message": exc.message,
+                            "tool": spec_tool.name,
+                        }
+                        prior[node.id] = step.output
+                        db.flush()
+                        continue
                     step.status = "failed"
                     step.error = exc.message
-                    step.finished_at = utcnow()
                     raise RunError(f"{spec_tool.name}: {exc.message}") from exc
 
                 step.status = "completed"

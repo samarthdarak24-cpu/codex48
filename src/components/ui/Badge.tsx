@@ -46,6 +46,7 @@ export function Badge({
 /* ------------------------------------------------------------------ */
 
 const submissionTone: Record<SubmissionStatus, Tone> = {
+  Draft: 'neutral',
   Pending: 'warn',
   'In Review': 'brand',
   'Changes Requested': 'warn',

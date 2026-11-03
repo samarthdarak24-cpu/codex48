@@ -160,6 +160,8 @@ export interface CreateSubmissionInput {
   brand: Brand
   text: string
   assetId?: string
+  campaign?: string
+  status?: 'Draft' | 'Pending'
 }
 
 export interface ExceptionInput {
@@ -299,8 +301,13 @@ export const api = {
         brand: input.brand,
         text: input.text,
         assetId: input.assetId ?? null,
+        campaign: input.campaign ?? null,
+        status: input.status ?? 'Pending',
       }),
     }),
+
+  submitSubmission: (id: string) =>
+    request<Submission>(`/submissions/${id}/submit`, { method: 'POST' }),
 
   addVersion: (id: string, text: string, note: string) =>
     request<Submission>(`/submissions/${id}/versions`, {
@@ -452,13 +459,14 @@ export const api = {
    * runs in the background, so poll `analysis(id)` until it leaves pending.
    */
   uploadPoster: (
-    file: File,
-    opts: { submissionId?: string; title?: string; channel?: string; brand?: string } = {},
+    file: File | null,
+    opts: { submissionId?: string; assetId?: string; title?: string; channel?: string; brand?: string } = {},
   ) => {
     const form = new FormData()
-    form.append('file', file)
+    if (file) form.append('file', file)
     if (opts.submissionId) form.append('submission_id', opts.submissionId)
-    form.append('title', opts.title ?? file.name)
+    if (opts.assetId) form.append('asset_id', opts.assetId)
+    form.append('title', opts.title ?? file?.name ?? 'Poster')
     form.append('channel', opts.channel ?? 'Social Media')
     form.append('brand', opts.brand ?? 'PureGlow')
     return request<{ analysisId: string; submissionId: string; status: string }>(
@@ -499,7 +507,14 @@ export const api = {
     request<AiFinding[]>(`/evidence/findings/${submissionId}`),
 
   runSemanticReview: (submissionId: string, versionId?: string) =>
-    request<{ submissionId: string; count: number; findings: AiFinding[]; llmConfigured: boolean }>(
+    request<{
+      submissionId: string
+      count: number
+      findings: AiFinding[]
+      llmConfigured: boolean
+      aiStatus?: string
+      aiError?: string | null
+    }>(
       `/evidence/review/${submissionId}`,
       { method: 'POST', body: JSON.stringify({ versionId: versionId ?? null }) },
     ),

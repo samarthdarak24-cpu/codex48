@@ -44,45 +44,66 @@ def _magic_ok(content: bytes) -> bool:
 @router.post("/upload")
 def upload_poster(
     background: BackgroundTasks,
-    file: UploadFile = File(...),
+    file: UploadFile | None = File(None),
     submission_id: str | None = Form(None),
+    asset_id: str | None = Form(None),
     title: str = Form(""),
     channel: str = Form("Social Media"),
     brand: str = Form("PureGlow"),
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    """Store the poster, create the analysis row, return immediately."""
-    ext = os.path.splitext(file.filename or "")[1].lower()
-    if ext not in ALLOWED:
-        raise HTTPException(415, f"Unsupported image type '{ext}'. Allowed: {', '.join(sorted(ALLOWED))}")
+    """Analyse a poster against a submission.
 
-    content = file.file.read()
-    if not content:
-        raise HTTPException(400, "The uploaded file is empty.")
-    if len(content) > MAX_BYTES:
-        raise HTTPException(413, "Image exceeds the 10MB limit.")
-    if not _magic_ok(content):
-        raise HTTPException(400, "File header does not match a supported image format.")
-
-    # Magic bytes can be forged or the payload truncated after them. Parse the
-    # image header *before* creating a submission, so an unreadable file never
-    # leaves an orphan record (and an empty review card) behind.
-    try:
-        with Image.open(io.BytesIO(content)) as probe:
-            probe.size  # noqa: B018 - forces the header parse
-    except Exception:
-        raise HTTPException(400, "That file is not a readable image. Re-export it and try again.")
-
-    os.makedirs(settings.uploads_dir, exist_ok=True)
-    import uuid
-
-    name = f"{uuid.uuid4().hex}{ext}"
-    path = os.path.join(settings.uploads_dir, name)
-    with open(path, "wb") as out:
-        out.write(content)
-
+    Either a new file is stored, or an already-stored library asset is reused
+    (`asset_id`). Reusing the library file avoids keeping a second copy of the
+    same image while still linking the analysis to the submission.
+    """
     ws = getattr(current_user, "workspace", "PureGlow") or "PureGlow"
+    original_name = file.filename if file is not None else None
+
+    if asset_id:
+        asset = db.get(models.BrandAsset, asset_id)
+        require_workspace(asset, current_user, detail="Asset not found")
+        if not asset.file_path or not os.path.exists(asset.file_path):
+            raise HTTPException(404, "The stored asset file is missing.")
+        ext = os.path.splitext(asset.file_path)[1].lower()
+        if ext not in ALLOWED:
+            raise HTTPException(415, f"Unsupported image type '{ext}'.")
+        path = asset.file_path
+        original_name = asset.filename or asset.name
+    else:
+        if file is None:
+            raise HTTPException(400, "No file or stored asset was supplied.")
+        ext = os.path.splitext(file.filename or "")[1].lower()
+        if ext not in ALLOWED:
+            raise HTTPException(415, f"Unsupported image type '{ext}'. Allowed: {', '.join(sorted(ALLOWED))}")
+
+        content = file.file.read()
+        if not content:
+            raise HTTPException(400, "The uploaded file is empty.")
+        if len(content) > MAX_BYTES:
+            raise HTTPException(413, "Image exceeds the 10MB limit.")
+        if not _magic_ok(content):
+            raise HTTPException(400, "File header does not match a supported image format.")
+
+        # Magic bytes can be forged or the payload truncated after them. Parse the
+        # image header *before* creating a submission, so an unreadable file never
+        # leaves an orphan record (and an empty review card) behind.
+        try:
+            with Image.open(io.BytesIO(content)) as probe:
+                probe.size  # noqa: B018 - forces the header parse
+        except Exception:
+            raise HTTPException(400, "That file is not a readable image. Re-export it and try again.")
+
+        os.makedirs(settings.uploads_dir, exist_ok=True)
+        import uuid
+
+        name = f"{uuid.uuid4().hex}{ext}"
+        path = os.path.join(settings.uploads_dir, name)
+        with open(path, "wb") as out:
+            out.write(content)
+
 
     sub: models.Submission | None = None
     if submission_id:
@@ -106,7 +127,9 @@ def upload_poster(
         )
 
     sub.asset_url = f"/analysis/{sub.id}/file"
-    sub.asset_name = file.filename or "Poster"
+    sub.asset_name = original_name or "Poster"
+    if asset_id:
+        sub.asset_id = asset_id
     db.commit()
 
     analysis = visual.create_analysis(
@@ -192,7 +215,14 @@ def latest_for_submission(
         .first()
     )
     require_workspace(row, current_user, detail="No analysis for this submission")
-    return visual.analysis_to_dict(row)
+    payload = visual.analysis_to_dict(row)
+    # The findings the pipeline derived from this poster live on the submission,
+    # not on the analysis row. Returning them here is what lets the review screen
+    # show "OCR read these words -> these rules fired" in one request.
+    sub = db.get(models.Submission, submission_id)
+    if sub is not None:
+        payload["submission"] = sub_svc.submission_to_dict(sub)
+    return payload
 
 
 @router.get("/{submission_id}/file")
@@ -208,9 +238,10 @@ def get_poster(
         .first()
     )
     require_workspace(row, current_user, detail="Poster file not found")
-    if not row.file_path or not os.path.exists(row.file_path):
+    resolved = visual._resolved_poster_path(row)
+    if resolved is None:
         raise HTTPException(404, "Poster file not found")
-    return FileResponse(row.file_path, media_type="application/octet-stream")
+    return FileResponse(resolved, media_type="application/octet-stream")
 
 
 @router.post("/{analysis_id}/rerun")

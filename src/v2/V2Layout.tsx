@@ -1,5 +1,5 @@
 import { Outlet, useLocation } from 'react-router-dom'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { CheckCircle2, AlertTriangle, Info, AlertCircle } from 'lucide-react'
 import { motion, useReducedMotion } from 'motion/react'
 import { Toaster } from 'sonner'
@@ -15,12 +15,24 @@ export function V2Layout() {
   const location = useLocation()
   const reduce = useReducedMotion()
   const [mobileNav, setMobileNav] = useState(false)
+  const [theme, setTheme] = useState<'night' | 'day'>(() => {
+    if (typeof window === 'undefined') return 'night'
+    return window.localStorage.getItem('precedent-theme') === 'day' ? 'day' : 'night'
+  })
+
+  useEffect(() => {
+    window.localStorage.setItem('precedent-theme', theme)
+  }, [theme])
 
   return (
-    <div className="flex h-screen overflow-hidden font-sans text-ink antialiased bg-canvas">
+    <div className={`app-theme theme-${theme} flex h-screen overflow-hidden font-sans text-ink antialiased bg-canvas`}>
       <Sidebar mobileOpen={mobileNav} onClose={() => setMobileNav(false)} />
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <Header onOpenNav={() => setMobileNav(true)} />
+        <Header
+          onOpenNav={() => setMobileNav(true)}
+          theme={theme}
+          onThemeChange={() => setTheme((current) => current === 'night' ? 'day' : 'night')}
+        />
         <main className="main-scroll flex-1 overflow-y-auto">
           {loading ? (
             <div className="flex h-full items-center justify-center">

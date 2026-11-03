@@ -271,6 +271,71 @@
   box-shadow:0 1px 3px rgba(35,40,42,.04);
 }
 
+/* ── Day appearance ─────────────────────────────────────── */
+.theme-day {
+  --w-ivory: #f8fbff;
+  --w-ivory-deep: #eef5ff;
+  --w-cream: #ffffff;
+  --w-cream-deep: #f3f8ff;
+  --w-white: #ffffff;
+  --w-ink: #12233f;
+  --w-ink-900: #0b1b35;
+  --w-ink-700: #203b63;
+  --w-ink-600: #395777;
+  --w-muted: #60738d;
+  --w-muted-light: #8ca0ba;
+  --w-line: #d7e5f5;
+  --w-line-strong: #bfd3e9;
+  --w-forest: #2563eb;
+  --w-forest-deep: #1d4ed8;
+  --w-forest-soft: #eaf2ff;
+  --w-sage: #3b82f6;
+  --w-sage-soft: #eff6ff;
+  --w-olive: #2563eb;
+  --w-olive-soft: #eff6ff;
+  background: #f8fbff !important;
+  color: #12233f !important;
+}
+
+.theme-day .bg-canvas,
+.theme-day .main-canvas { background-color: #f8fbff !important; }
+.theme-day .bg-white { background-color: #ffffff !important; }
+.theme-day .bg-cream-50,
+.theme-day .bg-cream-100,
+.theme-day .bg-cream-200 { background-color: #f3f8ff !important; }
+.theme-day .text-ink,
+.theme-day .text-ink-900,
+.theme-day .text-ink-800,
+.theme-day .text-ink-700,
+.theme-day .text-ink-600 { color: #12233f !important; }
+.theme-day .text-muted { color: #60738d !important; }
+.theme-day .text-muted-light { color: #8ca0ba !important; }
+.theme-day .border-line { border-color: #d7e5f5 !important; }
+.theme-day .border-line-strong { border-color: #bfd3e9 !important; }
+.theme-day .bg-brand-50,
+.theme-day .bg-sage-50,
+.theme-day .bg-olive-50 { background-color: #eaf2ff !important; }
+.theme-day .text-brand-600,
+.theme-day .text-brand-700,
+.theme-day .text-sage-600,
+.theme-day .text-olive-600 { color: #2563eb !important; }
+.theme-day .bg-brand-500,
+.theme-day .bg-brand-600 { background-color: #2563eb !important; }
+.theme-day .header-glass {
+  background: rgba(255, 255, 255, .94) !important;
+  border-bottom: 1px solid #d7e5f5;
+}
+.theme-day .sidebar-bg {
+  background: linear-gradient(180deg, #ffffff 0%, #f3f8ff 100%) !important;
+}
+.theme-day .sidebar-nav-item:hover,
+.theme-day .hover\:bg-cream-100:hover { background-color: #eef5ff !important; }
+.theme-day .theme-toggle {
+  background: #eff6ff;
+  border-color: #bfd3e9;
+  color: #2563eb;
+}
+
 /* ── STATUS BADGES ───────────────────────────────────────── */
 .badge-approved,.badge-active,.badge-success,.badge-resolved {
   display:inline-flex;align-items:center;gap:5px;

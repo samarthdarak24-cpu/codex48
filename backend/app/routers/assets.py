@@ -54,16 +54,24 @@ def create_asset(
     current_user=Depends(get_current_user),
 ):
     uploads_dir = settings.uploads_dir
-    saved_path, _ext = svc.validate_and_save_upload(file, uploads_dir)
+    stored = svc.validate_and_save_upload(file, uploads_dir)
 
     ws = getattr(current_user, "workspace", "PureGlow")
     asset = models.BrandAsset(
         id=new_id("asset"),
         workspace=ws,
         name=name,
+        filename=stored["filename"],
         brand=brand,
         category=category,
-        file_path=saved_path,
+        kind="image",
+        storage_key=os.path.basename(stored["path"]),
+        file_path=stored["path"],
+        mime_type=stored["mime_type"],
+        size=stored["size"],
+        width=stored["width"],
+        height=stored["height"],
+        checksum=stored["checksum"],
         source="upload",
         status="pending",
         notes=notes,

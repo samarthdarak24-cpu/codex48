@@ -16,7 +16,7 @@ from __future__ import annotations
 import logging
 import os
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Optional
 from sqlalchemy.orm import Session
 
 from ... import models
@@ -299,6 +299,12 @@ def apply_to_submission(
 
     submission.issue_count = len(open_findings)
     submission.updated_at = datetime.now(timezone.utc)
+
+    # Findings changed, so the stored score must change with them. Without this
+    # an upload left `compliance_score` NULL until the next GET recomputed it.
+    from ..submissions import store_score
+
+    store_score(db, submission)
     db.flush()
     return len(open_findings)
 
@@ -390,6 +396,75 @@ def create_analysis(
     return row
 
 
+def _normalize_box(box: Any) -> Optional[dict]:
+    """Coerce any stored box shape into `{x, y, w, h}` with numeric values.
+
+    Two shapes exist in the database: the pipeline writes objects, and the seed
+    data used corner coordinates `[x1, y1, x2, y2]`. The frontend only
+    understands objects, so an array produced `undefined` for `w`/`h`, which
+    became `NaN` in the SVG and React rejected the attribute. Normalising here
+    means the contract is one shape regardless of when the row was written.
+    """
+    if isinstance(box, dict):
+        try:
+            return {
+                "x": float(box["x"]),
+                "y": float(box["y"]),
+                "w": float(box["w"]),
+                "h": float(box["h"]),
+            }
+        except (KeyError, TypeError, ValueError):
+            return None
+    if isinstance(box, (list, tuple)) and len(box) == 4:
+        try:
+            x1, y1, x2, y2 = (float(v) for v in box)
+        except (TypeError, ValueError):
+            return None
+        # Corner form: normalise so a reversed pair still yields a positive size.
+        return {
+            "x": min(x1, x2),
+            "y": min(y1, y2),
+            "w": abs(x2 - x1),
+            "h": abs(y2 - y1),
+        }
+    return None
+
+
+def _with_box(item: dict, key: str = "box") -> dict:
+    """Return a copy of `item` whose box is normalised (or removed if invalid)."""
+    out = dict(item)
+    box = _normalize_box(out.get(key))
+    if box is None:
+        out.pop(key, None)
+    else:
+        out[key] = box
+    return out
+
+
+def _resolved_poster_path(a: models.AssetAnalysis) -> Optional[str]:
+    """Absolute path to the stored poster, or None when the file is gone.
+
+    Seeded analyses pointed at a filename that was never written, and Windows
+    paths were stored with backslashes. Resolving here means the API can tell
+    the UI "there is no poster" instead of the UI requesting a 404 and logging a
+    console error on a page that is otherwise fine.
+    """
+    raw = (a.file_path or "").strip()
+    if not raw:
+        return None
+    candidates = [raw]
+    normalized = raw.replace("\\", "/")
+    if normalized != raw:
+        candidates.append(normalized)
+    if not os.path.isabs(normalized):
+        candidates.append(os.path.join(settings.uploads_dir, os.path.basename(normalized)))
+        candidates.append(os.path.join(os.getcwd(), normalized))
+    for candidate in candidates:
+        if os.path.isfile(candidate):
+            return candidate
+    return None
+
+
 def analysis_to_dict(a: models.AssetAnalysis) -> dict:
     """camelCase payload for the frontend PosterCanvas."""
     return {
@@ -400,15 +475,18 @@ def analysis_to_dict(a: models.AssetAnalysis) -> dict:
         "error": a.error,
         "width": a.width,
         "height": a.height,
+        "hasFile": _resolved_poster_path(a) is not None,
         "ocrText": a.ocr_text,
         "ocrConfidence": round(
             sum(b.get("confidence", 0) for b in (a.text_blocks or [])) / len(a.text_blocks), 4
         ) if a.text_blocks else 0.0,
-        "textBlocks": a.text_blocks or [],
+        "textBlocks": [_with_box(b) for b in (a.text_blocks or [])],
         "dominantColors": a.dominant_colors or [],
-        "logoMatches": a.logo_matches or [],
+        "logoMatches": [_with_box(m) for m in (a.logo_matches or [])],
         "layoutMetrics": a.layout_metrics or {},
-        "contrastFindings": a.contrast_findings or [],
+        "contrastFindings": [
+            _with_box(f, "region") for f in (a.contrast_findings or [])
+        ],
         "analyzerVersions": a.analyzer_versions or {},
         "unreadable": bool(a.unreadable),
         "createdAt": a.created_at.isoformat() if a.created_at else None,

@@ -879,16 +879,31 @@ def main() -> None:
         print("  Seeding Round 3 Innovations & Review Crew multi-agent data...")
 
         # 1. AssetAnalysis records
-        demo_asset_path = os.path.join(settings.uploads_dir, "demo_poster_diwali.png")
-        if not os.path.exists(demo_asset_path) and os.path.exists(os.path.join(settings.uploads_dir, "demo_poster.png")):
-            demo_asset_path = os.path.join(settings.uploads_dir, "demo_poster.png")
+        # Point at a poster that actually exists on disk. The old code named
+        # "demo_poster_diwali.png", which was never written, so every seeded
+        # analysis served a 404 and the review screen logged a console error.
+        _poster_candidates = [
+            "demo_poster.png",
+            "demo_festival.jpg",
+            "demo_holiday.jpg",
+            "demo_awareness.jpg",
+            "demo_summer.jpg",
+        ]
+        demo_asset_path = next(
+            (
+                os.path.join(settings.uploads_dir, name)
+                for name in _poster_candidates
+                if os.path.exists(os.path.join(settings.uploads_dir, name))
+            ),
+            None,
+        )
 
         analysis_01 = models.AssetAnalysis(
             id=new_id("aa"),
             workspace="PureGlow",
             submission_id=created_subs[0].id,
             file_path=demo_asset_path,
-            status="completed",
+            status="complete",
             error=None,
             width=1080,
             height=1080,
@@ -924,7 +939,7 @@ def main() -> None:
             workspace="PureGlow",
             submission_id=created_subs[1].id,
             file_path=demo_asset_path,
-            status="completed",
+            status="complete",
             error=None,
             width=1080,
             height=1350,
@@ -957,7 +972,7 @@ def main() -> None:
             workspace="PureGlow",
             submission_id=created_subs[4].id,
             file_path=demo_asset_path,
-            status="completed",
+            status="complete",
             error=None,
             width=1200,
             height=628,
@@ -989,7 +1004,7 @@ def main() -> None:
             workspace="PureGlow",
             submission_id=created_subs[6].id,
             file_path=demo_asset_path,
-            status="completed",
+            status="complete",
             error=None,
             width=1080,
             height=1080,
@@ -1216,7 +1231,7 @@ def main() -> None:
                 workspace="PureGlow",
                 submission_id=created_subs[0].id,
                 version_num=1,
-                orchestrator_status="completed",
+                orchestrator_status="complete",
                 total_duration_ms=2180,
                 summary_text="Review Crew 5-Agent Pipeline: Intake validated copy; VisualGuard OCR identified 5 text blocks with 95% logo match; Hybrid retrieval matched 4 guideline passages; Verifier confirmed 100% citation grounding; Summary recommended 1 minimal-edit for unapproved claim.",
                 steps_json=json.dumps([
@@ -1263,7 +1278,7 @@ def main() -> None:
                 workspace="PureGlow",
                 submission_id=created_subs[1].id,
                 version_num=1,
-                orchestrator_status="completed",
+                orchestrator_status="complete",
                 total_duration_ms=1960,
                 summary_text="Review Crew 5-Agent Pipeline: Verified ISO-22716 study code PG-2026-B. Verifier confirmed full evidence grounding.",
                 steps_json=json.dumps([
@@ -1310,7 +1325,7 @@ def main() -> None:
                 workspace="PureGlow",
                 submission_id=created_subs[4].id,
                 version_num=1,
-                orchestrator_status="completed",
+                orchestrator_status="complete",
                 total_duration_ms=1850,
                 summary_text="Review Crew 5-Agent Pipeline: All checks passed. 0 deterministic violations, 1 advisory packaging note with verified citation.",
                 steps_json=json.dumps([

@@ -1,13 +1,16 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
-  CalendarDays, CheckCircle2, Download, ExternalLink, FileText, Loader2, Search, Star, X,
+  AlertCircle, AlertTriangle, CalendarDays, CheckCircle2, Download, ExternalLink, FileText,
+  Loader2, Search, ShieldCheck, Star, X,
 } from 'lucide-react';
+import { useReducedMotion } from 'motion/react';
 import { useApp } from '../../../context/AppContext';
 import type { Submission } from '../../../types';
 import { api } from '@/services/api';
+import { cn } from '@/lib/utils';
 import {
-  AnimatedBadge, AnimatedCounter, AnimatedModal, AnimatedProgress, EmptyState, FilterPills,
-  PageTransition, RingProgress, Stagger, StaggerItem, AnimatedCard, SectionHeader,
+  AnimatedBadge, AnimatedCounter, AnimatedModal, AnimatedProgress, ChartContainer, EmptyState,
+  FilterPills, PageTransition, RingProgress, Stagger, StaggerItem, AnimatedCard, SectionHeader,
 } from '../../motion';
 import {
   DetailHeader, FlowStep, InfoCard, MetadataRow, MetaChip, StatusBadge, VisualFlow,
@@ -55,6 +58,42 @@ export const ApprovedContentView: React.FC = () => {
       : null;
   const findingsTotal = approvedList.reduce((n, s) => n + (s.findingsCount ?? 0), 0);
 
+  /* ---- Approval insights. Everything below is counted from the approved
+     rows already in context; an empty workspace renders empty states. ---- */
+
+  const galleryRef = useRef<HTMLDivElement>(null);
+  const reduce = useReducedMotion();
+  const focusGallery = () => {
+    galleryRef.current?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+  };
+
+  const SEVERITY_ROWS = [
+    { id: 'High', label: 'High severity', hex: '#C25446', dot: 'bg-danger-500' },
+    { id: 'Medium', label: 'Medium severity', hex: '#C2664A', dot: 'bg-terracotta-500' },
+    { id: 'Low', label: 'Low severity', hex: '#DDA22B', dot: 'bg-warn-400' },
+  ];
+
+  const severityRows = useMemo(
+    () =>
+      SEVERITY_ROWS.map((row) => ({
+        ...row,
+        count: approvedList.reduce(
+          (n, s) => n + (s.findings ?? []).filter((f) => f.badge === row.id).length,
+          0,
+        ),
+      })),
+    [approvedList],
+  );
+
+  /** Flattened so a finding can be traced back to the item it was stored on. */
+  const approvedFindings = useMemo(
+    () =>
+      approvedList.flatMap((item) =>
+        (item.findings ?? []).map((finding) => ({ finding, item })),
+      ),
+    [approvedList],
+  );
+
   const counts: Record<Category, number> = {
     All: approvedList.length,
     'Social Media': approvedList.filter(matches['Social Media']).length,
@@ -62,6 +101,12 @@ export const ApprovedContentView: React.FC = () => {
     Campaign: approvedList.filter(matches.Campaign).length,
     Others: approvedList.filter(isOther).length,
   };
+
+  const categoryRows = CATEGORIES.filter((c) => c !== 'All').map((category) => ({
+    category,
+    count: counts[category],
+  }));
+  const categoryMax = Math.max(1, ...categoryRows.map((r) => r.count));
 
   const filtered = useMemo(() => {
     const rows = approvedList.filter((item) => {
@@ -200,6 +245,7 @@ export const ApprovedContentView: React.FC = () => {
         </div>
 
         {/* Gallery */}
+        <div ref={galleryRef} className="scroll-mt-4">
         {filtered.length === 0 ? (
           <EmptyState
             icon={<CheckCircle2 className="h-6 w-6" />}
@@ -265,6 +311,162 @@ export const ApprovedContentView: React.FC = () => {
               </StaggerItem>
             ))}
           </Stagger>
+        )}
+        </div>
+
+        {/* Approval record — fills the page with what the approvals actually contain */}
+        {approvedList.length > 0 && (
+          <>
+            <div className="pt-2">
+              <SectionHeader
+                eyebrow="Approval record"
+                title="What was cleared, and what came with it"
+                subtitle="Findings stored against approved items and the categories those approvals sit in. Selecting a finding opens the item it was recorded on."
+              />
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-2">
+              {/* Findings stored at approval */}
+              <ChartContainer
+                title="Findings stored at approval"
+                subtitle={`${findingsTotal} finding${findingsTotal === 1 ? '' : 's'} across ${approvedList.length} approved item${approvedList.length === 1 ? '' : 's'}`}
+              >
+                <ul className="space-y-1.5">
+                  {severityRows.map((row) => {
+                    const share = findingsTotal > 0 ? Math.round((row.count / findingsTotal) * 100) : 0;
+                    return (
+                      <li key={row.id}>
+                        <div className="flex items-center justify-between gap-2 text-xs">
+                          <span className="flex items-center gap-1.5 font-medium text-ink">
+                            <span className={cn('h-1.5 w-1.5 rounded-full', row.dot)} />
+                            {row.label}
+                          </span>
+                          <span className="text-2xs tabular-nums text-muted">
+                            <span className="font-semibold text-ink">{row.count}</span> · {share}%
+                          </span>
+                        </div>
+                        <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-line-soft">
+                          <div
+                            className="h-full rounded-full transition-[width] duration-500 ease-premium"
+                            style={{ width: `${share}%`, backgroundColor: row.hex }}
+                          />
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+
+                <div className="mt-3 border-t border-line-soft pt-2.5">
+                  {approvedFindings.length > 0 ? (
+                    <>
+                      <p className="mb-1.5 text-2xs font-semibold uppercase tracking-[0.08em] text-muted">
+                        Recorded findings
+                      </p>
+                      <ul className="space-y-1">
+                        {approvedFindings.slice(0, 4).map(({ finding, item }) => (
+                          <li key={`${item.id}-${finding.id}`}>
+                            <button
+                              onClick={() => setPreviewId(item.id)}
+                              aria-label={`Open finding on ${item.title}`}
+                              className="flex w-full items-start gap-2 rounded-lg px-1.5 py-1.5 text-left transition-colors hover:bg-cream-50"
+                            >
+                              <span
+                                className={cn(
+                                  'mt-0.5 shrink-0 rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.06em]',
+                                  finding.badge === 'High'
+                                    ? 'bg-danger-50 text-danger-700'
+                                    : finding.badge === 'Medium'
+                                      ? 'bg-terracotta-50 text-terracotta-700'
+                                      : 'bg-warn-50 text-warn-700',
+                                )}
+                              >
+                                {finding.badge ?? 'Info'}
+                              </span>
+                              <span className="min-w-0 flex-1">
+                                <span className="block truncate text-xs font-medium text-ink">{finding.title}</span>
+                                <span className="block truncate text-2xs text-muted-light">{finding.guidelineRef}</span>
+                              </span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                      {approvedFindings.length > 4 && (
+                        <p className="mt-1.5 text-2xs text-muted-light">
+                          {approvedFindings.length - 4} more stored against these items.
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <p className="rounded-lg border border-sage-200 bg-sage-50/70 px-3 py-3 text-2xs leading-relaxed text-sage-700">
+                      No findings are stored against the approved items — they cleared review clean.
+                    </p>
+                  )}
+                </div>
+              </ChartContainer>
+
+              {/* Where approved content sits */}
+              <ChartContainer
+                className="flex flex-col"
+                title="Where approved content sits"
+                subtitle="Select a category to filter the gallery"
+              >
+                <div className="flex flex-1 flex-col">
+                <ul className="space-y-1">
+                  {categoryRows.map((row) => {
+                    const active = activeCategory === row.category;
+                    return (
+                      <li key={row.category}>
+                        <button
+                          onClick={() => {
+                            setActiveCategory(active ? 'All' : row.category);
+                            focusGallery();
+                          }}
+                          aria-pressed={active}
+                          aria-label={`Filter gallery by ${row.category}`}
+                          className={cn(
+                            'w-full rounded-lg border px-2.5 py-2 text-left transition-colors',
+                            active
+                              ? 'border-brand-400 bg-brand-50/70 ring-1 ring-brand-300/50'
+                              : 'border-transparent hover:border-line hover:bg-cream-50',
+                          )}
+                        >
+                          <div className="flex items-center justify-between gap-2 text-xs">
+                            <span className="truncate font-medium text-ink">{row.category}</span>
+                            <span className="shrink-0 text-2xs tabular-nums text-muted">
+                              <span className="font-semibold text-ink">{row.count}</span> item
+                              {row.count === 1 ? '' : 's'}
+                            </span>
+                          </div>
+                          <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-line-soft">
+                            <div
+                              className="h-full rounded-full bg-brand-500 transition-[width] duration-500 ease-premium"
+                              style={{ width: `${Math.round((row.count / categoryMax) * 100)}%` }}
+                            />
+                          </div>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+
+                <div className="mt-auto grid grid-cols-2 gap-2 border-t border-line-soft pt-2.5">
+                  <div className="rounded-lg bg-cream-50 px-2.5 py-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted">Average score</p>
+                    <p className="mt-0.5 text-sm font-semibold tabular-nums text-ink">
+                      {avgScore === null ? '—' : `${avgScore}%`}
+                    </p>
+                  </div>
+                  <div className="rounded-lg bg-cream-50 px-2.5 py-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted">Last approval</p>
+                    <p className="mt-0.5 truncate text-sm font-semibold text-ink">
+                      {lastApproved === '—' ? 'Not dated' : lastApproved}
+                    </p>
+                  </div>
+                </div>
+                </div>
+              </ChartContainer>
+            </div>
+          </>
         )}
 
         <p className="text-center text-2xs text-muted">
