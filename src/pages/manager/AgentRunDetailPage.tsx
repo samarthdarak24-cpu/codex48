@@ -174,16 +174,38 @@ export default function AgentRunDetailPage() {
 
       {/* Human Approval Checkpoint Banner */}
       {run.status === 'waiting_for_approval' && (
-        <div className="rounded-2xl border border-amber-300 bg-amber-50 p-5 shadow-sm space-y-3">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-100 text-amber-700">
-              <ShieldAlert className="h-5 w-5" />
+        <div className="rounded-2xl border border-amber-300 bg-amber-50 p-5 shadow-sm space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-amber-200/80 pb-3.5">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-100 text-amber-700 shrink-0">
+                <ShieldAlert className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-amber-900">Brand Manager Approval Required</h3>
+                <p className="text-xs text-amber-800">
+                  This workflow reached a protected write action. Review payload and decide to proceed or abort.
+                </p>
+              </div>
             </div>
-            <div>
-              <h3 className="text-sm font-bold text-amber-900">Brand Manager Approval Required</h3>
-              <p className="text-xs text-amber-800">
-                This workflow reached a protected write action. As an authorized Brand Manager, review the payload and make a decision to proceed or abort.
-              </p>
+
+            {/* Quick action buttons in header for immediate access without scrolling */}
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                disabled={approving}
+                onClick={() => handleApprove('approved')}
+                className="rounded-xl bg-brand-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-brand-700 disabled:opacity-50 transition cursor-pointer"
+              >
+                {approving ? 'Resuming...' : 'Approve & Resume'}
+              </button>
+              <button
+                type="button"
+                disabled={approving}
+                onClick={() => handleApprove('rejected')}
+                className="rounded-xl border border-red-300 bg-white px-3.5 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50 transition cursor-pointer"
+              >
+                Reject Action
+              </button>
             </div>
           </div>
 

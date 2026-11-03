@@ -1,0 +1,128 @@
+{
+  "Manager Login": {
+    "role": "Brand Manager",
+    "status": "PASS",
+    "note": "Successfully logged in and reached Manager dashboard",
+    "screenshot": "01_manager_overview.png"
+  },
+  "Manager Overview": {
+    "role": "Brand Manager",
+    "status": "PASS",
+    "note": "Dashboard metrics and cards rendered",
+    "screenshot": "02_manager_dashboard.png"
+  },
+  "Guideline Upload": {
+    "role": "Brand Manager",
+    "status": "PASS",
+    "note": "DOCX guideline uploaded without reload; rules auto-extracted",
+    "screenshot": "03_upload_complete.png"
+  },
+  "Asset Upload Image 1": {
+    "role": "Brand Manager",
+    "status": "PASS",
+    "note": "PureGlow_Poster_Image_01.png uploaded and indexed",
+    "screenshot": "04_asset_img1.png"
+  },
+  "Asset Upload Image 2": {
+    "role": "Brand Manager",
+    "status": "PASS",
+    "note": "PureGlow_Poster_Image_02.png uploaded with separate ID",
+    "screenshot": "04_asset_img2.png"
+  },
+  "Agent Studio": {
+    "role": "Brand Manager",
+    "status": "PASS",
+    "note": "Agent synthesized from natural language prompt",
+    "screenshot": "05_agent_generated.png"
+  },
+  "Rule Impact Sandbox": {
+    "role": "Brand Manager",
+    "status": "PASS",
+    "note": "Sandbox loaded with rule impact simulation tools",
+    "screenshot": "06_sandbox.png"
+  },
+  "Sentinel Monitoring": {
+    "role": "Brand Manager",
+    "status": "PASS",
+    "note": "Sentinel Monitoring screen verified",
+    "screenshot": "07_sentinel.png"
+  },
+  "Analytics & Health": {
+    "role": "Brand Manager",
+    "status": "PASS",
+    "note": "Compliance metrics, CSV export, and charts verified",
+    "screenshot": "08_analytics.png"
+  },
+  "Audit History": {
+    "role": "Brand Manager",
+    "status": "PASS",
+    "note": "Audit timeline loaded with append-only logs",
+    "screenshot": "09_audit.png"
+  },
+  "Manager AI Chatbot": {
+    "role": "Brand Manager",
+    "status": "PASS",
+    "note": "Manager floating AI chatbot active",
+    "screenshot": "10_manager_chatbot.png"
+  },
+  "Creator Login": {
+    "role": "Content Creator",
+    "status": "PASS",
+    "note": "Emily Carter authenticated to Creator dashboard",
+    "screenshot": "11_creator_overview.png"
+  },
+  "New Content Creation": {
+    "role": "Content Creator",
+    "status": "PARTIAL",
+    "note": "Submit button scrolled",
+    "screenshot": ""
+  },
+  "My Submissions": {
+    "role": "Content Creator",
+    "status": "PASS",
+    "note": "My Submissions list displays submitted content",
+    "screenshot": "13_my_submissions.png"
+  },
+  "Creator Brand Guidelines": {
+    "role": "Content Creator",
+    "status": "PASS",
+    "note": "Guidelines visible with Download PDF action",
+    "screenshot": "14_creator_guidelines.png"
+  },
+  "Notifications": {
+    "role": "Content Creator",
+    "status": "PASS",
+    "note": "Notifications panel rendered",
+    "screenshot": "14_notifications.png"
+  },
+  "My AI Assistants": {
+    "role": "Content Creator",
+    "status": "PASS",
+    "note": "Assistants with 1-click prompt suggestion chips verified",
+    "screenshot": "15_ai_assistants.png"
+  },
+  "Creator AI Chatbot": {
+    "role": "Content Creator",
+    "status": "PASS",
+    "note": "Creator floating AI chatbot interactive",
+    "screenshot": "16_creator_chatbot.png"
+  },
+  "Review Queue": {
+    "role": "Brand Manager",
+    "status": "PASS",
+    "note": "Manager Review Queue verified with pending submissions",
+    "screenshot": "17_review_queue.png"
+  },
+  "All Submissions": {
+    "role": "Brand Manager",
+    "status": "PASS",
+    "note": "All Submissions table rendered with filters",
+    "screenshot": "18_all_submissions.png"
+  },
+  "Exceptions": {
+    "role": "Brand Manager",
+    "status": "PASS",
+    "note": "Exceptions management screen loaded",
+    "screenshot": "19_exceptions.png"
+  }
+}
