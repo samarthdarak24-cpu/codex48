@@ -26,8 +26,8 @@ services:
     plan: free
     routes:
       - type: rewrite
-        source: /*
-        destination: /index.html
+        source: "/*"
+        destination: "/index.html"
     envVars:
       - key: VITE_API_BASE
         value: https://precedent-api.onrender.com
