@@ -44,7 +44,22 @@ def _parse_dt(value: datetime | None) -> datetime | None:
 
 @router.get("/rules")
 def list_rules(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    from .guidelines import extract_and_create_rules_for_doc
     ws = getattr(current_user, "workspace", "PureGlow")
+    # Ensure any docs in this workspace have rules extracted
+    docs = (
+        db.query(models.GuidelineDoc)
+        .filter((models.GuidelineDoc.workspace == ws) | (models.GuidelineDoc.workspace.is_(None)))
+        .all()
+    )
+    for doc in docs:
+        r_cnt = db.query(models.Rule).filter(models.Rule.source_doc_id == doc.id).count()
+        if r_cnt == 0:
+            p_list = db.query(models.GuidelinePassage).filter(models.GuidelinePassage.doc_id == doc.id).all()
+            if p_list:
+                extract_and_create_rules_for_doc(db, doc, p_list)
+                db.commit()
+
     # Workspace isolation: only this workspace's rules (NULL = legacy/shared).
     rules = db.query(models.Rule).filter(
         (models.Rule.workspace == ws) | (models.Rule.workspace.is_(None))

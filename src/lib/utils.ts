@@ -1,3 +1,4 @@
+import { api } from '@/services/api'
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 
@@ -90,33 +91,111 @@ export function initialsOf(name: string) {
 }
 
 
-export function downloadGuidelineDocument(
-  doc: { name: string; version: string; category: string; status: string; description: string; fileType: string; fileSize: string; pages: number; updatedAt: string },
+function createClientPdfBlob(title: string, lines: string[]): Blob {
+  const streamContent = [
+    'BT',
+    '/F1 16 Tf',
+    '50 740 Td',
+    '(' + title.replace(/([\\()])/g, '\\$1') + ') Tj',
+    '/F1 10 Tf',
+    ...lines.flatMap((line) => [
+      '0 -16 Td',
+      '(' + line.replace(/([\\()])/g, '\\$1') + ') Tj',
+    ]),
+    'ET',
+  ].join('\n')
+
+  const streamLength = new TextEncoder().encode(streamContent).length
+  const pdfString = [
+    '%PDF-1.4',
+    '1 0 obj',
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    'endobj',
+    '2 0 obj',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    'endobj',
+    '3 0 obj',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>',
+    'endobj',
+    '4 0 obj',
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+    'endobj',
+    `5 0 obj\n<< /Length ${streamLength} >>\nstream\n${streamContent}\nendstream\nendobj`,
+    'xref',
+    '0 6',
+    '0000000000 65535 f ',
+    '0000000009 00000 n ',
+    '0000000058 00000 n ',
+    '0000000115 00000 n ',
+    '0000000236 00000 n ',
+    '0000000305 00000 n ',
+    'trailer',
+    '<< /Size 6 /Root 1 0 R >>',
+    'startxref',
+    '400',
+    '%%EOF',
+  ].join('\n')
+
+  return new Blob([pdfString], { type: 'application/pdf' })
+}
+
+export async function downloadGuidelineDocument(
+  doc: { id?: string; name: string; version: string; category: string; status: string; description: string; fileType: string; fileSize: string; pages: number; updatedAt: string },
   docRules: Array<{ code: string; title: string; priority: string; status: string; sourcePassage?: string; sourcePage?: number; sourceVersion?: string; summary?: string }> = []
 ) {
-  const content = `# Brand Guideline: ${doc.name} (${doc.version})
-Category: ${doc.category}
-Status: ${doc.status}
-Updated: ${fmtDate(doc.updatedAt)}
-Original Format: ${doc.fileType} (${doc.fileSize}, ~${doc.pages} pages)
+  const safeBase = doc.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+  const filename = `${safeBase}-${doc.version}.pdf`
 
-## Governance Scope & Description
-${doc.description}
+  // 1. Try to fetch publication-grade PDF from server
+  if (doc.id) {
+    try {
+      const blob = await api.downloadGuidelinePdf(doc.id, 'pdf')
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      return
+    } catch (err) {
+      console.warn('Backend PDF download error, using high-fidelity client PDF fallback:', err)
+    }
+  }
 
-## Extracted Rule Specifications & Evidential Passages (${docRules.length} rules)
-${docRules.length === 0 ? 'No active rules currently mapped to this document.' : docRules.map((r, i) => `${i + 1}. [${r.code}] ${r.title}
-   Priority: ${r.priority} | Status: ${r.status}
-   Evidential Passage: "${r.sourcePassage || 'Official guideline document source'}" (p.${r.sourcePage || 1}, ${r.sourceVersion || doc.version})
-   Summary: ${r.summary || r.title}`).join('\n\n')}
+  // 2. High-fidelity client PDF fallback (strict .pdf format, never .md)
+  const lines: string[] = [
+    `Category: ${doc.category}  |  Version: ${doc.version}  |  Status: ${doc.status.toUpperCase()}`,
+    `Updated: ${fmtDate(doc.updatedAt)}  |  Format: ${doc.fileType} (${doc.fileSize}, ~${doc.pages} pages)`,
+    '',
+    '--- 1. GOVERNANCE SCOPE & OVERVIEW ---',
+    doc.description || 'Official brand policy standard establishing compliance rules.',
+    '',
+    `--- 2. EXTRACTED ENFORCEABLE RULES (${docRules.length} rules) ---`,
+  ]
 
----
-Exported from Precedent Brand Governance Platform · ${new Date().toISOString()}
-`
-  const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
+  if (docRules.length === 0) {
+    lines.push('No active rules mapped to this document yet.')
+  } else {
+    docRules.forEach((r, i) => {
+      lines.push(`${i + 1}. [${r.code}] ${r.title} (${r.priority.toUpperCase()})`)
+      if (r.sourcePassage) {
+        lines.push(`   Citation: "${r.sourcePassage.slice(0, 85)}..." (p.${r.sourcePage || 1})`)
+      }
+      if (r.summary && r.summary !== r.title) {
+        lines.push(`   Summary: ${r.summary}`)
+      }
+    })
+  }
+
+  lines.push('', '--- Precedent Certified Brand Governance Export ---')
+
+  const pdfBlob = createClientPdfBlob(`Brand Guideline: ${doc.name} (${doc.version})`, lines)
+  const url = URL.createObjectURL(pdfBlob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `${doc.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${doc.version}.md`
+  a.download = filename
   document.body.appendChild(a)
   a.click()
   document.body.removeChild(a)

@@ -2,18 +2,22 @@
 import os
 import re
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status as http_status
+from typing import Optional
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile, status as http_status
 from fastapi.responses import FileResponse
+from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 
 from .. import ai, models
 from ..config import settings
 from ..db import get_db
-from ..deps import get_current_user, require_manager
+from ..deps import get_current_user, require_manager, bearer_scheme
 from ..ids import new_id
+from ..security import decode_token
 from ..services import documents
 from ..services import rules as rule_svc
 from ..services.audit import record
+from ..services.reports import generate_guideline_document_pdf
 
 router = APIRouter(prefix="/guidelines", tags=["guidelines"])
 
@@ -31,6 +35,14 @@ def list_guidelines(
     if current_user.role == "creator":
         query = query.filter(models.GuidelineDoc.visible_to_creators == True)  # noqa: E712
     docs = query.order_by(models.GuidelineDoc.updated_at.desc()).all()
+    # Auto-extract rules for any active or draft guideline that has passages but 0 rules
+    for d in docs:
+        r_cnt = db.query(models.Rule).filter(models.Rule.source_doc_id == d.id).count()
+        if r_cnt == 0:
+            p_list = db.query(models.GuidelinePassage).filter(models.GuidelinePassage.doc_id == d.id).all()
+            if p_list:
+                extract_and_create_rules_for_doc(db, d, p_list)
+                db.commit()
     return [documents.guideline_to_dict(d) for d in docs]
 
 
@@ -450,3 +462,71 @@ def get_guideline_passages(
         .all()
     )
     return [documents.passage_to_dict(p) for p in passages]
+
+
+@router.get("/{guideline_id}/download")
+@router.get("/{guideline_id}/export")
+def download_guideline_document(
+    guideline_id: str,
+    format: str = Query(default="pdf"),  # "pdf" | "original"
+    token: Optional[str] = Query(default=None),
+    db: Session = Depends(get_db),
+    creds: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
+):
+    """Downloads a guideline document as a comprehensive publication-grade PDF or original file."""
+    user = None
+    auth_token = None
+    if creds and creds.credentials:
+        auth_token = creds.credentials
+    elif token:
+        auth_token = token
+
+    if auth_token:
+        try:
+            payload = decode_token(auth_token)
+            if payload and "sub" in payload:
+                user = db.get(models.User, payload["sub"])
+        except Exception:
+            user = None
+
+    doc = db.get(models.GuidelineDoc, guideline_id)
+    if not doc:
+        doc = db.query(models.GuidelineDoc).filter(models.GuidelineDoc.name.ilike(f"%{guideline_id}%")).first()
+    if not doc:
+        raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail="Guideline not found")
+
+    safe_name = re.sub(r"[^a-zA-Z0-9_\-]+", "_", doc.name).strip("_") or "brand_guideline"
+
+    # Serve original file if requested and present on disk
+    if format == "original" and doc.file_path and os.path.exists(doc.file_path):
+        ext = os.path.splitext(doc.file_path)[1]
+        return FileResponse(
+            path=doc.file_path,
+            filename=f"{safe_name}_{doc.version or '1.0'}{ext}",
+            media_type="application/octet-stream",
+        )
+
+    # Ensure rules exist
+    rules = db.query(models.Rule).filter(models.Rule.source_doc_id == doc.id).all()
+    passages = (
+        db.query(models.GuidelinePassage)
+        .filter(models.GuidelinePassage.doc_id == doc.id)
+        .order_by(models.GuidelinePassage.page_number, models.GuidelinePassage.paragraph_number)
+        .all()
+    )
+    if not rules and passages:
+        rules = extract_and_create_rules_for_doc(db, doc, passages)
+        db.commit()
+
+    # Generate publication-grade PDF
+    pdf_bytes = generate_guideline_document_pdf(doc, passages, rules)
+    filename = f"{safe_name}_{doc.version or '1.0'}.pdf"
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Cache-Control": "no-cache",
+        },
+    )

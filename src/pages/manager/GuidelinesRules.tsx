@@ -201,6 +201,19 @@ export default function GuidelinesRules() {
           <Button size="sm" variant="outline" className="h-7 px-2.5 text-xs" onClick={() => setDetailDoc(row)}>
             View
           </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 px-2 text-xs text-muted hover:text-ink hidden sm:inline-flex"
+            icon={<FileText className="h-3 w-3" />}
+            onClick={(e) => {
+              e.stopPropagation()
+              downloadGuidelineDocument(row, rules.filter((r) => r.sourceDocId === row.id))
+            }}
+            title="Download guideline PDF"
+          >
+            PDF
+          </Button>
           <button
             aria-label="More options"
             onClick={(e) => e.stopPropagation()}
@@ -771,6 +784,15 @@ export default function GuidelinesRules() {
           detailDoc ? (
             <>
               <Button variant="ghost" onClick={() => setDetailDoc(null)}>Close</Button>
+              <Button
+                variant="outline"
+                icon={<FileText className="h-3.5 w-3.5" />}
+                onClick={() => {
+                  downloadGuidelineDocument(detailDoc, rules.filter((r) => r.sourceDocId === detailDoc.id))
+                }}
+              >
+                Download PDF
+              </Button>
               {rules.filter((r) => r.sourceDocId === detailDoc.id).length === 0 && (
                 <Button
                   loading={extractingRules}

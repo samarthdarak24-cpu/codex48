@@ -384,6 +384,17 @@ export const api = {
       method: 'POST',
     }),
 
+  guidelineDownloadUrl: (id: string, format: 'pdf' | 'original' = 'pdf') =>
+    `${API_BASE}/guidelines/${id}/download?format=${format}`,
+
+  downloadGuidelinePdf: async (id: string, format: 'pdf' | 'original' = 'pdf'): Promise<Blob> => {
+    const res = await fetch(`${API_BASE}/guidelines/${id}/download?format=${format}`, {
+      headers: authHeaders(),
+    })
+    if (!res.ok) throw new Error(`Download failed with status ${res.status}`)
+    return await res.blob()
+  },
+
   extractTextFromFile: async (file: File): Promise<{ text: string; filename: string; type: string; word_count: number; passages?: number }> => {
     try {
       const form = new FormData()

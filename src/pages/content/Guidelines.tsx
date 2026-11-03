@@ -219,9 +219,9 @@ export default function CreatorGuidelines() {
                         e.stopPropagation()
                         downloadGuidelineDocument(doc, rules.filter((r) => r.sourceDocId === doc.id))
                       }}
-                      title="Download guideline document"
+                      title="Download guideline PDF"
                     >
-                      Download
+                      Download PDF
                     </Button>
                     <button
                       aria-label="More options"
@@ -357,7 +357,7 @@ export default function CreatorGuidelines() {
                 }
               }}
             >
-              Download {preview?.fileType || 'Document'}
+              Download PDF Document
             </Button>
           </>
         }
