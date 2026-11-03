@@ -47,6 +47,7 @@ interface DataState extends DataBundle {
   runSimulation: (input: SimulationInput) => Promise<Simulation>
   activateSimulation: (id: string) => Promise<void>
   addDocument: (input: DocInput) => Promise<GuidelineDoc>
+  extractGuidelineRules: (docId: string) => Promise<{ success: boolean; rulesCount: number; rules: Rule[] }>
   setDocStatus: (id: string, status: GuidelineDoc['status']) => void
   addRule: (input: RuleInput) => Promise<Rule>
   confirmRule: (id: string) => void
@@ -327,9 +328,24 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     async (input: DocInput): Promise<GuidelineDoc> => {
       try {
         const created = await api.addDocument(input)
-        const docs = await api.guidelines()
-        setBundle((prev) => ({ ...prev, docs }))
+        const [docs, rules] = await Promise.all([api.guidelines(), api.rules()])
+        setBundle((prev) => ({ ...prev, docs, rules }))
         return created
+      } catch (err) {
+        fail(err)
+        throw err
+      }
+    },
+    [fail],
+  )
+
+  const extractGuidelineRules = useCallback(
+    async (docId: string) => {
+      try {
+        const res = await api.extractGuidelineRules(docId)
+        const [docs, rules] = await Promise.all([api.guidelines(), api.rules()])
+        setBundle((prev) => ({ ...prev, docs, rules }))
+        return res
       } catch (err) {
         fail(err)
         throw err
@@ -435,6 +451,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       runSimulation,
       activateSimulation,
       addDocument,
+      extractGuidelineRules,
       setDocStatus,
       addRule,
       confirmRule,
@@ -457,6 +474,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       runSimulation,
       activateSimulation,
       addDocument,
+      extractGuidelineRules,
       setDocStatus,
       addRule,
       confirmRule,

@@ -379,6 +379,11 @@ export const api = {
     return request<GuidelineDoc>('/guidelines', { method: 'POST', body: form })
   },
 
+  extractGuidelineRules: (guidelineId: string) =>
+    request<{ success: boolean; rulesCount: number; rules: Rule[] }>(`/guidelines/${guidelineId}/extract-rules`, {
+      method: 'POST',
+    }),
+
   extractTextFromFile: async (file: File): Promise<{ text: string; filename: string; type: string; word_count: number; passages?: number }> => {
     try {
       const form = new FormData()

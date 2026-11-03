@@ -52,7 +52,7 @@ const categoryChip: Record<string, string> = {
 }
 
 export default function GuidelinesRules() {
-  const { docs, rules, claims, exceptions, audit, loading, addDocument, setDocStatus, addRule, confirmRule, rejectRule, addClaim } = useData()
+  const { docs, rules, claims, exceptions, audit, loading, addDocument, extractGuidelineRules, setDocStatus, addRule, confirmRule, rejectRule, addClaim } = useData()
   const navigate = useNavigate()
   const toast = useToast()
 
@@ -67,6 +67,22 @@ export default function GuidelinesRules() {
   const [detailDoc, setDetailDoc] = useState<GuidelineDoc | null>(null)
   const [detailRule, setDetailRule] = useState<Rule | null>(null)
   const [busy, setBusy] = useState(false)
+  const [extractingRules, setExtractingRules] = useState(false)
+
+  async function handleExtractRules(docId: string) {
+    setExtractingRules(true)
+    try {
+      const res = await extractGuidelineRules(docId)
+      toast.success(
+        'Rules extracted & activated',
+        `${res.rulesCount} brand governance rules successfully extracted and linked to this document.`
+      )
+    } catch (err: any) {
+      toast.error('Extraction failed', err?.message || 'Could not extract rules.')
+    } finally {
+      setExtractingRules(false)
+    }
+  }
 
   // upload form
   const [docName, setDocName] = useState('')
@@ -755,6 +771,15 @@ export default function GuidelinesRules() {
           detailDoc ? (
             <>
               <Button variant="ghost" onClick={() => setDetailDoc(null)}>Close</Button>
+              {rules.filter((r) => r.sourceDocId === detailDoc.id).length === 0 && (
+                <Button
+                  loading={extractingRules}
+                  icon={<Sparkles className="h-3.5 w-3.5" />}
+                  onClick={() => handleExtractRules(detailDoc.id)}
+                >
+                  Extract Rules
+                </Button>
+              )}
               <Button
                 variant="outline"
                 onClick={() => {
@@ -805,8 +830,22 @@ export default function GuidelinesRules() {
                   </li>
                 ))}
                 {rules.filter((r) => r.sourceDocId === detailDoc.id).length === 0 && (
-                  <li className="rounded-lg border border-dashed border-line px-3 py-3 text-center text-xs text-muted">
-                    No rules extracted from this document yet.
+                  <li className="rounded-xl border border-dashed border-brand-300 bg-brand-50/50 p-4 text-center space-y-2">
+                    <Sparkles className="h-5 w-5 text-brand-600 mx-auto" />
+                    <div>
+                      <p className="text-xs font-semibold text-ink">No rules extracted from this document yet</p>
+                      <p className="text-2xs text-muted mt-0.5 max-w-sm mx-auto">
+                        Extract and link brand rules from this document's indexed passages.
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      loading={extractingRules}
+                      icon={<Sparkles className="h-3.5 w-3.5" />}
+                      onClick={() => handleExtractRules(detailDoc.id)}
+                    >
+                      Extract Rules from Document
+                    </Button>
                   </li>
                 )}
               </ul>
